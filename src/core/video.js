@@ -18,6 +18,7 @@ import { alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, pl
 import { CanvasLayer } from '../layers/canvas.js';
 import { WebGLLayer } from '../layers/webgl.js';
 import { parseDeclarative } from '../authoring/declarative.js';
+import { bake as bakeEl, bakeStats } from '../runtime/bake.js';
 
 const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
 export const RENDER = Q.get('render') === '1';
@@ -65,6 +66,8 @@ export class Video {
     this.events = Array.isArray(cfg.score) ? cfg.score.slice() : [];
     this.pendingMedia = []; this.afterFonts = []; this.duration = 0; this.curT = 0; this.finalized = false;
     this.ui = null; this.playing = false; this.ccOn = true;
+    // static layer cache (runtime/bake.js): jobs queued while building, rasterised after fonts load, before __ready
+    this.bakeOn = cfg.bake !== false && Q.get('cache') !== '0'; this.bakeJobs = [];
     if (RENDER) document.documentElement.classList.add('vk-render');
     // seeded Math.random (setup code only; inside render use vk.hash(i + frame))
     const r = mulberry32(+(Q.get('seed') || cfg.seed || 1)); Math.random = () => r();
@@ -96,6 +99,23 @@ export class Video {
     st.setProperty('--safe-top', this.safe.top + 'px'); st.setProperty('--safe-right', this.safe.right + 'px');
     st.setProperty('--safe-bottom', this.safe.bottom + 'px'); st.setProperty('--safe-left', this.safe.left + 'px');
     if (vert) this.stage.classList.add('vk-vertical');
+  }
+  // vk.bake(el, o): rasterise static SVG content once (see runtime/bake.js). Returns a promise → true when baked.
+  bake(el, o = {}) {
+    if (!this.bakeOn || !el) return Promise.resolve(false);
+    let res; const p = new Promise(r => { res = r; });
+    this.bakeJobs.push(() => bakeEl(el, o).then(ok => { res(ok); return ok; }));
+    if (this.bakesStarted) this.bakesStarted = this.bakesStarted.then(() => this.bakeJobs.splice(0).reduce((q, j) => q.then(j), Promise.resolve()));
+    return p;
+  }
+  // arbitrary async static-cache work (textures): fn() → promise, awaited before __ready
+  bakeLater(fn) { if (this.bakeOn) this.bakeJobs.push(() => Promise.resolve().then(fn).catch(e => console.warn('[vk] bake skipped:', e && e.message || e))); return this.bakeOn; }
+  runBakes() {
+    this.stage.querySelectorAll('[data-vk-bake],[data-vk-static]').forEach(el => this.bake(el));
+    const jobs = this.bakeJobs.splice(0);
+    // sequential: bounded memory, and bakes of nested elements (outer after inner) stay ordered
+    this.bakesStarted = jobs.reduce((q, j) => q.then(j), Promise.resolve());
+    return this.bakesStarted.then(() => { window.__bake = { ...bakeStats, on: this.bakeOn }; });
   }
   applyThemeVars(el, mode) { Object.entries(modeVars(this.theme, mode)).forEach(([k, v]) => el.style.setProperty(k, v)); }
   px(n) { return Math.round(n * this.k); }
@@ -254,7 +274,7 @@ export class Video {
     window.__ready = Promise.all([
       Promise.all(fontsCheck.map(f => document.fonts.load(f, '中文Aa0'))).catch(() => { }),
       Promise.all([...this.stage.querySelectorAll('img')].map(im => im.decode ? im.decode().catch(() => { }) : null)),
-    ]).then(() => document.fonts.ready).then(() => { this.afterFonts.forEach(f => f()); this.render(this.curT); return true; });
+    ]).then(() => document.fonts.ready).then(() => { this.afterFonts.forEach(f => f()); return this.runBakes(); }).then(() => { this.render(this.curT); return true; });
     Object.assign(window, {
       __duration: this.duration, __fps: this.fps, __size: { width: this.W, height: this.H }, __captions: this.caps,
       __audio: this.cfg.audio ? new URL(this.cfg.audio, location.href).href : null,

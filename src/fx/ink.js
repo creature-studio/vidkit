@@ -5,6 +5,7 @@
 import { registry } from '../core/plugin.js';
 import { node, h } from '../authoring/node.js';
 import { boil as boilFrame } from '../core/random.js';
+import { bakeTile } from '../runtime/bake.js';
 
 export const INK = { paper: '#e4e5d8', paper2: '#d7dbcc', ink: '#1f2529', inkSoft: '#4c565b', seal: '#b5342a', sealInk: '#f6ece0', mist: '#f4f4ea' };
 const BRUSH = '"Ma Shan Zheng","STKaiti","KaiTi","Kaiti SC","Noto Serif SC",serif';
@@ -32,12 +33,24 @@ registry.themes.ink = {
 
 /* ---------------- texture: rice paper (fractal noise, multiply) + warm inner vignette ---------------- */
 // o: {amount (opacity, .55), freq (.85), seed, tone: [r,g,b] 0..1 fibre colour, vignette (0..1), size (tile px)}
+// Static: with the layer cache on (default) the turbulence tile is rasterised once into a bitmap and tiled on a canvas,
+// instead of the browser replaying the SVG filter for every repaint; `vk render --no-cache` keeps the live SVG.
 registry.textures.rice = (v, o) => {
   const e = document.createElement('div'); e.className = 'vk-ov vk-rice';
   const tone = o.tone || [.38, .35, .28], sz = o.size || 300, f = o.freq || .85, seed = o.seed || 4;
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${sz}' height='${sz}'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='${f}' numOctaves='2' seed='${seed}' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${tone[0]} 0 0 0 0 ${tone[1]} 0 0 0 0 ${tone[2]} 0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
-  const vig = o.vignette != null ? o.vignette : .22, k = v.k || 1;
-  e.style.cssText += `;mix-blend-mode:multiply;opacity:${o.amount != null ? o.amount : .55};background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}");background-size:${sz * (o.scale || 1)}px;box-shadow:inset 0 0 ${Math.round(120 * k)}px rgba(70,62,40,${vig})`;
+  const vig = o.vignette != null ? o.vignette : .22, k = v.k || 1, tile = sz * (o.scale || 1), shadow = `inset 0 0 ${Math.round(120 * k)}px rgba(70,62,40,${vig})`;
+  e.style.cssText += `;mix-blend-mode:multiply;opacity:${o.amount != null ? o.amount : .55};background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}");background-size:${tile}px;box-shadow:${shadow}`;
+  if (o.cache !== false && v.bakeLater) v.bakeLater(async () => {
+    const url = await bakeTile(svg, tile, tile);
+    const img = new Image(); img.src = url; await img.decode();
+    const dpr = window.devicePixelRatio || 1, c = document.createElement('canvas');
+    c.width = Math.round(v.W * dpr); c.height = Math.round(v.H * dpr); c.className = 'vk-rice-bmp';
+    c.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%';
+    const g = c.getContext('2d'); g.fillStyle = g.createPattern(img, 'repeat'); g.fillRect(0, 0, c.width, c.height);
+    const sh = document.createElement('div'); sh.style.cssText = `position:absolute;inset:0;box-shadow:${shadow}`;   // inset shadow paints above the grain, as before
+    e.style.backgroundImage = 'none'; e.style.boxShadow = 'none'; e.append(c, sh);
+  });
   return { el: e };
 };
 
@@ -65,6 +78,7 @@ export function installInk(video, o = {}) {
   video.stage.appendChild(w.firstElementChild);
   if (o.boil) {
     const tur = [...document.getElementById(id).querySelectorAll('.vk-boil')], base = tur.map(t => +t.getAttribute('seed'));
+    tur.forEach(t => t.closest('filter').setAttribute('data-vk-dynamic', ''));   // boiling filters change every few frames → never baked
     let last = -1;
     video.onRender(t => { const f = boilFrame(t, o.boil) % (o.boilFrames || 3); if (f === last) return; last = f; tur.forEach((el, i) => el.setAttribute('seed', base[i] + f * 17)); });
   }
@@ -177,4 +191,5 @@ T.ink = (e, c) => {
   return { in: { maskImage: m, webkitMaskImage: m, filter: `blur(${((1 - e) * 3).toFixed(2)}px)` }, out: { filter: `blur(${(e * 5).toFixed(2)}px)` } };
 };
 // wash: slow wet crossfade (old scene dissolves like ink in water: blur + lift; new one condenses)
-T.wash = e => ({ in: { opacity: e, filter: `blur(${((1 - e) * 6).toFixed(2)}px)` }, out: { filter: `blur(${(e * 8).toFixed(2)}px) brightness(${(1 + e * .08).toFixed(3)})` } });
+// (brightness(1.000) is an identity filter step: dropped so the compositor does not run a colour matrix for nothing)
+T.wash = e => { const b = (1 + e * .08).toFixed(3); return { in: { opacity: e, filter: `blur(${((1 - e) * 6).toFixed(2)}px)` }, out: { filter: `blur(${(e * 8).toFixed(2)}px)${b !== '1.000' ? ` brightness(${b})` : ''}` } }; };

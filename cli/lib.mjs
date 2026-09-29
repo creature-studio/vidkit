@@ -10,7 +10,7 @@ export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
 export const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json')));
 
 export function parseArgs(argv, flags = []) {
-  const opt = { _: [] }, F = new Set(['srt', 'png', 'jpeg', 'keep', 'no-score', 'no-video', 'json', 'open', 'dev', 'help', 'no-grain-check', 'settle', 'no-voice', ...flags]);
+  const opt = { _: [] }, F = new Set(['srt', 'png', 'jpeg', 'keep', 'no-score', 'no-video', 'json', 'open', 'dev', 'help', 'no-grain-check', 'settle', 'no-voice', 'no-cache', 'timing', ...flags]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-o') { opt.out = argv[++i]; continue; }
@@ -55,7 +55,7 @@ export async function probeInfo(browser, url) {
   await p.goto(url);
   await p.waitForFunction(() => window.__size && window.__ready, null, { timeout: 30000 }).catch(() => { throw new Error('page did not initialise (vk.video() never finalized?) ' + errs.join('; ')); });
   await p.evaluate(() => window.__ready);
-  const info = await p.evaluate(() => ({ size: window.__size, dur: window.__duration, fps: window.__fps, scenes: window.__scenes, caps: window.__captions, audio: window.__audio, meta: window.__vk || {}, hasScore: typeof window.SCORE === 'function', cues: window.__cues || [], music: window.__music || null, voice: window.__voice || [], voMissing: window.__voMissing || [], mix: window.__mix || null }));
+  const info = await p.evaluate(() => ({ size: window.__size, dur: window.__duration, fps: window.__fps, scenes: window.__scenes, caps: window.__captions, audio: window.__audio, meta: window.__vk || {}, hasScore: typeof window.SCORE === 'function', cues: window.__cues || [], music: window.__music || null, voice: window.__voice || [], voMissing: window.__voMissing || [], mix: window.__mix || null, bake: window.__bake || null }));
   await p.close();
   if (errs.length) throw new Error('page error: ' + errs.join('; '));
   return info;

@@ -2271,6 +2271,269 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     }));
   }
 
+  // src/runtime/bake.js
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var XLINK = "http://www.w3.org/1999/xlink";
+  var INHERITED = [
+    "fill",
+    "fill-opacity",
+    "fill-rule",
+    "stroke",
+    "stroke-width",
+    "stroke-opacity",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "stroke-miterlimit",
+    "stroke-dasharray",
+    "stroke-dashoffset",
+    "color",
+    "font-family",
+    "font-size",
+    "font-weight",
+    "font-style",
+    "letter-spacing",
+    "text-anchor",
+    "dominant-baseline",
+    "paint-order",
+    "shape-rendering",
+    "color-interpolation-filters"
+  ];
+  var SELF_LIVE = ["transform", "opacity", "clip-path", "mask", "style", "class", "id"];
+  var bakeStats = { baked: 0, skipped: 0, px: 0, ms: 0, tDecode: 0, tDraw: 0, tEncode: 0, tLoad: 0 };
+  function collectRefs(root, doc = document) {
+    const out = /* @__PURE__ */ new Map(), queue = [root];
+    const scan = (el2) => {
+      const ids = [];
+      for (const a of el2.attributes || []) {
+        const v = a.value;
+        let m;
+        const re = /url\(\s*['"]?#([^'")\s]+)['"]?\s*\)/g;
+        while (m = re.exec(v)) ids.push(m[1]);
+        if ((a.name === "href" || a.name === "xlink:href") && v[0] === "#") ids.push(v.slice(1));
+      }
+      return ids;
+    };
+    while (queue.length) {
+      const n = queue.pop();
+      const all = [n, ...n.querySelectorAll ? n.querySelectorAll("*") : []];
+      for (const e of all) for (const id of scan(e)) {
+        if (out.has(id)) continue;
+        const def = doc.getElementById(id);
+        if (!def || def === root || root.contains && root.contains(def)) {
+          out.set(id, null);
+          continue;
+        }
+        out.set(id, def);
+        queue.push(def);
+      }
+    }
+    return [...out.values()].filter(Boolean);
+  }
+  function filterRegion(filterEl, b) {
+    const num = (v, d) => {
+      if (v == null || v === "") return d;
+      v = String(v).trim();
+      return v.endsWith("%") ? parseFloat(v) / 100 : parseFloat(v);
+    };
+    const userUnits = filterEl && filterEl.getAttribute("filterUnits") === "userSpaceOnUse";
+    const g = (k) => filterEl ? filterEl.getAttribute(k) : null;
+    if (userUnits) return { x: num(g("x"), b.x - 0.1 * b.width), y: num(g("y"), b.y - 0.1 * b.height), width: num(g("width"), 1.2 * b.width), height: num(g("height"), 1.2 * b.height) };
+    const fx = num(g("x"), -0.1), fy = num(g("y"), -0.1), fw = num(g("width"), 1.2), fh = num(g("height"), 1.2);
+    return { x: b.x + fx * b.width, y: b.y + fy * b.height, width: fw * b.width, height: fh * b.height };
+  }
+  var refId = (v) => {
+    const m = /url\(\s*['"]?#([^'")\s]+)/.exec(v || "");
+    return m ? m[1] : null;
+  };
+  async function rasterize(markup, pw, ph) {
+    const src2 = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml" }));
+    try {
+      let t = performance.now();
+      const img = new Image();
+      img.decoding = "sync";
+      img.src = src2;
+      await img.decode();
+      bakeStats.tDecode += performance.now() - t;
+      t = performance.now();
+      const c = document.createElement("canvas");
+      c.width = pw;
+      c.height = ph;
+      c.getContext("2d").drawImage(img, 0, 0, pw, ph);
+      bakeStats.tDraw += performance.now() - t;
+      t = performance.now();
+      const url = c.toDataURL("image/png");
+      bakeStats.tEncode += performance.now() - t;
+      bakeStats.px += pw * ph;
+      return { url, canvas: c };
+    } finally {
+      URL.revokeObjectURL(src2);
+    }
+  }
+  function loadInto(imageEl, url) {
+    const t = performance.now();
+    return new Promise((res) => {
+      const done = () => {
+        const d = imageEl.decode ? imageEl.decode().catch(() => {
+        }) : null;
+        Promise.resolve(d).then(() => {
+          bakeStats.tLoad += performance.now() - t;
+          res();
+        });
+      };
+      imageEl.addEventListener("load", done, { once: true });
+      imageEl.addEventListener("error", () => res(), { once: true });
+      imageEl.setAttribute("href", url);
+    });
+  }
+  var px = (v) => {
+    const n = parseFloat(v);
+    return /^\s*[\d.]+(px)?\s*$/.test(String(v || "")) ? n : NaN;
+  };
+  function inheritedStyle(el2) {
+    const p = el2.parentElement;
+    if (!p) return "";
+    const cs = getComputedStyle(p);
+    return INHERITED.map((k) => {
+      const v = cs.getPropertyValue(k);
+      return v ? `${k}:${v}` : "";
+    }).filter(Boolean).join(";").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  }
+  function isDynamic(refs) {
+    return refs.some((r) => r.hasAttribute && r.hasAttribute("data-vk-dynamic"));
+  }
+  function defsMarkup(refs) {
+    const s2 = new XMLSerializer();
+    return refs.length ? `<defs>${refs.map((r) => s2.serializeToString(r)).join("")}</defs>` : "";
+  }
+  async function bakeRoot(svg2, o) {
+    const vb = svg2.viewBox && svg2.viewBox.baseVal && svg2.viewBox.baseVal.width ? svg2.viewBox.baseVal : null;
+    let w = px(svg2.getAttribute("width")), h3 = px(svg2.getAttribute("height"));
+    if (!(w > 0 && h3 > 0)) {
+      const r = svg2.getBoundingClientRect();
+      w = r.width;
+      h3 = r.height;
+    }
+    if (!(w > 0 && h3 > 0)) throw new Error("bake: <svg> needs numeric width/height attributes");
+    const res = (window.devicePixelRatio || 1) * (o.scale || 1);
+    const vbox = vb ? `${vb.x} ${vb.y} ${vb.width} ${vb.height}` : `0 0 ${w} ${h3}`;
+    const par = svg2.getAttribute("preserveAspectRatio") || "xMidYMid meet";
+    let pw = w * res, ph = h3 * res;
+    if (vb && !/^none/.test(par)) {
+      const k = (/slice/.test(par) ? Math.max : Math.min)(w / vb.width, h3 / vb.height);
+      pw = vb.width * k * res;
+      ph = vb.height * k * res;
+    }
+    pw = Math.max(1, Math.round(pw));
+    ph = Math.max(1, Math.round(ph));
+    const refs = collectRefs(svg2);
+    if (isDynamic(refs)) return false;
+    const inner = new XMLSerializer().serializeToString(svg2).replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+    const markup = `<svg xmlns="${SVGNS}" xmlns:xlink="${XLINK}" width="${pw}" height="${ph}" viewBox="${vbox}" preserveAspectRatio="none" style="${inheritedStyle(svg2)}">${defsMarkup(refs)}${inner}</svg>`;
+    const { url } = await rasterize(markup, pw, ph);
+    const im = document.createElementNS(SVGNS, "image");
+    const [x, y, bw, bh] = vbox.split(" ").map(Number);
+    im.setAttribute("x", x);
+    im.setAttribute("y", y);
+    im.setAttribute("width", bw);
+    im.setAttribute("height", bh);
+    im.setAttribute("preserveAspectRatio", "none");
+    im.setAttribute("class", "vk-baked");
+    await loadInto(im, url);
+    svg2.replaceChildren(im);
+    svg2.setAttribute("data-vk-baked", `${pw}x${ph}`);
+    return true;
+  }
+  function unitScale(el2) {
+    const s2 = el2.ownerSVGElement;
+    if (!s2) return 1;
+    const vb = s2.viewBox && s2.viewBox.baseVal;
+    const w = px(s2.getAttribute("width"));
+    const k = vb && vb.width && w > 0 ? w / vb.width : 1;
+    return k * (window.devicePixelRatio || 1);
+  }
+  async function bakeNode(el2, o) {
+    const refs = collectRefs(el2);
+    if (isDynamic(refs)) return false;
+    const clone = el2.cloneNode(true);
+    for (const a of ["transform", "opacity", "clip-path", "mask", "id", "data-vk-bake"]) clone.removeAttribute(a);
+    clone.style.opacity = "";
+    clone.style.transform = "";
+    clone.style.clipPath = "";
+    clone.style.mask = "";
+    const meas = document.createElementNS(SVGNS, "svg");
+    meas.setAttribute("width", "1");
+    meas.setAttribute("height", "1");
+    meas.style.cssText = "position:absolute;left:-100000px;top:0;visibility:hidden;overflow:hidden";
+    const probe = clone.cloneNode(true);
+    probe.removeAttribute("filter");
+    meas.appendChild(probe);
+    document.body.appendChild(meas);
+    let b;
+    try {
+      b = probe.getBBox();
+    } finally {
+      meas.remove();
+    }
+    if (!b || !(b.width > 0 || b.height > 0)) return false;
+    const fid = refId(el2.getAttribute("filter") || el2.style.filter), fEl = fid ? document.getElementById(fid) : null;
+    const pad = o.pad != null ? o.pad : 4;
+    let r = fEl ? filterRegion(fEl, b) : { x: b.x - pad, y: b.y - pad, width: b.width + 2 * pad, height: b.height + 2 * pad };
+    if (fEl && o.pad) r = { x: r.x - o.pad, y: r.y - o.pad, width: r.width + 2 * o.pad, height: r.height + 2 * o.pad };
+    const res = unitScale(el2) * (o.scale || 1);
+    const x0 = Math.floor(r.x * res) / res, y0 = Math.floor(r.y * res) / res;
+    const pw = Math.max(1, Math.ceil((r.x + r.width) * res - x0 * res)), ph = Math.max(1, Math.ceil((r.y + r.height) * res - y0 * res));
+    const bw = pw / res, bh = ph / res;
+    const markup = `<svg xmlns="${SVGNS}" xmlns:xlink="${XLINK}" width="${pw}" height="${ph}" viewBox="${x0} ${y0} ${bw} ${bh}" preserveAspectRatio="none" style="${inheritedStyle(el2)}">${defsMarkup(refs)}${new XMLSerializer().serializeToString(clone)}</svg>`;
+    const { url } = await rasterize(markup, pw, ph);
+    const im = document.createElementNS(SVGNS, "image");
+    im.setAttribute("x", x0);
+    im.setAttribute("y", y0);
+    im.setAttribute("width", bw);
+    im.setAttribute("height", bh);
+    im.setAttribute("preserveAspectRatio", "none");
+    im.setAttribute("class", "vk-baked");
+    await loadInto(im, url);
+    if (el2.tagName.toLowerCase() === "g" || el2.tagName.toLowerCase() === "a") {
+      el2.removeAttribute("filter");
+      el2.style.filter = "";
+      el2.replaceChildren(im);
+      el2.setAttribute("data-vk-baked", `${pw}x${ph}`);
+    } else {
+      const g = document.createElementNS(SVGNS, "g");
+      for (const a of SELF_LIVE) if (el2.hasAttribute(a) && a !== "style" && a !== "id") g.setAttribute(a, el2.getAttribute(a));
+      g.setAttribute("data-vk-baked", `${pw}x${ph}`);
+      g.appendChild(im);
+      el2.replaceWith(g);
+      el2.__vkBaked = g;
+    }
+    return true;
+  }
+  async function bake(el2, o = {}) {
+    const t = performance.now();
+    try {
+      const ok = el2 instanceof SVGSVGElement && !el2.ownerSVGElement ? await bakeRoot(el2, o) : await bakeNode(el2, o);
+      ok ? bakeStats.baked++ : bakeStats.skipped++;
+      return ok;
+    } catch (e) {
+      bakeStats.skipped++;
+      console.warn("[vk] bake skipped:", e && e.message || e);
+      return false;
+    } finally {
+      bakeStats.ms += performance.now() - t;
+    }
+  }
+  async function bakeTile(svgMarkup, cssW, cssH, scale = 1) {
+    const res = (window.devicePixelRatio || 1) * scale, pw = Math.max(1, Math.round(cssW * res)), ph = Math.max(1, Math.round(cssH * res));
+    const m = svgMarkup.replace(/<svg\b([^>]*)>/, (s2, a) => `<svg${a.replace(/\s(width|height)=(['"])[^'"]*\2/g, "")} width="${pw}" height="${ph}" viewBox="0 0 ${cssW} ${cssH}" preserveAspectRatio="none">`);
+    const { url } = await rasterize(m, pw, ph);
+    const im = new Image();
+    im.src = url;
+    await im.decode().catch(() => {
+    });
+    bakeStats.baked++;
+    return url;
+  }
+
   // src/core/video.js
   var Q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
   var RENDER = Q.get("render") === "1";
@@ -2329,6 +2592,8 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
       this.ui = null;
       this.playing = false;
       this.ccOn = true;
+      this.bakeOn = cfg.bake !== false && Q.get("cache") !== "0";
+      this.bakeJobs = [];
       if (RENDER) document.documentElement.classList.add("vk-render");
       const r = mulberry32(+(Q.get("seed") || cfg.seed || 1));
       Math.random = () => r();
@@ -2357,7 +2622,7 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
       st.setProperty("--vk-serif", th.fonts.serif);
       if (th.fonts.brush) st.setProperty("--vk-brush", th.fonts.brush);
       st.setProperty("--vk-condensed", th.fonts.condensed || th.fonts.display);
-      Object.entries(th.scale).forEach(([n, px2]) => st.setProperty("--vk-fs-" + n, Math.round(px2 * k) + "px"));
+      Object.entries(th.scale).forEach(([n, px3]) => st.setProperty("--vk-fs-" + n, Math.round(px3 * k) + "px"));
       st.setProperty("--vk-gap", Math.round(28 * k) + "px");
       st.setProperty("--vk-radius", Math.round(th.radius * k) + "px");
       st.setProperty("--vk-marker", th.marker);
@@ -2370,6 +2635,33 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
       st.setProperty("--safe-bottom", this.safe.bottom + "px");
       st.setProperty("--safe-left", this.safe.left + "px");
       if (vert) this.stage.classList.add("vk-vertical");
+    }
+    // vk.bake(el, o): rasterise static SVG content once (see runtime/bake.js). Returns a promise → true when baked.
+    bake(el2, o = {}) {
+      if (!this.bakeOn || !el2) return Promise.resolve(false);
+      let res;
+      const p = new Promise((r) => {
+        res = r;
+      });
+      this.bakeJobs.push(() => bake(el2, o).then((ok) => {
+        res(ok);
+        return ok;
+      }));
+      if (this.bakesStarted) this.bakesStarted = this.bakesStarted.then(() => this.bakeJobs.splice(0).reduce((q, j) => q.then(j), Promise.resolve()));
+      return p;
+    }
+    // arbitrary async static-cache work (textures): fn() → promise, awaited before __ready
+    bakeLater(fn) {
+      if (this.bakeOn) this.bakeJobs.push(() => Promise.resolve().then(fn).catch((e) => console.warn("[vk] bake skipped:", e && e.message || e)));
+      return this.bakeOn;
+    }
+    runBakes() {
+      this.stage.querySelectorAll("[data-vk-bake],[data-vk-static]").forEach((el2) => this.bake(el2));
+      const jobs = this.bakeJobs.splice(0);
+      this.bakesStarted = jobs.reduce((q, j) => q.then(j), Promise.resolve());
+      return this.bakesStarted.then(() => {
+        window.__bake = { ...bakeStats, on: this.bakeOn };
+      });
     }
     applyThemeVars(el2, mode) {
       Object.entries(modeVars(this.theme, mode)).forEach(([k, v]) => el2.style.setProperty(k, v));
@@ -2629,6 +2921,8 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
         }) : null))
       ]).then(() => document.fonts.ready).then(() => {
         this.afterFonts.forEach((f) => f());
+        return this.runBakes();
+      }).then(() => {
         this.render(this.curT);
         return true;
       });
@@ -2897,9 +3191,9 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     if (parent) parent.appendChild(e);
     return e;
   }
-  var SVGNS = "http://www.w3.org/2000/svg";
+  var SVGNS2 = "http://www.w3.org/2000/svg";
   function s(tag, attrs, parent) {
-    const e = document.createElementNS(SVGNS, tag);
+    const e = document.createElementNS(SVGNS2, tag);
     for (const k in attrs || {}) e.setAttribute(k, attrs[k]);
     if (parent) parent.appendChild(e);
     return e;
@@ -3565,12 +3859,12 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
   }
   var esc2 = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
   B.terminal = (lines, o = {}) => node(o, function terminal(ctx) {
-    const px2 = ctx.px, win = h("div", "vk-term vk-mono");
-    win.style.cssText = `width:${len(ctx, o.w || 620, "x")};background:var(--surface);border:1px solid var(--line);border-radius:${px2(16)}px;padding:${px2(22)}px ${px2(28)}px;font-size:${size(ctx, o.size || 21)};line-height:1.65;text-align:left;color:var(--fg);box-shadow:0 ${px2(30)}px ${px2(60)}px -${px2(30)}px rgba(0,0,0,.45)`;
+    const px3 = ctx.px, win = h("div", "vk-term vk-mono");
+    win.style.cssText = `width:${len(ctx, o.w || 620, "x")};background:var(--surface);border:1px solid var(--line);border-radius:${px3(16)}px;padding:${px3(22)}px ${px3(28)}px;font-size:${size(ctx, o.size || 21)};line-height:1.65;text-align:left;color:var(--fg);box-shadow:0 ${px3(30)}px ${px3(60)}px -${px3(30)}px rgba(0,0,0,.45)`;
     const bar = h("div", null, `<i></i><i></i><i></i>${o.title ? `<span>${esc2(o.title)}</span>` : ""}`, win);
-    bar.style.cssText = `display:flex;gap:${px2(8)}px;align-items:center;margin-bottom:${px2(14)}px;font-size:.8em;color:var(--muted)`;
-    [...bar.querySelectorAll("i")].forEach((i, k) => i.style.cssText = `width:${px2(12)}px;height:${px2(12)}px;border-radius:50%;background:${["#FF5F57", "#FEBC2E", "#28C840"][k]};opacity:.9`);
-    if (bar.querySelector("span")) bar.querySelector("span").style.marginLeft = px2(10) + "px";
+    bar.style.cssText = `display:flex;gap:${px3(8)}px;align-items:center;margin-bottom:${px3(14)}px;font-size:.8em;color:var(--muted)`;
+    [...bar.querySelectorAll("i")].forEach((i, k) => i.style.cssText = `width:${px3(12)}px;height:${px3(12)}px;border-radius:50%;background:${["#FF5F57", "#FEBC2E", "#28C840"][k]};opacity:.9`);
+    if (bar.querySelector("span")) bar.querySelector("span").style.marginLeft = px3(10) + "px";
     const t0 = ctx.at(o);
     let t = t0 + 0.35;
     const cps = o.cps || 32, sc = ctx.scene;
@@ -3595,30 +3889,30 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return win;
   }, null);
   B.code = (src2, o = {}) => node(o, function code(ctx) {
-    const px2 = ctx.px, pre = h("div", "vk-code vk-mono");
-    pre.style.cssText = `width:${len(ctx, o.w || 620, "x")};background:var(--surface);border:1px solid var(--line);border-radius:${px2(14)}px;padding:${px2(22)}px ${px2(26)}px;font-size:${size(ctx, o.size || 20)};line-height:1.6;text-align:left;white-space:pre;color:var(--fg);overflow:hidden`;
+    const px3 = ctx.px, pre = h("div", "vk-code vk-mono");
+    pre.style.cssText = `width:${len(ctx, o.w || 620, "x")};background:var(--surface);border:1px solid var(--line);border-radius:${px3(14)}px;padding:${px3(22)}px ${px3(26)}px;font-size:${size(ctx, o.size || 20)};line-height:1.6;text-align:left;white-space:pre;color:var(--fg);overflow:hidden`;
     const KW = /\b(const|let|var|function|return|import|from|export|await|async|new|if|else|for|of|in|class|true|false|null|def|fn|pub|use|package|func)\b/g;
     const t0 = ctx.at(o), each = o.each != null ? o.each : 0.12;
     src2.replace(/\n$/, "").split("\n").forEach((ln, i) => {
       const hs = highlightLine(ln, KW);
       const row2 = h("div", null, hs || " ", pre);
-      if (o.highlight && o.highlight.includes(i + 1)) row2.style.cssText = `background:color-mix(in srgb,var(--accent) 22%,transparent);margin:0 -${px2(26)}px;padding:0 ${px2(26)}px`;
-      ctx.scene.fx(row2, "left", { t: t0 + i * each, d: 0.35, dist: px2(14) });
+      if (o.highlight && o.highlight.includes(i + 1)) row2.style.cssText = `background:color-mix(in srgb,var(--accent) 22%,transparent);margin:0 -${px3(26)}px;padding:0 ${px3(26)}px`;
+      ctx.scene.fx(row2, "left", { t: t0 + i * each, d: 0.35, dist: px3(14) });
     });
     ctx.advance(t0 + src2.split("\n").length * each);
     return pre;
   }, null);
   B.cards = (items, o = {}) => node(o, function cards(ctx) {
-    const px2 = ctx.px, g = h("div", "vk-cards");
-    g.style.cssText = `display:grid;grid-template-columns:repeat(${o.cols || Math.min(4, items.length)},1fr);gap:${px2(o.gap || 24)}px;width:100%;text-align:left`;
+    const px3 = ctx.px, g = h("div", "vk-cards");
+    g.style.cssText = `display:grid;grid-template-columns:repeat(${o.cols || Math.min(4, items.length)},1fr);gap:${px3(o.gap || 24)}px;width:100%;text-align:left`;
     const t0 = ctx.at(o), each = o.each != null ? o.each : 0.15;
     items.forEach((it, i) => {
       const c = h("div", "vk-card vk-surface", null, g);
-      c.style.cssText += `;padding:${px2(22)}px ${px2(24)}px;display:flex;flex-direction:column;gap:${px2(8)}px;border-radius:var(--vk-radius)`;
-      if (it.icon) h("div", null, it.icon, c).style.cssText = `font-size:${px2(34)}px;line-height:1;color:var(--accent)`;
-      if (it.tag) h("div", "vk-label", esc2(it.tag), c).style.fontSize = px2(16) + "px";
-      h("div", null, md(it.title), c).style.cssText = `font-size:${px2(o.titleSize || 28)}px;font-weight:800;line-height:1.2;color:var(--fg)`;
-      if (it.text) h("div", null, md(it.text), c).style.cssText = `font-size:${px2(o.textSize || 19)}px;line-height:1.45;color:var(--muted)`;
+      c.style.cssText += `;padding:${px3(22)}px ${px3(24)}px;display:flex;flex-direction:column;gap:${px3(8)}px;border-radius:var(--vk-radius)`;
+      if (it.icon) h("div", null, it.icon, c).style.cssText = `font-size:${px3(34)}px;line-height:1;color:var(--accent)`;
+      if (it.tag) h("div", "vk-label", esc2(it.tag), c).style.fontSize = px3(16) + "px";
+      h("div", null, md(it.title), c).style.cssText = `font-size:${px3(o.titleSize || 28)}px;font-weight:800;line-height:1.2;color:var(--fg)`;
+      if (it.text) h("div", null, md(it.text), c).style.cssText = `font-size:${px3(o.textSize || 19)}px;line-height:1.45;color:var(--muted)`;
       if (it.hl) {
         c.style.background = "var(--accent)";
         c.style.borderColor = "var(--accent)";
@@ -3630,15 +3924,15 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return g;
   }, null);
   B.columns = (items, o = {}) => node(o, function columns(ctx) {
-    const px2 = ctx.px, g = h("div", "vk-columns");
-    g.style.cssText = `display:grid;grid-template-columns:repeat(${items.length},1fr);gap:${px2(28)}px;width:100%;text-align:left`;
+    const px3 = ctx.px, g = h("div", "vk-columns");
+    g.style.cssText = `display:grid;grid-template-columns:repeat(${items.length},1fr);gap:${px3(28)}px;width:100%;text-align:left`;
     const t0 = ctx.at(o), each = o.each != null ? o.each : 0.3;
     items.forEach((it, i) => {
       const c = h("div", null, null, g);
-      c.style.cssText = `border-left:${px2(3)}px solid var(--line);padding:${px2(4)}px 0 ${px2(4)}px ${px2(18)}px`;
-      h("div", null, md(it.title), c).style.cssText = `font-size:${px2(30)}px;font-weight:900;line-height:1.2`;
-      if (it.code) h("div", "vk-mono", esc2(it.code), c).style.cssText = `font-size:${px2(18)}px;color:var(--accent2);margin-top:${px2(8)}px`;
-      if (it.text) h("div", null, md(it.text), c).style.cssText = `font-size:${px2(19)}px;line-height:1.45;color:var(--muted);margin-top:${px2(8)}px`;
+      c.style.cssText = `border-left:${px3(3)}px solid var(--line);padding:${px3(4)}px 0 ${px3(4)}px ${px3(18)}px`;
+      h("div", null, md(it.title), c).style.cssText = `font-size:${px3(30)}px;font-weight:900;line-height:1.2`;
+      if (it.code) h("div", "vk-mono", esc2(it.code), c).style.cssText = `font-size:${px3(18)}px;color:var(--accent2);margin-top:${px3(8)}px`;
+      if (it.text) h("div", null, md(it.text), c).style.cssText = `font-size:${px3(19)}px;line-height:1.45;color:var(--muted);margin-top:${px3(8)}px`;
       ctx.scene.fx(c, "up", { t: t0 + i * each, d: 0.5 });
       ctx.scene.tween(c, { t: t0 + i * each + 0.2, d: 0.4, from: { borderLeftColor: ctx.video.color("line", ctx.scene.mode) }, to: { borderLeftColor: ctx.video.color("accent", ctx.scene.mode) } });
     });
@@ -3646,56 +3940,56 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return g;
   }, null);
   B.kv = (rows2, o = {}) => node(o, function kv(ctx) {
-    const px2 = ctx.px, box = h("div", "vk-kv");
-    box.style.cssText = `width:${o.w ? len(ctx, o.w, "x") : "100%"};border-top:${px2(2)}px solid var(--fg);text-align:left`;
+    const px3 = ctx.px, box = h("div", "vk-kv");
+    box.style.cssText = `width:${o.w ? len(ctx, o.w, "x") : "100%"};border-top:${px3(2)}px solid var(--fg);text-align:left`;
     const t0 = ctx.at(o), each = o.each != null ? o.each : 0.4;
     rows2.forEach(([k, v], i) => {
       const r = h("div", null, null, box);
-      r.style.cssText = `display:flex;align-items:center;min-height:${px2(o.rowH || 70)}px;border-bottom:1px solid var(--line);gap:${px2(20)}px`;
-      h("div", null, md(k), r).style.cssText = `width:${px2(o.keyW || 200)}px;flex:none;font-weight:900;font-size:${px2(23)}px;color:var(--accent)`;
-      h("div", null, md(v), r).style.cssText = `font-size:${px2(22)}px;line-height:1.35`;
+      r.style.cssText = `display:flex;align-items:center;min-height:${px3(o.rowH || 70)}px;border-bottom:1px solid var(--line);gap:${px3(20)}px`;
+      h("div", null, md(k), r).style.cssText = `width:${px3(o.keyW || 200)}px;flex:none;font-weight:900;font-size:${px3(23)}px;color:var(--accent)`;
+      h("div", null, md(v), r).style.cssText = `font-size:${px3(22)}px;line-height:1.35`;
       ctx.scene.fx(r, "left", { t: t0 + i * each, d: 0.4 });
     });
     ctx.advance(t0 + rows2.length * each);
     return box;
   }, null);
   B.gantt = (spec, o = {}) => node(o, function gantt(ctx) {
-    const px2 = ctx.px, [a, b] = spec.range || [0, Math.max(...spec.rows.map((r) => r.end))];
+    const px3 = ctx.px, [a, b] = spec.range || [0, Math.max(...spec.rows.map((r) => r.end))];
     const box = h("div", "vk-gantt");
     box.style.cssText = `width:100%;text-align:left;position:relative`;
     const t0 = ctx.at(o), each = o.each != null ? o.each : 0.25;
     spec.rows.forEach((r, i) => {
       const row2 = h("div", null, null, box);
-      row2.style.cssText = `display:flex;align-items:center;height:${px2(46)}px;gap:${px2(16)}px`;
-      h("div", "vk-mono", md(r.label), row2).style.cssText = `width:${px2(o.labelW || 170)}px;flex:none;font-size:${px2(18)}px;color:var(--muted);text-align:right`;
+      row2.style.cssText = `display:flex;align-items:center;height:${px3(46)}px;gap:${px3(16)}px`;
+      h("div", "vk-mono", md(r.label), row2).style.cssText = `width:${px3(o.labelW || 170)}px;flex:none;font-size:${px3(18)}px;color:var(--muted);text-align:right`;
       const track = h("div", null, null, row2);
-      track.style.cssText = `position:relative;flex:1;height:${px2(26)}px;border-left:1px solid var(--line)`;
+      track.style.cssText = `position:relative;flex:1;height:${px3(26)}px;border-left:1px solid var(--line)`;
       const bar = h("div", null, r.text ? `<span>${md(r.text)}</span>` : "", track);
-      bar.style.cssText = `position:absolute;top:0;height:100%;left:${(r.start - a) / (b - a) * 100}%;width:${(r.end - r.start) / (b - a) * 100}%;background:${r.hl ? "var(--accent)" : "var(--accent2)"};border-radius:${px2(5)}px;transform-origin:left center;font-size:${px2(15)}px;color:var(--on-accent);display:flex;align-items:center;padding-left:${px2(8)}px;white-space:nowrap;overflow:hidden`;
+      bar.style.cssText = `position:absolute;top:0;height:100%;left:${(r.start - a) / (b - a) * 100}%;width:${(r.end - r.start) / (b - a) * 100}%;background:${r.hl ? "var(--accent)" : "var(--accent2)"};border-radius:${px3(5)}px;transform-origin:left center;font-size:${px3(15)}px;color:var(--on-accent);display:flex;align-items:center;padding-left:${px3(8)}px;white-space:nowrap;overflow:hidden`;
       ctx.scene.fx(bar, "grow", { t: t0 + i * each, d: 0.5, ease: "outCubic" });
     });
     if (spec.unit) {
       const ax = h("div", "vk-mono", `${a}${spec.unit} \u2192 ${b}${spec.unit}`, box);
-      ax.style.cssText = `margin-left:${px2((o.labelW || 170) + 16)}px;font-size:${px2(15)}px;color:var(--muted);margin-top:${px2(6)}px`;
+      ax.style.cssText = `margin-left:${px3((o.labelW || 170) + 16)}px;font-size:${px3(15)}px;color:var(--muted);margin-top:${px3(6)}px`;
       ctx.scene.fx(ax, "fade", { t: t0, d: 0.4 });
     }
     ctx.advance(t0 + spec.rows.length * each);
     return box;
   }, null);
   B.diagram = (spec, o = {}) => node(o, function diagram(ctx) {
-    const px2 = ctx.px, W = spec.w || 1e3, H = spec.h || 400;
+    const px3 = ctx.px, W = spec.w || 1e3, H = spec.h || 400;
     const box = h("div", "vk-diagram");
-    box.style.cssText = `position:relative;width:${px2(W)}px;height:${px2(H)}px;flex:none`;
-    const svgEl = s("svg", { width: px2(W), height: px2(H), viewBox: `0 0 ${W} ${H}`, fill: "none", stroke: "currentColor", "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round" }, box);
+    box.style.cssText = `position:relative;width:${px3(W)}px;height:${px3(H)}px;flex:none`;
+    const svgEl = s("svg", { width: px3(W), height: px3(H), viewBox: `0 0 ${W} ${H}`, fill: "none", stroke: "currentColor", "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round" }, box);
     svgEl.style.cssText = "position:absolute;left:0;top:0;overflow:visible;color:var(--accent)";
     const t0 = ctx.at(o), each = o.each != null ? o.each : 0.35, nt = {}, N = {};
     spec.nodes.forEach((n, i) => {
       N[n.id] = n;
       const e = h("div", "vk-node", `<b>${md(n.label)}</b>${n.sub ? `<span>${md(n.sub)}</span>` : ""}`, box);
-      e.style.cssText = `position:absolute;left:${px2(n.x)}px;top:${px2(n.y)}px;width:${px2(n.w || 200)}px;height:${px2(n.h || 90)}px;border-radius:${px2(14)}px;border:${px2(2)}px solid ${n.hl ? "var(--accent)" : "var(--fg)"};background:${n.hl ? "var(--accent)" : "var(--surface)"};color:${n.hl ? "var(--on-accent)" : "var(--fg)"};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${px2(4)}px;${n.dashed ? "border-style:dashed;background:transparent;" : ""}`;
-      e.querySelector("b").style.cssText = `font-size:${px2(n.size || 24)}px;font-weight:900;line-height:1.15`;
+      e.style.cssText = `position:absolute;left:${px3(n.x)}px;top:${px3(n.y)}px;width:${px3(n.w || 200)}px;height:${px3(n.h || 90)}px;border-radius:${px3(14)}px;border:${px3(2)}px solid ${n.hl ? "var(--accent)" : "var(--fg)"};background:${n.hl ? "var(--accent)" : "var(--surface)"};color:${n.hl ? "var(--on-accent)" : "var(--fg)"};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${px3(4)}px;${n.dashed ? "border-style:dashed;background:transparent;" : ""}`;
+      e.querySelector("b").style.cssText = `font-size:${px3(n.size || 24)}px;font-weight:900;line-height:1.15`;
       const sp = e.querySelector("span");
-      if (sp) sp.style.cssText = `font:600 ${px2(15)}px var(--vk-mono);opacity:.8`;
+      if (sp) sp.style.cssText = `font:600 ${px3(15)}px var(--vk-mono);opacity:.8`;
       nt[n.id] = n.at != null ? ctx.scene.time(n.at) : t0 + i * each;
       ctx.scene.fx(e, n.fx || "pop", { t: nt[n.id], d: 0.45 });
     });
@@ -3739,7 +4033,7 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
       last = Math.max(last, te + 0.5);
       if (lab) {
         const l = h("div", "vk-mono", md(lab), box);
-        l.style.cssText = `position:absolute;left:${px2((x1 + x2) / 2)}px;top:${px2((y1 + y2) / 2) - px2(30)}px;transform:translateX(-50%);font-size:${px2(15)}px;color:var(--muted);white-space:nowrap`;
+        l.style.cssText = `position:absolute;left:${px3((x1 + x2) / 2)}px;top:${px3((y1 + y2) / 2) - px3(30)}px;transform:translateX(-50%);font-size:${px3(15)}px;color:var(--muted);white-space:nowrap`;
         ctx.scene.fx(l, "fade", { t: te + 0.3, d: 0.3 });
       }
     });
@@ -3747,11 +4041,11 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return box;
   }, null);
   B.quote = (text2, o = {}) => node(o, function quote(ctx) {
-    const px2 = ctx.px, q = h("figure", "vk-quote");
+    const px3 = ctx.px, q = h("figure", "vk-quote");
     q.style.cssText = `margin:0;max-width:${len(ctx, o.w || 900, "x")};text-align:${o.align || "left"};position:relative`;
     const mark = h("div", null, "\u201C", q);
     mark.dataset.qa = "ignore";
-    mark.style.cssText = `font-family:var(--vk-serif);font-size:${px2(180)}px;line-height:.6;color:var(--accent);height:${px2(70)}px`;
+    mark.style.cssText = `font-family:var(--vk-serif);font-size:${px3(180)}px;line-height:.6;color:var(--accent);height:${px3(70)}px`;
     const body = h("blockquote", null, md(text2), q);
     body.style.cssText = `margin:0;font-family:${o.serif === false ? "var(--vk-sans)" : "var(--vk-serif)"};font-size:${size(ctx, o.size || 50)};line-height:1.3;font-weight:${o.weight || 500}`;
     const t0 = ctx.at(o);
@@ -3759,15 +4053,15 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     ctx.scene.fx(body, o.textFx || "words-up", { t: t0 + 0.25, each: o.each || 0.06 });
     if (o.by) {
       const by = h("figcaption", null, "\u2014 " + md(o.by), q);
-      by.style.cssText = `margin-top:${px2(20)}px;font-size:${px2(22)}px;color:var(--muted)`;
+      by.style.cssText = `margin-top:${px3(20)}px;font-size:${px3(22)}px;color:var(--muted)`;
       ctx.scene.fx(by, "fade", { t: t0 + 1.2, d: 0.5 });
     }
     ctx.advance(t0 + 1.2);
     return q;
   }, null);
   B.image = (src2, o = {}) => node(o, function image(ctx) {
-    const px2 = ctx.px, box = h("div", "vk-image");
-    box.style.cssText = `position:relative;width:${len(ctx, o.w || 640, "x")};height:${len(ctx, o.h || 360, "y")};overflow:hidden;border-radius:${px2(o.radius != null ? o.radius : 14)}px;flex:none;background:var(--surface)`;
+    const px3 = ctx.px, box = h("div", "vk-image");
+    box.style.cssText = `position:relative;width:${len(ctx, o.w || 640, "x")};height:${len(ctx, o.h || 360, "y")};overflow:hidden;border-radius:${px3(o.radius != null ? o.radius : 14)}px;flex:none;background:var(--surface)`;
     const img = h("img", null, null, box);
     img.src = src2;
     img.alt = o.alt || "";
@@ -3779,39 +4073,39 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     });
     if (o.caption) {
       const c = h("div", null, md(o.caption), box);
-      c.style.cssText = `position:absolute;left:0;right:0;bottom:0;padding:${px2(10)}px ${px2(16)}px;font-size:${px2(16)}px;background:linear-gradient(transparent,rgba(0,0,0,.7));color:#fff;text-align:left`;
+      c.style.cssText = `position:absolute;left:0;right:0;bottom:0;padding:${px3(10)}px ${px3(16)}px;font-size:${px3(16)}px;background:linear-gradient(transparent,rgba(0,0,0,.7));color:#fff;text-align:left`;
     }
     return box;
   }, "fade");
   B.device = (content, o = {}) => node(o, function device(ctx) {
-    const px2 = ctx.px, type = o.type || "browser", fr = h("div", "vk-device vk-device-" + type);
+    const px3 = ctx.px, type = o.type || "browser", fr = h("div", "vk-device vk-device-" + type);
     let screen;
     if (type === "phone") {
       const w = o.w || 260;
-      fr.style.cssText = `width:${px2(w)}px;height:${px2(w * 2.05)}px;border-radius:${px2(42)}px;background:#0A0A0A;padding:${px2(12)}px;box-shadow:0 0 0 ${px2(2)}px #333,0 ${px2(30)}px ${px2(60)}px -${px2(20)}px rgba(0,0,0,.5);position:relative;flex:none`;
+      fr.style.cssText = `width:${px3(w)}px;height:${px3(w * 2.05)}px;border-radius:${px3(42)}px;background:#0A0A0A;padding:${px3(12)}px;box-shadow:0 0 0 ${px3(2)}px #333,0 ${px3(30)}px ${px3(60)}px -${px3(20)}px rgba(0,0,0,.5);position:relative;flex:none`;
       screen = h("div", "vk-screen", null, fr);
-      screen.style.cssText = `width:100%;height:100%;border-radius:${px2(32)}px;overflow:hidden;position:relative;background:var(--bg)`;
+      screen.style.cssText = `width:100%;height:100%;border-radius:${px3(32)}px;overflow:hidden;position:relative;background:var(--bg)`;
       const notch = h("div", null, null, fr);
-      notch.style.cssText = `position:absolute;top:${px2(20)}px;left:50%;transform:translateX(-50%);width:${px2(80)}px;height:${px2(22)}px;border-radius:${px2(12)}px;background:#0A0A0A;z-index:2`;
+      notch.style.cssText = `position:absolute;top:${px3(20)}px;left:50%;transform:translateX(-50%);width:${px3(80)}px;height:${px3(22)}px;border-radius:${px3(12)}px;background:#0A0A0A;z-index:2`;
     } else if (type === "laptop") {
       const w = o.w || 720;
-      fr.style.cssText = `width:${px2(w)}px;flex:none;position:relative`;
+      fr.style.cssText = `width:${px3(w)}px;flex:none;position:relative`;
       const lid = h("div", null, null, fr);
-      lid.style.cssText = `width:${px2(w * 0.86)}px;height:${px2(w * 0.86 * 0.62)}px;margin:0 auto;background:#111;border-radius:${px2(16)}px ${px2(16)}px 0 0;padding:${px2(14)}px;box-shadow:0 0 0 ${px2(2)}px #2a2a2a`;
+      lid.style.cssText = `width:${px3(w * 0.86)}px;height:${px3(w * 0.86 * 0.62)}px;margin:0 auto;background:#111;border-radius:${px3(16)}px ${px3(16)}px 0 0;padding:${px3(14)}px;box-shadow:0 0 0 ${px3(2)}px #2a2a2a`;
       screen = h("div", "vk-screen", null, lid);
-      screen.style.cssText = `width:100%;height:100%;overflow:hidden;position:relative;background:var(--bg);border-radius:${px2(4)}px`;
+      screen.style.cssText = `width:100%;height:100%;overflow:hidden;position:relative;background:var(--bg);border-radius:${px3(4)}px`;
       const base2 = h("div", null, null, fr);
-      base2.style.cssText = `width:100%;height:${px2(18)}px;background:linear-gradient(#C9CDD6,#8E939E);border-radius:0 0 ${px2(14)}px ${px2(14)}px`;
+      base2.style.cssText = `width:100%;height:${px3(18)}px;background:linear-gradient(#C9CDD6,#8E939E);border-radius:0 0 ${px3(14)}px ${px3(14)}px`;
     } else {
       const w = o.w || 720;
-      fr.style.cssText = `width:${px2(w)}px;flex:none;border-radius:${px2(14)}px;overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:0 ${px2(30)}px ${px2(60)}px -${px2(30)}px rgba(0,0,0,.45)`;
+      fr.style.cssText = `width:${px3(w)}px;flex:none;border-radius:${px3(14)}px;overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:0 ${px3(30)}px ${px3(60)}px -${px3(30)}px rgba(0,0,0,.45)`;
       const bar = h("div", null, `<i></i><i></i><i></i><span>${esc2(o.url || "")}</span>`, fr);
-      bar.style.cssText = `display:flex;gap:${px2(8)}px;align-items:center;height:${px2(40)}px;padding:0 ${px2(14)}px;border-bottom:1px solid var(--line);font:500 ${px2(15)}px var(--vk-mono);color:var(--muted)`;
-      [...bar.querySelectorAll("i")].forEach((i, k) => i.style.cssText = `width:${px2(12)}px;height:${px2(12)}px;border-radius:50%;background:${["#FF5F57", "#FEBC2E", "#28C840"][k]}`);
+      bar.style.cssText = `display:flex;gap:${px3(8)}px;align-items:center;height:${px3(40)}px;padding:0 ${px3(14)}px;border-bottom:1px solid var(--line);font:500 ${px3(15)}px var(--vk-mono);color:var(--muted)`;
+      [...bar.querySelectorAll("i")].forEach((i, k) => i.style.cssText = `width:${px3(12)}px;height:${px3(12)}px;border-radius:50%;background:${["#FF5F57", "#FEBC2E", "#28C840"][k]}`);
       const sp = bar.querySelector("span");
-      sp.style.cssText = `margin-left:${px2(12)}px;flex:1;background:var(--bg);border-radius:${px2(8)}px;padding:${px2(4)}px ${px2(12)}px;text-align:left`;
+      sp.style.cssText = `margin-left:${px3(12)}px;flex:1;background:var(--bg);border-radius:${px3(8)}px;padding:${px3(4)}px ${px3(12)}px;text-align:left`;
       screen = h("div", "vk-screen", null, fr);
-      screen.style.cssText = `position:relative;height:${px2(o.h || w * 0.52)}px;overflow:hidden;background:var(--bg)`;
+      screen.style.cssText = `position:relative;height:${px3(o.h || w * 0.52)}px;overflow:hidden;background:var(--bg)`;
     }
     if (typeof content === "string") {
       if (/\.(png|jpe?g|webp|gif|svg)(\?|$)/i.test(content)) {
@@ -3823,8 +4117,8 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return fr;
   }, "up");
   B.cta = (spec, o = {}) => node(o, function cta(ctx) {
-    const px2 = ctx.px, box = h("div", "vk-cta");
-    box.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:${px2(20)}px;width:100%`;
+    const px3 = ctx.px, box = h("div", "vk-cta");
+    box.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:${px3(20)}px;width:100%`;
     const t0 = ctx.at(o);
     if (spec.title) {
       const w = h("div", "vk-hero", md(spec.title), box);
@@ -3838,20 +4132,20 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     let t = t0 + 1;
     if (spec.cmd) {
       const term = h("div", "vk-mono", `<span style="color:var(--prompt,var(--accent2))">$ </span><span class="c"></span>`, box);
-      term.style.cssText = `background:var(--surface);color:var(--fg);border-radius:${px2(16)}px;padding:${px2(18)}px ${px2(30)}px;font-size:${px2(spec.cmdSize || 26)}px;white-space:nowrap;text-align:left;border:1px solid var(--line)`;
+      term.style.cssText = `background:var(--surface);color:var(--fg);border-radius:${px3(16)}px;padding:${px3(18)}px ${px3(30)}px;font-size:${px3(spec.cmdSize || 26)}px;white-space:nowrap;text-align:left;border:1px solid var(--line)`;
       ctx.scene.fx(term, "fade", { t, d: 0.4 });
       ctx.scene.fx(term.querySelector(".c"), "type", { t: t + 0.3, cps: 32, text: spec.cmd, caretHold: 1 });
       t += 0.3 + spec.cmd.length / 32 + 0.3;
     }
     if (spec.url) {
       const e = h("div", "vk-mono", esc2(spec.url), box);
-      e.style.cssText = `font-size:${px2(spec.urlSize || 34)}px;font-weight:700`;
+      e.style.cssText = `font-size:${px3(spec.urlSize || 34)}px;font-weight:700`;
       ctx.scene.fx(e, "up", { t });
       t += 0.5;
     }
     if (spec.note) {
       const e = h("div", null, md(spec.note), box);
-      e.style.cssText = `font-size:${px2(24)}px;opacity:.9`;
+      e.style.cssText = `font-size:${px3(24)}px;opacity:.9`;
       ctx.scene.fx(e, "fade", { t });
       t += 0.4;
     }
@@ -3860,8 +4154,8 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
   }, null);
   B.badge = (text2, o = {}) => node(o, function badge(ctx) {
     const e = h("span", "vk-badge vk-mono", md(text2));
-    const px2 = ctx.px;
-    e.style.cssText = `display:inline-block;padding:${px2(6)}px ${px2(16)}px;border-radius:${px2(999)}px;font-size:${px2(o.size || 20)}px;font-weight:700;border:${px2(2)}px solid ${o.hl ? "var(--accent)" : "var(--line)"};background:${o.hl ? "var(--accent)" : "transparent"};color:${o.hl ? "var(--on-accent)" : "var(--fg)"}`;
+    const px3 = ctx.px;
+    e.style.cssText = `display:inline-block;padding:${px3(6)}px ${px3(16)}px;border-radius:${px3(999)}px;font-size:${px3(o.size || 20)}px;font-weight:700;border:${px3(2)}px solid ${o.hl ? "var(--accent)" : "var(--line)"};background:${o.hl ? "var(--accent)" : "transparent"};color:${o.hl ? "var(--on-accent)" : "var(--fg)"}`;
     return e;
   }, "pop");
 
@@ -3886,61 +4180,61 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * e;
   }
   B2.bar = (data, o = {}) => node(o, function bar(ctx) {
-    const px2 = ctx.px, D = rows(data), max = o.max || niceMax(Math.max(...D.map((d) => d.value)));
+    const px3 = ctx.px, D = rows(data), max = o.max || niceMax(Math.max(...D.map((d) => d.value)));
     const W = o.w || 900, H = o.h || 380, box = h("div", "vk-chart vk-bar");
-    box.style.cssText = `width:${px2(W)}px;flex:none;text-align:left`;
+    box.style.cssText = `width:${px3(W)}px;flex:none;text-align:left`;
     const t0 = ctx.at(o), each = o.each != null ? o.each : 0.12, sc = ctx.scene;
     const isHl = (d, i) => o.highlight === i || o.highlight === d.label;
     if (o.horizontal) {
       D.forEach((d, i) => {
         const r = h("div", null, null, box);
-        r.style.cssText = `display:flex;align-items:center;gap:${px2(14)}px;height:${px2(H / D.length)}px`;
-        h("div", null, md(d.label), r).style.cssText = `width:${px2(o.labelW || 160)}px;flex:none;font-size:${px2(20)}px;text-align:right;color:var(--muted)`;
+        r.style.cssText = `display:flex;align-items:center;gap:${px3(14)}px;height:${px3(H / D.length)}px`;
+        h("div", null, md(d.label), r).style.cssText = `width:${px3(o.labelW || 160)}px;flex:none;font-size:${px3(20)}px;text-align:right;color:var(--muted)`;
         const tr = h("div", null, null, r);
-        tr.style.cssText = `flex:1;position:relative;height:${px2(Math.min(40, H / D.length * 0.62))}px`;
+        tr.style.cssText = `flex:1;position:relative;height:${px3(Math.min(40, H / D.length * 0.62))}px`;
         const b = h("div", null, null, tr);
-        b.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:${d.value / max * 100}%;background:${isHl(d, i) ? "var(--accent)" : barCol(ctx, o, i, d)};border-radius:${px2(6)}px;transform-origin:left center`;
+        b.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:${d.value / max * 100}%;background:${isHl(d, i) ? "var(--accent)" : barCol(ctx, o, i, d)};border-radius:${px3(6)}px;transform-origin:left center`;
         const v = h("div", "vk-mono", "", tr);
-        v.style.cssText = `position:absolute;left:calc(${d.value / max * 100}% + ${px2(10)}px);top:50%;transform:translateY(-50%);font-size:${px2(20)}px;font-weight:700;white-space:nowrap`;
+        v.style.cssText = `position:absolute;left:calc(${d.value / max * 100}% + ${px3(10)}px);top:50%;transform:translateY(-50%);font-size:${px3(20)}px;font-weight:700;white-space:nowrap`;
         sc.fx(b, "grow", { t: t0 + i * each, d: 0.8, ease: "outExpo" });
         sc.fx(v, "count", { t: t0 + i * each, d: 0.8, to: d.value, format: (x) => fmtNum(x, o) });
         sc.fx(v, "fade", { t: t0 + i * each + 0.1, d: 0.3 });
       });
     } else {
       const plot = h("div", null, null, box);
-      plot.style.cssText = `position:relative;height:${px2(H)}px;display:flex;align-items:flex-end;gap:${px2(o.gap || 18)}px;border-bottom:${px2(2)}px solid var(--fg);padding:0 ${px2(8)}px`;
+      plot.style.cssText = `position:relative;height:${px3(H)}px;display:flex;align-items:flex-end;gap:${px3(o.gap || 18)}px;border-bottom:${px3(2)}px solid var(--fg);padding:0 ${px3(8)}px`;
       [0.25, 0.5, 0.75, 1].forEach((g) => {
         const l = h("div", null, null, plot);
         l.style.cssText = `position:absolute;left:0;right:0;bottom:${g * 100}%;border-top:1px dashed var(--line);opacity:.8`;
         const lb = h("div", "vk-mono", fmtNum(max * g, { ...o, decimals: o.axisDecimals != null ? o.axisDecimals : Number.isInteger(max * 0.25) ? 0 : 1 }), l);
-        lb.style.cssText = `position:absolute;right:100%;margin-right:${px2(8)}px;top:-${px2(10)}px;font-size:${px2(14)}px;color:var(--muted);white-space:nowrap`;
+        lb.style.cssText = `position:absolute;right:100%;margin-right:${px3(8)}px;top:-${px3(10)}px;font-size:${px3(14)}px;color:var(--muted);white-space:nowrap`;
       });
       D.forEach((d, i) => {
         const c = h("div", null, null, plot);
         c.style.cssText = `flex:1;position:relative;height:${d.value / max * 100}%;display:flex;flex-direction:column;justify-content:flex-start`;
         const b = h("div", null, null, c);
-        b.style.cssText = `position:absolute;inset:0;background:${isHl(d, i) ? "var(--accent)" : barCol(ctx, o, i, d)};border-radius:${px2(6)}px ${px2(6)}px 0 0;transform-origin:center bottom`;
+        b.style.cssText = `position:absolute;inset:0;background:${isHl(d, i) ? "var(--accent)" : barCol(ctx, o, i, d)};border-radius:${px3(6)}px ${px3(6)}px 0 0;transform-origin:center bottom`;
         const v = h("div", "vk-mono", "", c);
-        v.style.cssText = `position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:${px2(6)}px;font-size:${px2(o.valueSize || 18)}px;font-weight:700;white-space:nowrap`;
+        v.style.cssText = `position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:${px3(6)}px;font-size:${px3(o.valueSize || 18)}px;font-weight:700;white-space:nowrap`;
         const l = h("div", null, md(d.label), c);
-        l.style.cssText = `position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:${px2(8)}px;font-size:${px2(o.labelSize || 17)}px;color:var(--muted);white-space:nowrap`;
+        l.style.cssText = `position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:${px3(8)}px;font-size:${px3(o.labelSize || 17)}px;color:var(--muted);white-space:nowrap`;
         sc.fx(b, "grow-y", { t: t0 + i * each, d: 0.8, ease: "outExpo" });
         sc.fx(v, "count", { t: t0 + i * each, d: 0.8, to: d.value, format: (x) => fmtNum(x, o) });
         sc.fx(l, "fade", { t: t0 + i * each, d: 0.3 });
       });
-      plot.style.marginBottom = px2(38) + "px";
-      box.style.paddingLeft = px2(40) + "px";
+      plot.style.marginBottom = px3(38) + "px";
+      box.style.paddingLeft = px3(40) + "px";
     }
     if (o.source) {
       const sEl = h("div", null, md(o.source), box);
-      sEl.style.cssText = `margin-top:${px2(10)}px;font-size:${px2(14)}px;color:var(--muted);text-align:right`;
+      sEl.style.cssText = `margin-top:${px3(10)}px;font-size:${px3(14)}px;color:var(--muted);text-align:right`;
       sc.fx(sEl, "fade", { t: t0, d: 0.5 });
     }
     ctx.advance(t0 + D.length * each + 0.6);
     return box;
   }, null);
   B2.line = (data, o = {}) => node(o, function line(ctx) {
-    const px2 = ctx.px, W = o.w || 900, H = o.h || 380;
+    const px3 = ctx.px, W = o.w || 900, H = o.h || 380;
     const series = o.series || [{ name: o.name || "", values: rows(data).map((d2) => d2.value) }];
     const labels = o.labels || (data ? rows(data).map((d2) => d2.label) : series[0].values.map((_, i) => String(i + 1)));
     const all = series.flatMap((s2) => s2.values), min = o.min != null ? o.min : Math.min(0, ...all), max = o.max || niceMax(Math.max(...all));
@@ -3950,8 +4244,8 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     const P = { l: 18 + Math.max(...[0, 1, 2, 3, 4].map((g) => axisTxt(g).length)) * 8.8, r: endW, t: 20, b: 40 };
     const n = labels.length, X2 = (i) => P.l + (W - P.l - P.r) * (n === 1 ? 0.5 : i / (n - 1)), Y = (v) => P.t + (H - P.t - P.b) * (1 - (v - min) / (max - min));
     const box = h("div", "vk-chart vk-line");
-    box.style.cssText = `width:${px2(W)}px;height:${px2(H)}px;position:relative;flex:none`;
-    const svgEl = s("svg", { width: px2(W), height: px2(H), viewBox: `0 0 ${W} ${H}`, fill: "none" }, box);
+    box.style.cssText = `width:${px3(W)}px;height:${px3(H)}px;position:relative;flex:none`;
+    const svgEl = s("svg", { width: px3(W), height: px3(H), viewBox: `0 0 ${W} ${H}`, fill: "none" }, box);
     const t0 = ctx.at(o), d = o.d || 1.6, sc = ctx.scene;
     const axis = s("g", {}, svgEl);
     for (let g = 0; g <= 4; g++) {
@@ -3991,13 +4285,13 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
       const lastV = se.values[se.values.length - 1], lp = pts[pts.length - 1];
       if (o.endLabel === false) return;
       const lab = h("div", "vk-mono", "", box);
-      lab.style.cssText = `position:absolute;font-size:${px2(o.valueSize || 22)}px;font-weight:800;color:${col3};white-space:nowrap;line-height:1`;
+      lab.style.cssText = `position:absolute;font-size:${px3(o.valueSize || 22)}px;font-weight:800;color:${col3};white-space:nowrap;line-height:1`;
       if (multi) {
-        lab.style.left = px2(lp[0] + 14) + "px";
+        lab.style.left = px3(lp[0] + 14) + "px";
         ends.push({ lab, y: lp[1] });
       } else {
-        lab.style.left = px2(lp[0]) + "px";
-        lab.style.top = px2(lp[1]) - px2(44) + "px";
+        lab.style.left = px3(lp[0]) + "px";
+        lab.style.top = px3(lp[1]) - px3(44) + "px";
         lab.style.transform = "translateX(-80%)";
       }
       sc.fx(lab, "count", { t: t0 + 0.2 + k * 0.3, d, to: lastV, from: se.values[0], format: (x) => (se.name ? se.name + " " : "") + fmtNum(x, o) });
@@ -4011,12 +4305,12 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
       if (over > 0) ends.forEach((e) => e.y -= over);
       for (let i = ends.length - 2; i >= 0; i--) ends[i].y = Math.min(ends[i].y, ends[i + 1].y - gap);
       ends.forEach((e) => {
-        e.lab.style.top = px2(e.y) - px2((o.valueSize || 22) / 2) + "px";
+        e.lab.style.top = px3(e.y) - px3((o.valueSize || 22) / 2) + "px";
       });
     }
     if (o.source) {
       const sEl = h("div", null, md(o.source), box);
-      sEl.style.cssText = `position:absolute;right:0;top:100%;margin-top:${px2(4)}px;font-size:${px2(14)}px;color:var(--muted)`;
+      sEl.style.cssText = `position:absolute;right:0;top:100%;margin-top:${px3(4)}px;font-size:${px3(14)}px;color:var(--muted)`;
       sc.fx(sEl, "fade", { t: t0, d: 0.5 });
     }
     ctx.advance(t0 + d + 0.5);
@@ -4024,12 +4318,12 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
   }, null);
   function pieImpl(donut) {
     return (data, o = {}) => node(o, function pie(ctx) {
-      const px2 = ctx.px, D = rows(data), total = D.reduce((m, d2) => m + d2.value, 0), R = o.r || 150, th = donut ? o.thickness || 56 : R;
+      const px3 = ctx.px, D = rows(data), total = D.reduce((m, d2) => m + d2.value, 0), R = o.r || 150, th = donut ? o.thickness || 56 : R;
       const box = h("div", "vk-chart vk-pie");
-      box.style.cssText = `display:flex;align-items:center;gap:${px2(48)}px;flex:none`;
+      box.style.cssText = `display:flex;align-items:center;gap:${px3(48)}px;flex:none`;
       const wrap = h("div", null, null, box);
-      wrap.style.cssText = `position:relative;width:${px2(R * 2)}px;height:${px2(R * 2)}px;flex:none`;
-      const svgEl = s("svg", { width: px2(R * 2), height: px2(R * 2), viewBox: `0 0 ${R * 2} ${R * 2}` }, wrap);
+      wrap.style.cssText = `position:relative;width:${px3(R * 2)}px;height:${px3(R * 2)}px;flex:none`;
+      const svgEl = s("svg", { width: px3(R * 2), height: px3(R * 2), viewBox: `0 0 ${R * 2} ${R * 2}` }, wrap);
       const rr = R - th / 2, C = 2 * Math.PI * rr, t0 = ctx.at(o), d = o.d || 1.4, sc = ctx.scene, ease = getEase("inOutCubic");
       let acc = 0;
       const segs = [];
@@ -4050,21 +4344,21 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
         const cen = h("div", null, null, wrap);
         cen.style.cssText = `position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center`;
         const big = h("div", "vk-mono", "", cen);
-        big.style.cssText = `font-size:${px2(o.centerSize || 44)}px;font-weight:800`;
+        big.style.cssText = `font-size:${px3(o.centerSize || 44)}px;font-weight:800`;
         if (o.center) big.innerHTML = md(o.center);
         else sc.fx(big, "count", { t: t0, d, to: total, format: (x) => fmtNum(x, o) });
-        if (o.centerLabel) h("div", null, md(o.centerLabel), cen).style.cssText = `font-size:${px2(17)}px;color:var(--muted)`;
+        if (o.centerLabel) h("div", null, md(o.centerLabel), cen).style.cssText = `font-size:${px3(17)}px;color:var(--muted)`;
         sc.fx(cen, "fade", { t: t0 + 0.2, d: 0.4 });
       }
       if (o.legend !== false) {
         const lg = h("div", null, null, box);
-        lg.style.cssText = `display:flex;flex-direction:column;gap:${px2(12)}px;text-align:left`;
+        lg.style.cssText = `display:flex;flex-direction:column;gap:${px3(12)}px;text-align:left`;
         D.forEach((dd, i) => {
           const r = h("div", null, `<i></i><span>${md(dd.label)}</span><b class="vk-mono">${(dd.value / total * 100).toFixed(o.pctDecimals | 0)}%</b>`, lg);
-          r.style.cssText = `display:flex;align-items:center;gap:${px2(12)}px;font-size:${px2(o.legendSize || 21)}px`;
-          r.querySelector("i").style.cssText = `width:${px2(16)}px;height:${px2(16)}px;border-radius:${px2(4)}px;background:${pal(ctx, i, dd)};flex:none`;
-          r.querySelector("b").style.cssText = `margin-left:auto;padding-left:${px2(16)}px;color:var(--muted)`;
-          sc.fx(r, "left", { t: t0 + d * ((segs[i].a + segs[i].b) / 2), d: 0.4, dist: px2(20) });
+          r.style.cssText = `display:flex;align-items:center;gap:${px3(12)}px;font-size:${px3(o.legendSize || 21)}px`;
+          r.querySelector("i").style.cssText = `width:${px3(16)}px;height:${px3(16)}px;border-radius:${px3(4)}px;background:${pal(ctx, i, dd)};flex:none`;
+          r.querySelector("b").style.cssText = `margin-left:auto;padding-left:${px3(16)}px;color:var(--muted)`;
+          sc.fx(r, "left", { t: t0 + d * ((segs[i].a + segs[i].b) / 2), d: 0.4, dist: px3(20) });
         });
       }
       ctx.advance(t0 + d + 0.3);
@@ -4074,7 +4368,7 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
   B2.pie = pieImpl(false);
   B2.donut = pieImpl(true);
   B2.ticker = (value, o = {}) => node(o, function ticker(ctx) {
-    const px2 = ctx.px, box = h("div", "vk-ticker");
+    const px3 = ctx.px, box = h("div", "vk-ticker");
     box.style.cssText = "display:flex;flex-direction:column;align-items:center";
     const n = h("div", "vk-mono", "", box);
     n.style.cssText = `font-size:${size(ctx, o.size || 120)};font-weight:800;line-height:1;letter-spacing:-.03em;color:${o.color ? `var(--${o.color})` : "var(--fg)"}`;
@@ -4082,24 +4376,24 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     ctx.scene.fx(n, "count", { t: t0, d: o.d || 1.4, from: o.from || 0, to: value, format: (x) => fmtNum(x, { sep: o.sep, decimals: o.decimals, prefix: o.prefix, unit: o.unit || o.suffix }) });
     if (o.label) {
       const l = h("div", null, md(o.label), box);
-      l.style.cssText = `font-size:${px2(o.labelSize || 24)}px;color:var(--muted);margin-top:${px2(10)}px`;
+      l.style.cssText = `font-size:${px3(o.labelSize || 24)}px;color:var(--muted);margin-top:${px3(10)}px`;
       ctx.scene.fx(l, "up", { t: t0 + 0.3 });
     }
     ctx.advance(t0 + (o.d || 1.4));
     return box;
   }, "fade");
   B2.ring = (pct2, o = {}) => node(o, function ring(ctx) {
-    const px2 = ctx.px, R = o.r || 110, th = o.thickness || 18, rr = R - th / 2, C = 2 * Math.PI * rr;
+    const px3 = ctx.px, R = o.r || 110, th = o.thickness || 18, rr = R - th / 2, C = 2 * Math.PI * rr;
     const box = h("div", "vk-ring");
-    box.style.cssText = `position:relative;width:${px2(R * 2)}px;height:${px2(R * 2)}px;flex:none`;
-    const svgEl = s("svg", { width: px2(R * 2), height: px2(R * 2), viewBox: `0 0 ${R * 2} ${R * 2}` }, box);
+    box.style.cssText = `position:relative;width:${px3(R * 2)}px;height:${px3(R * 2)}px;flex:none`;
+    const svgEl = s("svg", { width: px3(R * 2), height: px3(R * 2), viewBox: `0 0 ${R * 2} ${R * 2}` }, box);
     s("circle", { cx: R, cy: R, r: rr, fill: "none", stroke: "var(--line)", "stroke-width": th }, svgEl);
     const arc = s("circle", { cx: R, cy: R, r: rr, fill: "none", stroke: o.color || "var(--accent)", "stroke-width": th, "stroke-linecap": "round", transform: `rotate(-90 ${R} ${R})`, "stroke-dasharray": `0 ${C}` }, svgEl);
     const cen = h("div", null, null, box);
     cen.style.cssText = "position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center";
     const num = h("div", "vk-mono", "", cen);
-    num.style.cssText = `font-size:${px2(R * 0.38)}px;font-weight:800`;
-    if (o.label) h("div", null, md(o.label), cen).style.cssText = `font-size:${px2(Math.max(14, R * 0.14))}px;color:var(--muted);margin-top:${px2(4)}px;max-width:${px2(R * 1.4)}px;text-align:center;line-height:1.25`;
+    num.style.cssText = `font-size:${px3(R * 0.38)}px;font-weight:800`;
+    if (o.label) h("div", null, md(o.label), cen).style.cssText = `font-size:${px3(Math.max(14, R * 0.14))}px;color:var(--muted);margin-top:${px3(4)}px;max-width:${px3(R * 1.4)}px;text-align:center;line-height:1.25`;
     const t0 = ctx.at(o), d = o.d || 1.3, e = getEase(o.ease || "outCubic");
     ctx.scene.on((local) => {
       const p = e(clamp01((local - t0) / d)) * pct2 / 100;
@@ -4110,26 +4404,26 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return box;
   }, "fade");
   B2.table = (spec, o = {}) => node(o, function table(ctx) {
-    const px2 = ctx.px, tb = h("table", "vk-table"), t0 = ctx.at(o), each = o.each != null ? o.each : 0.18;
-    tb.style.cssText = `border-collapse:collapse;width:${o.w ? len(ctx, o.w, "x") : "100%"};font-size:${px2(o.size || 21)}px;text-align:left`;
+    const px3 = ctx.px, tb = h("table", "vk-table"), t0 = ctx.at(o), each = o.each != null ? o.each : 0.18;
+    tb.style.cssText = `border-collapse:collapse;width:${o.w ? len(ctx, o.w, "x") : "100%"};font-size:${px3(o.size || 21)}px;text-align:left`;
     const al = (i) => spec.align && spec.align[i] || (i ? "right" : "left");
     if (spec.header) {
       const tr = h("tr", null, spec.header.map((c, i) => `<th style="text-align:${al(i)}">${md(c)}</th>`).join(""), tb);
-      [...tr.children].forEach((th) => th.style.cssText += `;padding:${px2(10)}px ${px2(16)}px;border-bottom:${px2(2)}px solid var(--fg);color:var(--muted);font-weight:700;font-size:.85em`);
+      [...tr.children].forEach((th) => th.style.cssText += `;padding:${px3(10)}px ${px3(16)}px;border-bottom:${px3(2)}px solid var(--fg);color:var(--muted);font-weight:700;font-size:.85em`);
       ctx.scene.fx(tr, "fade", { t: t0, d: 0.3 });
     }
     spec.rows.forEach((r, i) => {
       const tr = h("tr", null, r.map((c, j) => `<td style="text-align:${al(j)}">${md(String(c))}</td>`).join(""), tb);
-      [...tr.children].forEach((td, j) => td.style.cssText += `;padding:${px2(10)}px ${px2(16)}px;border-bottom:1px solid var(--line);${j ? "font-family:var(--vk-mono)" : "font-weight:700"}`);
+      [...tr.children].forEach((td, j) => td.style.cssText += `;padding:${px3(10)}px ${px3(16)}px;border-bottom:1px solid var(--line);${j ? "font-family:var(--vk-mono)" : "font-weight:700"}`);
       if (spec.highlight === i) [...tr.children].forEach((td) => {
         td.style.background = "var(--accent)";
         td.style.color = "var(--on-accent)";
       });
-      ctx.scene.fx(tr, "left", { t: t0 + 0.2 + i * each, d: 0.4, dist: px2(24) });
+      ctx.scene.fx(tr, "left", { t: t0 + 0.2 + i * each, d: 0.4, dist: px3(24) });
     });
     if (o.source) {
       const cap = h("caption", null, md(o.source), tb);
-      cap.style.cssText = `caption-side:bottom;text-align:right;font-size:${px2(14)}px;color:var(--muted);padding-top:${px2(8)}px`;
+      cap.style.cssText = `caption-side:bottom;text-align:right;font-size:${px3(14)}px;color:var(--muted);padding-top:${px3(8)}px`;
     }
     ctx.advance(t0 + 0.2 + spec.rows.length * each);
     return tb;
@@ -4409,12 +4703,12 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return el2;
   });
   B3.spectrum = (o = {}) => node({ fx: "fade", ...o }, function spectrum(ctx) {
-    const v = ctx.video, n = o.bars || 16, px2 = ctx.px, H = px2(o.h || 120);
+    const v = ctx.video, n = o.bars || 16, px3 = ctx.px, H = px3(o.h || 120);
     const el2 = h("div", "vk-spectrum");
-    el2.style.cssText = `display:flex;align-items:${o.mirror ? "center" : "flex-end"};gap:${px2(o.gap != null ? o.gap : 6)}px;height:${H}px;width:${len(ctx, o.w || 0.6, "x")}`;
+    el2.style.cssText = `display:flex;align-items:${o.mirror ? "center" : "flex-end"};gap:${px3(o.gap != null ? o.gap : 6)}px;height:${H}px;width:${len(ctx, o.w || 0.6, "x")}`;
     const bars = Array.from({ length: n }, () => {
       const b = h("i", null, null, el2);
-      b.style.cssText = `flex:1;height:100%;border-radius:${px2(4)}px;background:${o.color ? `var(--${o.color},${o.color})` : "var(--accent)"};transform-origin:50% ${o.mirror ? "50%" : "100%"}`;
+      b.style.cssText = `flex:1;height:100%;border-radius:${px3(4)}px;background:${o.color ? `var(--${o.color},${o.color})` : "var(--accent)"};transform-origin:50% ${o.mirror ? "50%" : "100%"}`;
       return b;
     });
     ctx.scene.on((local, p, t) => {
@@ -4551,8 +4845,27 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     e.className = "vk-ov vk-rice";
     const tone = o.tone || [0.38, 0.35, 0.28], sz = o.size || 300, f = o.freq || 0.85, seed = o.seed || 4;
     const svg2 = `<svg xmlns='http://www.w3.org/2000/svg' width='${sz}' height='${sz}'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='${f}' numOctaves='2' seed='${seed}' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${tone[0]} 0 0 0 0 ${tone[1]} 0 0 0 0 ${tone[2]} 0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
-    const vig = o.vignette != null ? o.vignette : 0.22, k = v.k || 1;
-    e.style.cssText += `;mix-blend-mode:multiply;opacity:${o.amount != null ? o.amount : 0.55};background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(svg2)}");background-size:${sz * (o.scale || 1)}px;box-shadow:inset 0 0 ${Math.round(120 * k)}px rgba(70,62,40,${vig})`;
+    const vig = o.vignette != null ? o.vignette : 0.22, k = v.k || 1, tile = sz * (o.scale || 1), shadow = `inset 0 0 ${Math.round(120 * k)}px rgba(70,62,40,${vig})`;
+    e.style.cssText += `;mix-blend-mode:multiply;opacity:${o.amount != null ? o.amount : 0.55};background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(svg2)}");background-size:${tile}px;box-shadow:${shadow}`;
+    if (o.cache !== false && v.bakeLater) v.bakeLater(async () => {
+      const url = await bakeTile(svg2, tile, tile);
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const dpr = window.devicePixelRatio || 1, c = document.createElement("canvas");
+      c.width = Math.round(v.W * dpr);
+      c.height = Math.round(v.H * dpr);
+      c.className = "vk-rice-bmp";
+      c.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%";
+      const g = c.getContext("2d");
+      g.fillStyle = g.createPattern(img, "repeat");
+      g.fillRect(0, 0, c.width, c.height);
+      const sh = document.createElement("div");
+      sh.style.cssText = `position:absolute;inset:0;box-shadow:${shadow}`;
+      e.style.backgroundImage = "none";
+      e.style.boxShadow = "none";
+      e.append(c, sh);
+    });
     return { el: e };
   };
   function inkDefs(o = {}) {
@@ -4573,6 +4886,7 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     video.stage.appendChild(w.firstElementChild);
     if (o.boil) {
       const tur = [...document.getElementById(id).querySelectorAll(".vk-boil")], base2 = tur.map((t) => +t.getAttribute("seed"));
+      tur.forEach((t) => t.closest("filter").setAttribute("data-vk-dynamic", ""));
       let last = -1;
       video.onRender((t) => {
         const f = boil(t, o.boil) % (o.boilFrames || 3);
@@ -4636,23 +4950,23 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     s2.textContent = css;
     document.head.appendChild(s2);
   }
-  var px = (ctx, v, d) => ctx.px(v != null ? v : d) + "px";
+  var px2 = (ctx, v, d) => ctx.px(v != null ? v : d) + "px";
   function vtitle(text2, o = {}) {
     return node({ fx: "ink", d: 1.4, pos: { x: 96, y: 58 }, ...o }, function vtitle_(ctx) {
       ensureCSS();
       const e = h("div", "vk-vt");
-      e.style.fontSize = px(ctx, o.size, 118);
+      e.style.fontSize = px2(ctx, o.size, 118);
       h("div", "vk-vt-main", esc4(text2), e);
       if (o.sub) {
         const s2 = h("div", "vk-vt-sub", esc4(o.sub), e);
-        s2.style.fontSize = px(ctx, o.subSize, 21);
-        s2.style.marginTop = px(ctx, o.subTop, 18);
+        s2.style.fontSize = px2(ctx, o.subSize, 21);
+        s2.style.marginTop = px2(ctx, o.subTop, 18);
       }
       if (o.seal) {
         const s2 = h("div", "vk-seal", esc4(o.seal), e);
-        s2.style.fontSize = px(ctx, o.sealSize, 20);
+        s2.style.fontSize = px2(ctx, o.sealSize, 20);
         s2.style.padding = `${ctx.px(8)}px ${ctx.px(6)}px`;
-        s2.style.marginTop = px(ctx, o.sealTop, Math.round((o.size || 118) * [...text2].length * 0.62));
+        s2.style.marginTop = px2(ctx, o.sealTop, Math.round((o.size || 118) * [...text2].length * 0.62));
         const t = ctx.scene.time(o.sealAt != null ? o.sealAt : o.at || 0.3) + (o.sealAt != null ? 0 : 1.1);
         ctx.scene.fx(s2, "stamp", { t, d: 0.5 });
         ctx.extend(t + 0.5);
@@ -4665,7 +4979,7 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return node({ fx: "brush", d: 1.1, pos: { x: 84, y: 58 }, ...o }, function chapter_(ctx) {
       ensureCSS();
       const e = h("div", "vk-chap");
-      e.style.fontSize = px(ctx, o.size, 42);
+      e.style.fontSize = px2(ctx, o.size, 42);
       e.innerHTML = (o.no ? `<span class="vk-chap-no">${esc4(o.no)}</span>` : "") + esc4(text2);
       return e;
     }, "brush");
@@ -4674,7 +4988,7 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return node({ fx: "stamp", d: 0.5, ...o }, function seal_(ctx) {
       ensureCSS();
       const s2 = h("div", "vk-seal", esc4(text2));
-      s2.style.fontSize = px(ctx, o.size, 22);
+      s2.style.fontSize = px2(ctx, o.size, 22);
       s2.style.padding = `${ctx.px(8)}px ${ctx.px(6)}px`;
       return s2;
     }, "stamp");
@@ -4685,19 +4999,19 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
       const wrap = h("div");
       wrap.style.cssText = "position:absolute;inset:0;pointer-events:none";
       const e = h("div", "vk-vt", null, wrap);
-      e.style.fontSize = px(ctx, o.size, 60);
-      e.style.cssText += `;position:absolute;left:${px(ctx, o.x, 0)};top:0`;
+      e.style.fontSize = px2(ctx, o.size, 60);
+      e.style.cssText += `;position:absolute;left:${px2(ctx, o.x, 0)};top:0`;
       h("div", "vk-vt-main", esc4(o.big || "\u7EC8"), e);
       if (o.small) {
         const s2 = h("div", "vk-vt-sub", esc4(o.small), e);
-        s2.style.fontSize = px(ctx, o.smallSize, 19);
-        s2.style.marginTop = px(ctx, 12);
+        s2.style.fontSize = px2(ctx, o.smallSize, 19);
+        s2.style.marginTop = px2(ctx, 12);
       }
       if (o.seal) {
         const s2 = h("div", "vk-seal", esc4(o.seal), e);
-        s2.style.fontSize = px(ctx, 18);
+        s2.style.fontSize = px2(ctx, 18);
         s2.style.padding = `${ctx.px(7)}px ${ctx.px(5)}px`;
-        s2.style.marginTop = px(ctx, o.sealTop, 180);
+        s2.style.marginTop = px2(ctx, o.sealTop, 180);
       }
       return wrap;
     }, "ink");
@@ -4706,7 +5020,7 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     return node({ fx: "fade", d: 1, ...o }, function credits_(ctx) {
       ensureCSS();
       const e = h("div", "vk-credits", [].concat(lines).map(esc4).join("<br>"));
-      e.style.fontSize = px(ctx, o.size, 15);
+      e.style.fontSize = px2(ctx, o.size, 15);
       return e;
     }, "fade");
   }
@@ -4721,7 +5035,10 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     const m = `radial-gradient(ellipse ${(r * 1.12).toFixed(1)}px ${(r * 0.92).toFixed(1)}px at ${fx.toFixed(0)}px ${fy.toFixed(0)}px, #000 ${Math.max(0, r - soft).toFixed(1)}px, rgba(0,0,0,.55) ${Math.max(0, r - soft * 0.45).toFixed(1)}px, transparent ${r.toFixed(1)}px)`;
     return { in: { maskImage: m, webkitMaskImage: m, filter: `blur(${((1 - e) * 3).toFixed(2)}px)` }, out: { filter: `blur(${(e * 5).toFixed(2)}px)` } };
   };
-  T3.wash = (e) => ({ in: { opacity: e, filter: `blur(${((1 - e) * 6).toFixed(2)}px)` }, out: { filter: `blur(${(e * 8).toFixed(2)}px) brightness(${(1 + e * 0.08).toFixed(3)})` } });
+  T3.wash = (e) => {
+    const b = (1 + e * 0.08).toFixed(3);
+    return { in: { opacity: e, filter: `blur(${((1 - e) * 6).toFixed(2)}px)` }, out: { filter: `blur(${(e * 8).toFixed(2)}px)${b !== "1.000" ? ` brightness(${b})` : ""}` } };
+  };
 
   // src/index.js
   var import_meta = {};
@@ -4857,6 +5174,11 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
     },
     quantize: (t, sub2) => current.beats.quantize(t, sub2),
     lyricVideo: (o) => lyricVideo(vk, o),
+    // static layer cache: vk.bake(svgOrGroup, {scale}) → rasterised once (see runtime/bake.js)
+    bake: (el2, o) => current.bake(el2, o),
+    bakeStats,
+    collectRefs,
+    filterRegion,
     inkDefs,
     brushPath,
     sampleLine,

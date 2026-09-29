@@ -11,9 +11,13 @@ usage:
                                   [--audio-offset s] [--grain 6] [--workers 4] [--from s --to s] [--crf 18]
                                   [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
                                   [--lufs -14|off] [--duck -10] [--no-voice]
-  vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2]      PNG stills (default: each scene's settled frame)
+                                  [--capture beginframe|screenshot] [--gpu soft|swiftshader|off] [--no-cache]
+                                  [--timing] [--chunk frames] [--x264-threads n]
+                                  (default: beginframe capture, workers = CPU cores, static-layer cache on)
+  vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2] [--capture …] [--no-cache]   PNG stills (default: each scene's settled frame)
   vk contact page.html [-o sheet.png] [--times a,b | --settle] [--cols 4]  contact sheet (2 frames per scene, or 1 settled)
-  vk qa      page.html [--sample 0.5] [--json=report.json]         layout/safe-area/caption/fonts/blank-frame QA + text snapshot
+  vk qa      page.html [--sample 0.5] [--order-step 1] [--json=report.json]   layout/safe-area/caption/fonts/blank-frame/
+                                                                   seek-order QA + text snapshot
   vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]      dev server: live reload + scrubber
   vk new     video.html [--format 9:16] [--theme bold]             scaffold a page
 

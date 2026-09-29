@@ -26,6 +26,7 @@ import { lyricVideo } from './fx/lyrics.js';
 import { MusicInfo } from './audio/music.js';
 import { alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt } from './audio/words.js';
 import * as synth from './audio/synth.js';
+import { bakeStats, collectRefs, filterRegion } from './runtime/bake.js';
 
 export const version = '0.2.0';
 let current = null;
@@ -69,6 +70,8 @@ export const vk = {
   get lyricLines() { return current ? current.lyrics : []; },
   quantize: (t, sub) => current.beats.quantize(t, sub),
   lyricVideo: o => lyricVideo(vk, o),
+  // static layer cache: vk.bake(svgOrGroup, {scale}) → rasterised once (see runtime/bake.js)
+  bake: (el, o) => current.bake(el, o), bakeStats, collectRefs, filterRegion,
   inkDefs, brushPath, sampleLine, attr, INK, installInk: o => installInk(current, o),
   MusicInfo, alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt, synth,
   Video, Scene,

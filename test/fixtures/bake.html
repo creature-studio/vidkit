@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script>
+// test fixture: a filter-heavy static SVG (baked) + a moving element (so frames differ over time)
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.createElementNS(NS, 'svg');
+svg.setAttribute('viewBox', '0 0 640 360'); svg.setAttribute('data-vk-bake', '');
+svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+svg.innerHTML = `<defs><filter id="rough" x="-10%" y="-10%" width="120%" height="120%">
+  <feTurbulence type="fractalNoise" baseFrequency=".04" numOctaves="3" seed="3"/>
+  <feDisplacementMap in="SourceGraphic" scale="18" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="6"/></filter></defs>
+  <rect width="640" height="360" fill="#e9e1cf"/>
+  <g filter="url(#rough)"><circle cx="200" cy="180" r="90" fill="#2a2a2a"/><rect x="360" y="90" width="180" height="180" fill="#8a3b2c"/></g>
+  <ellipse cx="320" cy="320" rx="260" ry="30" fill="#556" filter="url(#soft)" opacity=".6"/>`;
+const dot = document.createElement('div');
+dot.style.cssText = 'position:absolute;left:0;top:40%;width:60px;height:60px;border-radius:50%;background:#1b6';
+const v = vk.video({ w: 640, h: 360, fps: 30, title: 'bake fixture', transition: 'cut' });
+vk.scene('a', 2, { bg: 'light' }, [svg, dot]);
+v.onRender(t => { dot.style.transform = `translateX(${(t * 250).toFixed(2)}px)`; });
+v.start();
+</script>
+</body></html>

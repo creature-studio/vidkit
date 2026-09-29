@@ -32,7 +32,7 @@
 
 ## 快速开始
 
-依赖：Node ≥ 18、ffmpeg/ffprobe、Playwright Chromium（`npx playwright install chromium`）。
+依赖：Node ≥ 18、ffmpeg/ffprobe、Playwright Chromium（`npx playwright install chromium`，同时会装上默认捕获用的 chrome-headless-shell；没有时自动回退到 `--capture screenshot`）。
 
 ```bash
 cd vidkit && npm install && npm run build   # 生成 dist/vidkit.js（单文件 IIFE）与 dist/vidkit.esm.js
@@ -93,14 +93,14 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 │ render(t) · ease · timeline/tween · stagger · camera · seeded random · BeatGrid   │
 │ scene graph（重叠/转场槽位）· plugin registry + hooks                             │
 └──────────────────────────────────────────────────────────────────────────────────┘
-  runtime/：注入 CSS、预览播放器、页内 QA        cli/：Playwright 逐帧截图 → ffmpeg
+  runtime/：注入 CSS、预览播放器、页内 QA、静态层缓存   cli/：headless shell BeginFrame 逐帧捕获 → ffmpeg
 ```
 
 ```
 vidkit/
 ├─ package.json          name / bin(vk) / scripts
 ├─ bin/vk.mjs            CLI 入口
-├─ cli/                  render · stills · contact · qa · preview · new · lib · analyze · align · tts · sync · doctor · mix(混音/ducking/loudnorm) · py
+├─ cli/                  render · capture(beginframe/screenshot 捕获) · cdp(CDP pipe 客户端) · stills · contact · qa · preview · new · lib · analyze · align · tts · sync · doctor · mix(混音/ducking/loudnorm) · py
 ├─ tools/                vkaudio.py（Python 音频工具链）· setup-audio.sh · requirements-audio.txt
 ├─ src/
 │  ├─ index.js           vk 对象（ES module 入口）
@@ -110,18 +110,66 @@ vidkit/
 │  ├─ fx/                apply · text · transitions · svg · shapes · charts · blocks · textures · backgrounds · rhythm · lyrics
 │  ├─ authoring/         api(元素工厂) · node(公共选项/md) · themes · formats · declarative(data-* 兼容)
 │  ├─ audio/             score(离线音效合成) · music(节拍/包络/段落 MusicInfo) · words(对齐→字幕/卡拉 OK)
-│  └─ runtime/           css · preview · qa
+│  └─ runtime/           css · preview · qa · bake(静态层缓存)
 ├─ dist/                 vidkit.js（IIFE，~200 KB）· vidkit.esm.js
 ├─ fonts/                Noto Sans SC · JetBrains Mono · Archivo · Anton · Instrument Serif（OFL 1.1）
 ├─ examples/             promo · explainer · vertical · gallery · mv · explainer-vo · plugin-demo · data/ · assets/(music) · mv/ · plugins/
-├─ scripts/              build · render-examples · list-presets · debug/probe 工具
-├─ test/                core.test.mjs（缓动/时间/随机/节拍/插值）· audio.test.mjs（节拍网格/小节/提前一帧/词映射/混音表达式/分析器）
+├─ scripts/              build · render-examples · list-presets · debug/probe 工具 · profile-render/profile-cpu · compare-capture/compare-video
+├─ test/                core.test.mjs（缓动/时间/随机/节拍/插值）· audio.test.mjs（节拍网格/小节/提前一帧/词映射/混音表达式/分析器）· ink.test.mjs · capture.test.mjs（分块调度/捕获参数/烘焙辅助函数 + 浏览器往返）
 └─ out/                  渲染产物（git 忽略）
 ```
 
-**渲染流程**：`vk render` 启动本地静态服务器 → N 个 Chromium worker 各自打开页面（`?render=1`）→ 对每帧调用 `window.__seek(t)`（内部就是 `video.render(t)`）→ 截图（默认 JPEG q95）→ ffmpeg 编码（yuv420p、bt709、`+faststart`）→ 音频：离线合成音效 WAV + 音乐（`music`/`--audio`）+ 配音（`vk tts` 生成的片段）→ ffmpeg 混音（ducking、两遍 loudnorm）→ 可选导出 SRT → ffprobe 校验 + blackdetect。
+**渲染流程**：`vk render` 启动本地静态服务器 → 探测页面（时长 / 场景 / 音频，Playwright）→ N 个 chrome-headless-shell worker（默认 = CPU 核数）各自打开页面（`?render=1`），先执行一次静态层缓存（`vk.bake`）→ 帧按"连续车道 + 工作窃取"分块（默认 2 秒一块）分给 worker：对每帧调用 `window.__seek(t)`（内部就是 `video.render(t)`）→ `HeadlessExperimental.beginFrame` 一次调用完成合成与截图（JPEG q95）→ 直接写入该块的 ffmpeg stdin（image2pipe，不落盘 PNG）编码为 H.264 分段（yuv420p、bt709）→ 分段 `concat -c copy` → 音频与帧**并行**准备：离线合成音效 WAV + 音乐（`music`/`--audio`）+ 配音（`vk tts` 生成的片段）→ ffmpeg 混音（ducking、两遍 loudnorm）→ mux（`+faststart`）→ 可选导出 SRT → ffprobe 校验 + blackdetect。详见下文[渲染性能](#渲染性能捕获模式与静态层缓存)。
 
 **时间模型**：场景在时间轴上首尾重叠，重叠长度 = 下一场景的转场时长（`start = 上一场景结束 − 转场时长`）。场景内所有时间都是**场景本地秒**（或 `'b:8'` 这样的节拍号，或 `'+0.3'` 表示相对上一个元素）。
+
+### 渲染性能：捕获模式与静态层缓存
+
+**捕获模式（`--capture`）**
+
+| 模式 | 做法 | 适用 |
+|---|---|---|
+| `beginframe`（默认） | chrome-headless-shell 在 `--enable-begin-frame-control` 下运行（等价于 `--deterministic-mode`：`--run-all-compositor-stages-before-draw`、关闭 checker-imaging / 线程动画）；每帧 `render(t)` 之后发一次 `HeadlessExperimental.beginFrame({screenshot})`，**同一次调用**里完成布局→绘制→合成→JPEG 编码并返回。没有 vsync / 帧率等待，没有 Playwright 往返。CDP 走 `--remote-debugging-pipe`（`cli/cdp.mjs`）。 | 所有页面（DOM / SVG / Canvas / WebGL） |
+| `screenshot` | 原来的路径：Playwright `page.screenshot()`，SwiftShader GL 合成。 | 回退 / 对照；找不到 headless shell 时自动使用 |
+
+- `--gpu soft|swiftshader|off`：`soft`（beginframe 默认）= 软件光栅 + 软件合成，WebGL 仍由 SwiftShader 提供；`swiftshader`（screenshot 默认）= 旧的 GL 合成；`off` = `--disable-gpu`（无 WebGL）。无 GPU 的机器上软件合成比 SwiftShader GL 合成快约 2–3 倍（tadpole 单帧截图 141–218 ms → ~60 ms）。
+- `--workers N`：beginframe 默认 = CPU 核数（8 核机器上 8 > 10 > 12，更多 worker 只会抢 CPU 与内存）；screenshot 默认 min(4, 核数−1)。
+- `--chunk 帧数`：分块大小（beginframe 默认 2 秒 = 60 帧）。每块是一个独立的 H.264 分段，最后 `concat -c copy`；快的 worker 会从最慢的车道尾部"偷"一半，所以片子里的重场景不再决定总时长。
+- `--timing`：打印每帧平均的 render(t) / 捕获 / ffmpeg 反压时间与各阶段耗时；`--x264-threads n` 限制每个分段编码器的线程。
+- 输出仍是**逐帧精确**的：帧 i 就是 `render(i / fps)`，与旧路径逐帧对齐（错一帧的 PSNR 明显更差，见下表）；音频路径未改（`vk sync` 结果一致）。
+- 容器/云主机注意：`/dev/shm` 很小（如 Docker 默认 64 MB）时 begin-frame 模式的渲染进程会崩溃，所以默认带 `--disable-dev-shm-usage`。可用 `VK_CHROME=/path/to/chrome-headless-shell` 指定浏览器、`VK_CAPTURE=screenshot` 全局切回旧路径。
+
+**静态层缓存（`vk.bake`）**
+
+`feTurbulence` / `feDisplacementMap` 墨线、`feGaussianBlur` 晕染、远山、宣纸纹理这类**不随时间变化**的内容，浏览器却会每帧重新跑滤镜（即使只是平移，亚像素位移也会触发重新光栅化）。`vk.bake` 在 `__ready` 之前把它们光栅化**一次**成位图：
+
+```js
+vk.bake(svgEl)                        // 根 <svg>：内容换成一张 <image>（svg 元素本身、它的 CSS、你对它做的 transform 动画都保留）
+vk.bake(g, { scale: 1.5, pad: 8 })    // svg 内部的 <g>/<path>/…：在自身用户坐标系里连同 filter 一起烘焙（滤镜区域自动计算），
+                                      // 元素自身的 transform / opacity / clip-path / mask 仍然是活的，可以继续逐帧动画
+<svg data-vk-bake> … </svg>           // 声明式写法（也接受 data-vk-static）
+vk.video({ bake: false })             // 整片关闭；vk render / vk stills 的 --no-cache 同效（?cache=0）
+```
+
+规则与限制：被烘焙的子树必须是静态的（烘焙后不能再改其内部属性；元素自身的 transform/opacity 可以变）；样式需来自属性 / 行内样式 / 可继承属性——文档 CSS 里针对后代的规则不会带进位图；引用了"抖动"滤镜（`installInk({boil})`）的内容会被自动跳过；位图按 `devicePixelRatio × scale` 光栅化，被放大很多倍的层请给更大的 `scale`；烘焙后的位图在亚像素平移时是重采样而非重新矢量光栅化（差异 < 1 灰阶）。每个 worker 各烘焙一次（tadpole：60 个层、19 MP、约 1.3 s）。`window.__bake` / `vk.bakeStats` 报告烘焙数量与耗时，`vk render` 会打印。
+
+水墨套件已接入：`texture: { rice }` 的分形噪声纸纹只生成一次（一块噪声瓦片 → 全画幅 canvas 图案，内阴影单独一层保持在纸纹之上；`rice: { cache: false }` 回到旧实现）；tadpole 的远山、中景、水面墨线、荷叶/荷花的 `ink-wob` 滤镜都已 `vk.bake`。`wash` 转场去掉了恒等的 `brightness(1)`。实测软件合成下 CSS `brightness()` 很便宜（mv 全画幅 ≈1.3 ms/帧，wash 转场 ≈1.7 ms/帧），真正贵的是模糊（wash ≈11 ms/帧）和 SVG 滤镜。
+
+**确定性检查**：分块并行意味着帧的渲染顺序与时间顺序不同。如果某个值是上一帧留下的（例如一个 `sc.on` 写、另一个更早注册的 `sc.on` 读），它会滞后一帧，并在每个分块开头出错。`vk qa` 现在会比较"从 t−1/fps 走到 t"与"从别处跳到 t"两种情况下可见 DOM 的状态（`--order-step 1` 秒采样，0 关闭），不一致时给出 WARN 和具体元素/属性。tadpole 的光束亮度就是这样发现并修正的（改成 `P.rayBoostAt(t)` 纯函数）。
+
+**实测**（8 核、无 GPU、Chrome for Testing 153 headless shell，1280×720 @30fps）：
+
+| | 旧（screenshot，7 worker） | 新（beginframe + 缓存，8 worker） | 加速 |
+|---|---|---|---|
+| tadpole 126.4 s / 3792 帧：帧阶段 | 385.0 s（9.9 fps） | 49.4 s（76.7 fps） | 7.8× |
+| tadpole 总耗时（含音频、mux、blackdetect） | 6 min 31 s | 56 s | 7.0× |
+| 其它示例 6 s 片段（180 帧，帧阶段 fps，旧路径 4 worker） | promo 30.8 · explainer 30.2 · vertical(1080×1920) 12.9 · gallery 47.0 · mv 19.8 · explainer-vo 28.0 | 74.3 · 78.7 · 34.6 · 127.4 · 59.1 · 73.4 | 2.4–3.0× （短片段以浏览器启动/烘焙为主） |
+
+tadpole 每帧耗时构成（旧路径单 worker）：render(t) JS + IPC ≈ 3–10 ms；截图 141–218 ms，其中约 29 ms 是等下一个 vsync/帧、其余是 SwiftShader GL 合成 + SVG 滤镜 + PNG/JPEG 编码。新路径（CPU 时间/帧，约 40–46 ms，之前 ≈ 59 ms）：Viz 软件合成 ≈ 18–21 ms、浏览器主线程 JPEG 编码/base64 ≈ 10 ms、光栅 ≈ 6 ms、渲染进程主线程（render(t)、样式、布局）≈ 2–3 ms；x264（preset medium、CRF 18，宣纸颗粒很费码）≈ 34 ms/帧 CPU，约占总 CPU 的 40%。烘焙前 SVG 滤镜 ≈ 20 ms、远/中景重光栅 ≈ 17 ms、宣纸纹理 ≈ 8–13 ms。若可接受略低的编码质量，`--preset fast` 可再省约 30% 编码 CPU（SSIM 0.9899 → 0.9894）。
+
+画质（`scripts/compare-capture.mjs`：同一时刻无损 PNG，旧路径无缓存 vs 新默认）：tadpole 22 帧 SSIM 0.9942（最低 0.9939）、PSNR 47.7 dB（最低 46.3 dB），差异是抗锯齿与烘焙位图重采样，肉眼不可见。编码后每帧与各自无损源的 SSIM：新 0.9825、旧 0.9819（新分段编码不比旧差）。其它示例（每个 8 帧无损对比）SSIM：promo 0.9969、explainer 0.9957、vertical 0.9977、gallery 0.9996（WebGL 正常）、mv 0.9980、explainer-vo 0.9957，最低均 ≥ 0.995。`vk sync`（tadpole 字幕词时间 vs 成片重对齐）：新 中位 −14.5 ms / 1 帧内 51.3%，旧 −15.0 ms / 51.3%，无变化。
+
+工具：`scripts/profile-render.mjs`（截图路径分解）、`scripts/profile-cpu.mjs`（beginframe 每帧 CPU、`--trace` 输出 Chrome trace）、`scripts/compare-capture.mjs`（两种捕获设置的无损逐帧对比）、`scripts/compare-video.mjs`（两个 MP4 逐帧 SSIM/PSNR）。
 
 ---
 
@@ -491,7 +539,7 @@ vk sync out/explainer-vo.mp4 --words out/explainer-vo.words.json   # 对成片�
 - 纯 CPU；whisper-small 对齐的逐字误差约 50 ms（中位），快速说唱/密集歌词更差；可 `--model medium` 换精度。
 - stable-ts 的 silero VAD 需从 GitHub torch hub 下载，受速率限制影响，故固定 `vad=False`。
 - edge-tts 需联网、是微软在线服务（商用条款请自行确认）；piper 中文音色 `huayan` 的数据集许可标注为 Unknown。
-- `beat.brightness` / `energy.brightness` 使用 CSS filter，大面积使用会拖慢渲染。
+- `beat.brightness` / `energy.brightness` 使用 CSS filter；软件合成下全画幅约 1–2 ms/帧，代价不大，但 `blur()` 类滤镜昂贵（≈10 ms/帧）。
 - 预览里的配音播放是近似的（HTML audio 跟随播放头），以渲染结果为准。
 
 ---
@@ -524,9 +572,11 @@ vk.el(ctx => { /* 在节点列表里插入任意元素，ctx.scene / ctx.px / ct
 vk render  page.html -o out.mp4 [--fps 30] [--scale 2] [--format 16:9|9:16|1:1|4:5] [--audio music.m4a]
                                 [--audio-offset s] [--grain 6] [--workers 4] [--from s --to s] [--crf 18]
                                 [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
-vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2]   静帧 PNG（默认每个场景动画落定后的一帧）
+                                [--capture beginframe|screenshot] [--gpu soft|swiftshader|off] [--no-cache]
+                                [--timing] [--chunk 帧数] [--x264-threads n]      （--workers 默认 = CPU 核数）
+vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2] [--capture …] [--no-cache]   静帧 PNG（默认每个场景动画落定后的一帧）
 vk contact page.html [-o sheet.png] [--times a,b | --settle] [--cols 4]   联系表（每场景 2 帧，或 --settle 1 帧）
-vk qa      page.html [--sample 0.5] [--json=report.json]      版面 QA + 可见文字快照
+vk qa      page.html [--sample 0.5] [--order-step 1] [--json=report.json]   版面 QA + 渲染顺序确定性 + 可见文字快照
 vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]   开发服务器：热更新 + 进度条（--dev 同时监听 src/ 重建）
 vk new     video.html [--format 9:16] [--theme bold]          生成模板
                                 [--lufs -14|off] [--duck -10] [--no-voice]   ← render 的混音参数
@@ -539,7 +589,7 @@ vk sync    out.mp4 [--beats song.beats.json --music-start s] [--words out.words.
 vk doctor
 ```
 
-`vk qa` 检查项：文字重叠、文字溢出容器、出画、标题安全区、平台 UI 区（竖屏）、字幕宽度/换行/阅读速度（中文按 ≤9 字/秒）、字体是否加载、空白帧（含转场中点）、配音缺失 / 配音超出场景、音乐文件缺失、词时间非单调，并打印每个场景的可见文字快照，方便核对文案。ISSUE 为必须修，WARN 为建议检查（转场中点的 dip/flash 预期会报空白帧）。
+`vk qa` 检查项：文字重叠、文字溢出容器、出画、标题安全区、平台 UI 区（竖屏）、字幕宽度/换行/阅读速度（中文按 ≤9 字/秒）、字体是否加载、空白帧（含转场中点）、配音缺失 / 配音超出场景、音乐文件缺失、词时间非单调，并打印每个场景的可见文字快照，方便核对文案。以及 `render(t)` 是否依赖渲染顺序（seek-order）。ISSUE 为必须修，WARN 为建议检查（转场中点的 dip/flash 预期会报空白帧）。
 
 ---
 
@@ -586,7 +636,7 @@ vk.use({
 
 ```bash
 npm run build        # esbuild → dist/vidkit.js（IIFE, window.vk）+ dist/vidkit.esm.js
-npm test             # node --test：缓动端点/单调性、cubic-bezier 解析、stagger、BeatGrid（小节/提前一帧/网格切点）、种子随机、插值、代码高亮、词映射/字幕切分、混音表达式；有 .venv 时额外跑 click-track 分析测试
+npm test             # node --test：缓动端点/单调性、cubic-bezier 解析、stagger、BeatGrid（小节/提前一帧/网格切点）、种子随机、插值、代码高亮、词映射/字幕切分、混音表达式、分块调度（每帧恰好一次/工作窃取）、捕获参数、滤镜区域/引用收集，以及一个真实浏览器往返（beginframe vs screenshot、烘焙 vs 不烘焙 SSIM ≥ 0.99、同一 t 帧字节一致）；有 .venv 时额外跑 click-track 分析测试
 npm run examples     # 渲染全部示例到 out/
 node scripts/list-presets.mjs   # 打印已注册预设（同步本文档）
 node scripts/debug-page.mjs /abs/page.html   # 打印页面报错与 console

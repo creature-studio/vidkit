@@ -1,68 +1,103 @@
 // vk render page.html -o out.mp4 [--fps 30] [--scale 1] [--format 9:16] [--audio a.m4a] [--audio-offset 0] [--grain 6]
-//   [--workers 4] [--from 0 --to 10] [--crf 18] [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
+//   [--workers cores] [--from 0 --to 10] [--crf 18] [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
 //   [--lufs -14|off] [--duck -10] [--no-voice]   audio: page music (vk.video({music, musicStart})) + vo: clips + SFX score, ducked + loudnorm
+//   [--capture beginframe|screenshot] [--gpu soft|swiftshader|off] [--no-cache] [--timing] [--chunk frames] [--x264-threads n]
+//   capture: beginframe (default) = chrome-headless-shell, one BeginFrame + screenshot per video frame (cli/capture.mjs);
+//            screenshot = the original Playwright page.screenshot() path. --no-cache disables vk.bake() static-layer caching.
 import { mixAudio } from './mix.mjs';
-import { parseArgs, startServer, pageUrl, launch, probeInfo, workerPage, seek, shot, run, ffprobeLine, tmpdir, fs, path, os, spawn } from './lib.mjs';
+import { openWorker, resolveMode } from './capture.mjs';
+import { parseArgs, startServer, pageUrl, launch, probeInfo, run, ffprobeLine, tmpdir, fs, path, os, spawn } from './lib.mjs';
+
+// default worker count: beginframe workers are CPU-bound (one frame in flight each) → one per core;
+// the screenshot path waits on vsync-paced capture, the old default was min(4, cores - 1)
+export function defaultWorkers(mode, cores = os.cpus().length) {
+  return mode === 'screenshot' ? Math.max(1, Math.min(4, cores - 1)) : Math.max(1, cores);
+}
 
 export default async function render(argv) {
-  const opt = parseArgs(argv);
+  const opt = parseArgs(argv), T0 = Date.now();
   const input = opt._[0]; if (!input) throw new Error('usage: vk render page.html -o out.mp4 [options]');
   const abs = path.resolve(input); if (!fs.existsSync(abs)) throw new Error('not found ' + abs);
   const fps = +(opt.fps || 30), scale = +(opt.scale || 1), crf = +(opt.crf || 18), preset = opt.preset || 'medium';
   const type = opt.png ? 'png' : 'jpeg', quality = +(opt.quality || 95);
   const out = path.resolve(opt.out || abs.replace(/\.html?$/i, '') + '.mp4');
   const { server, port } = await startServer();
-  const params = { render: '1', fps: String(fps) }; if (opt.format) params.format = opt.format;
+  const mode = resolveMode(opt.capture);
+  const params = { render: '1', fps: String(fps) }; if (opt.format) params.format = opt.format; if (opt.cache === false || opt.noCache) params.cache = '0';
   const url = pageUrl(port, abs, params);
   const probeBrowser = await launch();
-  const info = await probeInfo(probeBrowser, url);
+  const info = await probeInfo(probeBrowser, pageUrl(port, abs, { ...params, cache: '0' }));   // timeline/audio only: skip the static-layer bakes
   await probeBrowser.close();
   const W = info.size.width, H = info.size.height;
   const t0 = +(opt.from || 0), t1 = Math.min(info.dur, opt.to != null ? +opt.to : info.dur);
   const total = Math.round((t1 - t0) * fps);
-  const workers = Math.max(1, Math.min(+(opt.workers || Math.max(1, Math.min(4, os.cpus().length - 1))), Math.ceil(total / 30)));
-  console.log(`[vk render] ${path.basename(abs)}  ${W}x${H}  ${info.dur.toFixed(2)}s  ${info.scenes.length} scenes  fps=${fps} scale=${scale} workers=${workers} frames=${total}`);
+  const workers = Math.max(1, Math.min(+(opt.workers || defaultWorkers(mode)), Math.ceil(total / 30)));
+  console.log(`[vk render] ${path.basename(abs)}  ${W}x${H}  ${info.dur.toFixed(2)}s  ${info.scenes.length} scenes  fps=${fps} scale=${scale} workers=${workers} frames=${total} capture=${mode}${params.cache === '0' ? ' cache=off' : ''}`);
   const tmp = tmpdir('vkr-'), outW = Math.round(W * scale / 2) * 2, outH = Math.round(H * scale / 2) * 2;
-  const started = Date.now(); let done = 0; const per = Math.ceil(total / workers), segs = [];
+  // audio does not depend on the pictures: synthesise the score + mix (loudnorm two-pass) while the frames render
+  const audioJob = (async () => {
+    const alog = [];
+    // ---------------- audio: music (+offset, ducking) + voice-over + offline SFX score → loudnorm ----------------
+    const dur = (t1 - t0).toFixed(3), local = u => decodeURIComponent(new URL(u).pathname);
+    const M = info.music, mixCfg = info.mix || {};
+    const music = opt.audio ? { file: path.resolve(opt.audio), start: +opt.audioOffset || 0, gain: 1 } : M ? { file: local(M.src), start: M.start || 0, gain: M.gain } : null;
+    const voices = opt.noVoice ? [] : (info.voice || []).map(v => ({ ...v, file: local(v.src) }));
+    if (info.voMissing && info.voMissing.length) alog.push(`  [warn] ${info.voMissing.length} vo: line(s) have no TTS audio yet (timing estimated) — run: vk tts ${path.basename(abs)}`);
+    const wantScore = info.hasScore && !opt.noScore, mixing = !!(music || voices.length);
+    let score = null;
+    if (wantScore) { score = await renderScore(url, t0, t1, mixing ? 1 : +(opt.scoreGainMax || 2), !mixing, tmp); alog.push('  audio: window.SCORE rendered offline (OfflineAudioContext → WAV)'); }
+    let audio = null;
+    if (mixing) {
+      const lufs = opt.lufs === 'off' ? null : +(opt.lufs || mixCfg.lufs || -14);
+      const r = await mixAudio({ log: l => alog.push(l), tmp, t0, dur: t1 - t0, music, voices, score, lufs, duckDb: opt.duck != null ? +opt.duck : (mixCfg.duck != null ? mixCfg.duck : -10), fadeOut: mixCfg.fadeOut != null ? mixCfg.fadeOut : (t1 >= info.dur - .01 ? 1.2 : 0) });
+      audio = r && r.file;
+      if (r && r.output) fs.writeFileSync(out.replace(/\.mp4$/i, '') + '.audio.json', JSON.stringify({ lufsTarget: lufs, measured: r.output, input: r.input, music: music && { file: path.basename(music.file), start: music.start, gain: music.gain }, voices: voices.map(v => ({ t: v.t, file: path.basename(v.file), dur: v.dur })), score: !!score }, null, 1));
+    } else if (score) audio = score;
+    return { audio, alog };
+  })();
+  audioJob.catch(() => { });
+  const started = Date.now(); let done = 0, bakeInfo = null; const segs = [];
+  // work queue: each worker owns a contiguous lane of frames and renders it chunk by chunk (consecutive frames keep
+  // raster tiles / caches warm); a worker whose lane is empty steals the back half of the busiest lane, so the slowest
+  // part of the film no longer decides the total time. Every chunk is its own H.264 segment (concat -c copy at the end).
+  const chunk = Math.max(1, Math.round(+(opt.chunk || (mode === 'screenshot' ? Math.ceil(total / workers) : fps * 2))));
+  const sched = makeScheduler(total, workers, chunk);
+  const T = { seek: 0, frame: 0, pipe: 0, open: 0 }, now = () => performance.now();
+  const x264 = ['-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-pix_fmt', 'yuv420p', '-r', String(fps), ...(opt.x264Threads ? ['-threads', String(opt.x264Threads)] : [])];
+  const vf = `scale=${outW}:${outH}:flags=lanczos:out_color_matrix=bt709:out_range=tv${opt.grain ? `,noise=c0s=${+opt.grain}:allf=t` : ''},format=yuv420p`;
   await Promise.all(Array.from({ length: workers }, async (_, w) => {
-    const a = w * per, b = Math.min(total, a + per); if (a >= b) return;
-    const seg = path.join(tmp, `seg${String(w).padStart(3, '0')}.mp4`); segs[w] = seg;
-    const browser = await launch();               // one browser per worker: shared browsers barely parallelise
-    const page = await workerPage(browser, url, info, scale);
-    const vf = `scale=${outW}:${outH}:flags=lanczos:out_color_matrix=bt709:out_range=tv${opt.grain ? `,noise=c0s=${+opt.grain}:allf=t` : ''},format=yuv420p`;
-    const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-c:v', type === 'png' ? 'png' : 'mjpeg', '-framerate', String(fps), '-i', '-',
-      '-vf', vf, '-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-pix_fmt', 'yuv420p', '-r', String(fps),
-      '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', seg], { stdio: ['pipe', 'inherit', 'inherit'] });
-    const closed = new Promise((res, rej) => ff.on('close', c => (c ? rej(new Error('ffmpeg exit ' + c)) : res())));
-    for (let i = a; i < b; i++) {
-      await seek(page, t0 + i / fps);
-      const buf = await shot(page, info, type, quality);
-      if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
-      done++;
-      if (done % Math.max(1, fps * 2) === 0) process.stdout.write(`\r  frames ${done}/${total}  ${(done / ((Date.now() - started) / 1000)).toFixed(1)} fps   `);
+    let x = now();                                // one browser per worker: shared browsers barely parallelise
+    const wk = await openWorker(mode, url, info, { scale, type, quality, gpu: opt.gpu, onError: m => { console.error('  [page error]', m); process.exit(1); } });  // never ship a broken film
+    T.open += now() - x;
+    if (w === 0) wk.evaluate(() => window.__bake || null).then(b => { if (b && (b.baked || b.skipped)) bakeInfo = `  static layer cache: ${b.baked} layer(s) baked once per worker (${(b.px / 1e6).toFixed(1)} MP in ${Math.round(b.ms)} ms)${b.skipped ? `, ${b.skipped} skipped` : ''}`; }).catch(() => { });
+    for (let job; (job = sched.take(w));) {
+      const [a, b] = job, seg = path.join(tmp, `seg${String(a).padStart(6, '0')}.mp4`); segs.push({ a, seg });
+      const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-c:v', type === 'png' ? 'png' : 'mjpeg', '-framerate', String(fps), '-i', '-',
+        '-vf', vf, ...x264, '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', seg], { stdio: ['pipe', 'inherit', 'inherit'] });
+      const closed = new Promise((res, rej) => ff.on('close', c => (c ? rej(new Error('ffmpeg exit ' + c)) : res())));
+      for (let i = a; i < b; i++) {
+        x = now(); await wk.seek(t0 + i / fps); const y = now(); T.seek += y - x;
+        const buf = await wk.frame(); const z = now(); T.frame += z - y;
+        if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
+        T.pipe += now() - z;
+        done++;
+        if (done % Math.max(1, fps * 2) === 0) process.stdout.write(`\r  frames ${done}/${total}  ${(done / ((Date.now() - started) / 1000)).toFixed(1)} fps   `);
+      }
+      ff.stdin.end(); await closed;
     }
-    ff.stdin.end(); await closed; await browser.close();
+    await wk.close();
   }));
-  process.stdout.write(`\r  frames ${done}/${total} in ${((Date.now() - started) / 1000).toFixed(1)}s\n`);
+  segs.sort((p, q) => p.a - q.a);
+  const secs = (Date.now() - started) / 1000;
+  process.stdout.write(`\r  frames ${done}/${total} in ${secs.toFixed(1)}s  (${(done / secs).toFixed(1)} fps)\n`);
+  if (bakeInfo) console.log(bakeInfo);
+  if (opt.timing) console.log(`  timing per frame (worker-average ms): seek/render(t) ${(T.seek / done).toFixed(1)} · capture ${(T.frame / done).toFixed(1)} · ffmpeg back-pressure ${(T.pipe / done).toFixed(1)} · browser start ${(T.open / workers / 1000).toFixed(1)}s/worker`);
   const list = path.join(tmp, 'list.txt');
-  fs.writeFileSync(list, segs.filter(Boolean).map(s => `file '${s}'`).join('\n'));
+  fs.writeFileSync(list, segs.map(s => `file '${s.seg}'`).join('\n'));
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  // ---------------- audio: music (+offset, ducking) + voice-over + offline SFX score → loudnorm ----------------
-  const dur = (t1 - t0).toFixed(3), local = u => decodeURIComponent(new URL(u).pathname);
-  const M = info.music, mixCfg = info.mix || {};
-  const music = opt.audio ? { file: path.resolve(opt.audio), start: +opt.audioOffset || 0, gain: 1 } : M ? { file: local(M.src), start: M.start || 0, gain: M.gain } : null;
-  const voices = opt.noVoice ? [] : (info.voice || []).map(v => ({ ...v, file: local(v.src) }));
-  if (info.voMissing && info.voMissing.length) console.log(`  [warn] ${info.voMissing.length} vo: line(s) have no TTS audio yet (timing estimated) — run: vk tts ${path.basename(abs)}`);
-  const wantScore = info.hasScore && !opt.noScore, mixing = !!(music || voices.length);
-  let score = null;
-  if (wantScore) { score = await renderScore(url, t0, t1, mixing ? 1 : +(opt.scoreGainMax || 2), !mixing, tmp); console.log('  audio: window.SCORE rendered offline (OfflineAudioContext → WAV)'); }
-  let audio = null;
-  if (mixing) {
-    const lufs = opt.lufs === 'off' ? null : +(opt.lufs || mixCfg.lufs || -14);
-    const r = await mixAudio({ tmp, t0, dur: t1 - t0, music, voices, score, lufs, duckDb: opt.duck != null ? +opt.duck : (mixCfg.duck != null ? mixCfg.duck : -10), fadeOut: mixCfg.fadeOut != null ? mixCfg.fadeOut : (t1 >= info.dur - .01 ? 1.2 : 0) });
-    audio = r && r.file;
-    if (r && r.output) fs.writeFileSync(out.replace(/\.mp4$/i, '') + '.audio.json', JSON.stringify({ lufsTarget: lufs, measured: r.output, input: r.input, music: music && { file: path.basename(music.file), start: music.start, gain: music.gain }, voices: voices.map(v => ({ t: v.t, file: path.basename(v.file), dur: v.dur })), score: !!score }, null, 1));
-  } else if (score) audio = score;
+  const ta = Date.now(), { audio, alog } = await audioJob; alog.forEach(l => console.log(l));
+  if (opt.timing) console.log(`  audio ready ${((Date.now() - ta) / 1000).toFixed(1)}s after the frames (rendered concurrently)`);
+  const dur = (t1 - t0).toFixed(3);
   if (audio) {
     const joined = path.join(tmp, 'video.mp4');
     await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', joined]);
@@ -78,12 +113,33 @@ export default async function render(argv) {
   if (opt.srt && info.caps.length) {
     const f = out.replace(/\.mp4$/i, '') + '.srt'; fs.writeFileSync(f, toSRT(info.caps, t0, t1)); console.log('  srt', f);
   }
+  const tq = Date.now();
   console.log(`[done] ${out}\n       ${ffprobeLine(out)}`);
   const { stderr } = await run('ffmpeg', ['-hide_banner', '-i', out, '-vf', 'blackdetect=d=0.5:pix_th=0.05', '-an', '-f', 'null', '-']);
   const hits = stderr.split('\n').filter(l => l.includes('black_start'));
   console.log(hits.length ? '  [qa] black stretches ≥0.5s:\n   ' + hits.map(h => h.replace(/.*(black_start)/, '$1')).join('\n   ') : '  [qa] blackdetect: no black stretches ≥0.5s');
+  if (opt.timing) console.log(`  phases: probe ${((started - T0) / 1000).toFixed(1)}s · frames ${secs.toFixed(1)}s · audio wait + mux ${((tq - started) / 1000 - secs).toFixed(1)}s · blackdetect ${((Date.now() - tq) / 1000).toFixed(1)}s · total ${((Date.now() - T0) / 1000).toFixed(1)}s`);
   server.close();
   return out;
+}
+// lanes + work stealing over frame indices [0, total): take(w) → [a, b) or null when everything is handed out
+export function makeScheduler(total, workers, chunk) {
+  const per = Math.ceil(total / workers);
+  const lanes = Array.from({ length: workers }, (_, w) => ({ a: Math.min(total, w * per), b: Math.min(total, (w + 1) * per) }));
+  return {
+    lanes,
+    take(w) {
+      let L = lanes[w];
+      if (L.a >= L.b) {
+        let best = null; for (const M of lanes) if (M.b - M.a > 0 && (!best || M.b - M.a > best.b - best.a)) best = M;
+        if (!best) return null;
+        const rem = best.b - best.a;
+        if (rem > 2 * chunk) { const mid = best.a + Math.ceil(rem / 2); L.a = mid; L.b = best.b; best.b = mid; }   // steal the back half
+        else { const s = Math.max(best.a, best.b - chunk); const job = [s, best.b]; best.b = s; return job; }        // or its last chunk
+      }
+      const s = L.a, e = Math.min(L.b, s + chunk); L.a = e; return [s, e];
+    },
+  };
 }
 export function toSRT(caps, t0 = 0, t1 = Infinity) {
   const ts = s => { const ms = Math.max(0, Math.round(s * 1000)), h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, se = Math.floor(ms / 1000) % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(se).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`; };
