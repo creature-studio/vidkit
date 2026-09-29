@@ -47,11 +47,11 @@ T('stretch', "vk.title('…', {fx:'stretch', font:'display'})", vk.title('STRETC
 T('stack', "vk.stack(['KINETIC','TYPE','STACK'])", vk.stack(['KINETIC', 'TYPE STACKS', 'TO FILL THE BOX'], { at: .3, w: 760, style: 'font-family:var(--vk-display)' }), 2.8);
 demo('TEXT FX', 'basic presets ①', "vk.text('…', {fx:'up'|'down'|'left'|'right'|'scale'|'pop'|'zoom'|'blur'|'rise'})", 3.6, {}, [
   vk.grid(['up', 'down', 'left', 'right', 'scale', 'pop', 'zoom', 'blur', 'rise'].map((f, i) => vk.badge(f, { fx: f, at: .3 + i * .25, size: 34, hl: i % 3 === 0 })), { cols: 3, gap: 30, w: 760 })]);
-demo('TEXT FX', 'basic presets ②', "vk.text('…', {fx:'wipe'|'wipe-left'|'wipe-up'|'wipe-down'|'reveal'|'grow'|'flip'|'fade'})", 3.6, {}, [
-  vk.grid(['wipe', 'wipe-left', 'wipe-up', 'wipe-down', 'reveal', 'grow', 'flip', 'fade', 'rise blur'].map((f, i) => vk.html(`<div class="vk-surface vk-mono" style="font-size:30px;font-weight:700;padding:14px 20px;text-align:center">${f}</div>`, { fx: f, at: .3 + i * .25 })), { cols: 3, gap: 26, w: 820 })]);
+demo('TEXT FX', 'basic presets ②', "vk.text('…', {fx:'wipe'|'wipe-left'|'wipe-up'|'wipe-down'|'reveal'|'grow'|'grow-y'|'flip'|'fade'})", 3.6, {}, [
+  vk.grid(['wipe', 'wipe-left', 'wipe-up', 'wipe-down', 'reveal', 'grow', 'grow-y', 'flip', 'fade'].map((f, i) => vk.html(`<div class="vk-surface vk-mono" style="font-size:30px;font-weight:700;padding:14px 20px;text-align:center">${f}</div>`, { fx: f, at: .3 + i * .25 })), { cols: 3, gap: 26, w: 820 })]);
 
 /* ---------- transitions: each scene enters with the named transition ---------- */
-const TR = ['fade', 'crossfade', 'slide-left', 'slide-up', 'push-left', 'push-right', 'push-up', 'push-down', 'whip-left', 'wipe-left', 'wipe-right', 'wipe-up', 'wipe-down', 'zoom-in', 'zoom-out', 'blur', 'iris', 'iris-out', 'shape-diamond', 'shape-star', 'shape-hexagon', 'shape-heart', 'shape-triangle', 'shape-blob', 'split', 'split-h', 'split-open', 'diagonal', 'blinds', 'flash', 'dip', 'glitch', 'zoom-through'];
+const TR = ['fade', 'crossfade', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'push-left', 'push-right', 'push-up', 'push-down', 'whip-left', 'whip-right', 'whip-up', 'whip-down', 'wipe-left', 'wipe-right', 'wipe-up', 'wipe-down', 'zoom-in', 'zoom-out', 'blur', 'iris', 'iris-out', 'shape-diamond', 'shape-star', 'shape-hexagon', 'shape-heart', 'shape-triangle', 'shape-square', 'shape-blob', 'split', 'split-h', 'split-open', 'diagonal', 'blinds', 'flash', 'dip', 'glitch', 'zoom-through'];
 const trModes = ['dark', 'accent', 'light'];
 TR.forEach((tr, i) => {
   const d = { 'zoom-through': .9, dip: .7, flash: .5, glitch: .5, blinds: .7, 'iris-out': .7 }[tr] || .6;
@@ -134,9 +134,10 @@ demo('CAPTION', 'captions · karaoke words', "{cap:'…'} · v.caption(s, e, tex
   return vk.sub('Phase 2 接口：词级时间 → 卡拉 OK 字幕', { at: .2 }).build(ctx);
 })]);
 
+const uniq = reg => new Set(Object.values(reg)).size; // aliases share one implementation
 vk.scene('outro', 3, { bg: { type: 'mesh' }, mode: 'dark', transition: 'iris:0.6' }, [
   vk.hero('vidkit', { at: .3, size: 170 }),
-  vk.sub(`${vk.list('transitions').length} 转场 · ${vk.list('fx').length} 元素特效 · ${vk.list('textures').length} 质感 · ${vk.list('backgrounds').length} 背景`, { at: .9 }),
+  vk.sub(`${uniq(vk.transitions)} 转场 · ${uniq(vk.fx)} 元素特效 · ${vk.list('blocks').length} 区块/图表 · ${vk.list('textures').length} 质感 · ${vk.list('backgrounds').length} 背景`, { at: .9 }),
 ]);
 </script>
 </body>

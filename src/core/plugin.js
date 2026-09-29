@@ -3,7 +3,7 @@
 //   fx          name → (el, o, api) => void       element effect (entrance/exit/emphasis); or {from,to,ease,instant,origin}
 //   transitions name → (p, ctx) => ({in, out, flash, flashColor, under})   scene transition, p = eased 0..1
 //   textures    name → (video, opts) => ({el?, draw?(ctx,t,info), update?(t)})   full-frame overlay
-//   backgrounds name → (sceneEl, opts, api) => ({el, update?(local)})
+//   backgrounds name → (scene, opts, video) => ({el, update?(local)})
 //   blocks      name → (…args) => Node        authoring factories, exposed as vk[name]
 //   themes / formats / sounds (sfx voices) / layers (render layer kinds)
 //   hooks       init(video) · frame(t, video) · qa(report, video)

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>vidkit 插件示例</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script src="plugins/hello-plugin.js"></script>
+<script>
+vk.use(helloPlugin);
+const v = vk.video({ format: '16:9', theme: 'noir', texture: { tint: { amount: .08 } } });
+vk.scene('A', 2.5, [vk.title('tilt 预设', { fx: 'tilt', at: .2 })]);
+vk.scene('B', 2.5, { transition: 'spin-in:0.7' }, [vk.title('NEON', { fx: 'neon', at: .3, size: 150, font: 'display' })]);
+</script>
+</body>
+</html>
