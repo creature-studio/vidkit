@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>全球碳排放 · vidkit 数据讲解示例</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script>
+// 16:9 data explainer, editorial theme. Real public data: Our World in Data CO₂ dataset (CC BY 4.0),
+// extracted to data/co2.json (see "source"). Presets: letters-blur title, ticker, line draw-on, horizontal /
+// vertical bars with highlight, donut, multi-series line, progress rings, table, marker/underline, quote,
+// kv credits, paper + grain textures, camera keys, blur/wipe/slide/iris transitions, captions.
+const D = vk.json('data/co2.json');
+const SRC = '数据：Our World in Data · Global Carbon Project（CC BY 4.0）';
+const v = vk.video({
+  format: '16:9', fps: 30, theme: 'editorial', title: '全球碳排放，一图看懂',
+  transition: 'fade:0.5', autoSfx: true,
+  texture: { paper: { amount: .5 }, grain: { amount: .04 } },
+  scoreOptions: { pad: [98, 146.83, 196], padGain: .018 },
+});
+const pct = k => +(D.fuel.find(f => f.label === k).value / D.world2024 * 100).toFixed(1);
+const growth = (D.world2024 / D.world1950).toFixed(1);
+
+vk.scene('标题', 5, { bg: 'light', cap: '一张图看懂全球二氧化碳排放：1950 到 2024' }, [
+  vk.label('DATA EXPLAINER · CO₂', { at: .2 }),
+  vk.title('全球碳排放，**一图看懂**', { fx: 'letters-blur', at: .4, size: 96 }),
+  vk.sub('化石燃料与工业 CO₂ · 1950–2024', { at: 1.4, fx: 'up' }),
+  vk.small(SRC, { at: 2.0 }),
+]);
+
+vk.scene('总量', 6, { bg: 'dark', transition: 'blur:0.6', cap: `2024 年全球排放约 ${Math.round(D.world2024)} 百万吨，是 1950 年的 ${growth} 倍` }, [
+  vk.label('2024 年全球排放', { at: .2 }),
+  vk.ticker(D.world2024, { from: D.world1950, d: 2.2, decimals: 0, size: 150, at: .5, label: '百万吨 CO₂（Mt）' }),
+  vk.text(`是 1950 年（${Math.round(D.world1950)} Mt）的 ==${growth} 倍==`, { at: 2.8, markAt: 3.3, mt: 30, size: 34 }),
+]);
+
+vk.scene('75 年曲线', 7, { bg: 'light', transition: 'wipe-right:0.6', cap: `从 1950 到 2024，全球年排放总体一路上升` }, [
+  vk.h2('75 年，**一路上升**', { at: .2 }),
+  vk.line(null, { series: [{ name: '世界', values: D.world.values }], labels: D.world.labels, w: 940, h: 380, at: .7, d: 2.4, area: true, dots: true, endLabel: true, unit: '', source: SRC, mt: 20 }),
+]);
+
+vk.scene('谁排得最多', 7, { bg: 'light', transition: 'slide-left:0.6', cap: '按国家/地区看，2024 年中国排放最多，其次是美国和印度' }, [
+  vk.h2(`${D.year} 年排放前六`, { at: .2 }),
+  vk.bar(D.top, { horizontal: true, highlight: 0, w: 900, h: 360, at: .7, each: .15, unit: ' Mt', labelW: 130, source: SRC, mt: 20 }),
+]);
+
+const others = +(100 - D.top.reduce((m, d) => m + d.share, 0)).toFixed(1);
+vk.scene('占比', 6.5, { bg: 'dark', transition: 'iris:0.7', cap: `前六名合计约占全球的 ${(100 - others).toFixed(1)}%` }, [
+  vk.h2('占全球比例', { at: .2 }),
+  vk.donut([...D.top.map(d => ({ label: d.label, value: d.share })), { label: '其他', value: others, color: 'color-mix(in srgb, var(--muted) 45%, transparent)' }], { r: 170, thickness: 60, at: .7, unit: '%', center: '2024', centerLabel: '全球 = 100%', pctDecimals: 1, mt: 20 }),
+]);
+
+vk.scene('人均', 7, { bg: 'light', transition: 'push-left:0.6', cap: '换成人均，排序完全不同：美国、俄罗斯最高，印度低于世界平均' }, [
+  vk.h2('换成**人均**，排序完全不同', { at: .2, fx: 'words' }),
+  vk.bar(D.perCapita, { highlight: D.perCapita.length - 1, w: 900, h: 320, at: .8, each: .12, decimals: 1, unit: ' t', source: SRC + ' · 单位：吨/人', mt: 34 }),
+]);
+
+vk.scene('走势对比', 7.5, { bg: 'dark', transition: 'wipe-up:0.6', cap: '1990 年以来：中国、印度上升，美国和欧盟在下降' }, [
+  vk.h2('1990 → 2024：**分岔**', { at: .2 }),
+  vk.line(null, { series: D.series, labels: D.seriesLabels, w: 960, h: 380, at: .7, d: 2.6, endLabel: true, source: SRC, mt: 16 }),
+]);
+
+vk.scene('来自哪里', 7, { bg: 'light', transition: 'zoom-in:0.6', cap: `按来源看：煤炭约 ${pct('煤炭')}%，石油约 ${pct('石油')}%，天然气约 ${pct('天然气')}%` }, [
+  vk.h2('排放来自哪里', { at: .2 }),
+  vk.row([
+    vk.ring(pct('煤炭'), { r: 110, label: '煤炭', decimals: 1, at: .7 }),
+    vk.ring(pct('石油'), { r: 110, label: '石油', decimals: 1, at: .9, color: 'var(--accent2)' }),
+    vk.ring(pct('天然气'), { r: 110, label: '天然气', decimals: 1, at: 1.1, color: 'var(--muted)' }),
+    vk.table({ header: ['来源', 'Mt'], rows: D.fuel.map(f => [f.label, f.value.toLocaleString('en-US', { maximumFractionDigits: 0 })]), highlight: 0 }, { w: 330, size: 18, at: 1.4, each: .12 }),
+  ], { gap: 40, mt: 30 }),
+]);
+
+vk.scene('结语', 7, { bg: 'dark', transition: 'dip:0.8', camera: [{ t: 0, s: 1.06 }, { t: 7, s: 1 }], cap: '总量、人均、来源：三个角度，三种答案' }, [
+  vk.quote('看总量、看人均、看来源——**三个角度，三种答案**。', { by: '本片数据全部来自公开数据集', at: .3, w: 1000, size: 40 }),
+  vk.kv([['数据集', 'Our World in Data · CO₂ and GHG Emissions'], ['上游', 'Global Carbon Project'], ['许可', 'CC BY 4.0 · github.com/owid/co2-data']], { at: 2.6, each: .3, w: 900, rowH: 50, keyW: 150, mt: 34 }),
+]);
+</script>
+</body>
+</html>

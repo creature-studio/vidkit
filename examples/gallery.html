@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>vidkit · fx gallery（活文档）</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script>
+// FX gallery: every Phase 1 preset, briefly, with its name and the one-line snippet that produced it.
+const v = vk.video({ format: '16:9', fps: 30, theme: 'tech-blue', title: 'vidkit fx gallery', bpm: 120, autoSfx: false, transition: 'fade:0.3' });
+const modes = ['dark', 'light'];
+let n = 0;
+// tag top-left, snippet bottom-left (both pinned, not affected by camera)
+function demo(cat, name, code, dur, opts, nodes) {
+  const mode = opts.bg && !opts.bg.type ? opts.bg : modes[n++ % 2];
+  return vk.scene(name, dur, { ...opts, bg: opts.bg && opts.bg.type ? opts.bg : mode, mode }, [
+    vk.label(`${cat}`, { at: 0, fx: 'fade', d: .2, fixed: true, pos: { x: 80, y: 56 }, style: 'font-size:18px;letter-spacing:.12em' }),
+    vk.html(`<div class="vk-mono" style="font-size:40px;font-weight:800;color:var(--accent)">${name}</div>`, { at: 0, fx: 'fade', d: .2, fixed: true, pos: { x: 80, y: 80 } }),
+    vk.small(code, { at: 0, fx: 'fade', d: .2, fixed: true, pos: { x: 80, bottom: 64 }, font: 'mono', style: 'font-size:17px;white-space:pre', html: false }),
+    ...nodes,
+  ]);
+}
+
+/* ---------- intro ---------- */
+vk.scene('intro', 3.2, { bg: { type: 'mesh' }, mode: 'dark' }, [
+  vk.label('VIDKIT · FX GALLERY', { at: .1 }),
+  vk.hero('vidkit', { cursor: true, at: .3, size: 200 }),
+  vk.sub('所有 Phase 1 预设 · 名称 + 一行代码', { at: 1.2 }),
+]);
+
+/* ---------- text fx ---------- */
+const T = (name, code, node, dur = 2.4) => demo('TEXT FX', name, code, dur, {}, [node]);
+T('letters', "vk.title('逐字滑入 Letters', {fx:'letters'})", vk.title('逐字滑入 Letters', { fx: 'letters', at: .3, style: 'font-size:112px' }));
+T('letters-fade', "vk.title('…', {fx:'letters-fade'})", vk.title('字符淡入上浮', { fx: 'letters-fade', at: .3, style: 'font-size:120px' }));
+T('letters-blur', "vk.title('…', {fx:'letters-blur'})", vk.title('Focus Pull 失焦', { fx: 'letters-blur', at: .3, style: 'font-size:120px' }));
+T('words', "vk.title('用|代码|写|视频', {fx:'words'})", vk.title('用|代码|写|视频', { fx: 'words', at: .3, style: 'font-size:130px' }));
+T('words-up', "vk.title('…', {fx:'words-up'})", vk.title('Every frame is a function', { fx: 'words-up', at: .3, style: 'font-size:92px' }));
+T('squash', "vk.title('POP!', {fx:'squash'})", vk.title('POP UP!', { fx: 'squash', at: .3, font: 'display', style: 'font-size:190px' }));
+T('assemble', "vk.title('…', {fx:'assemble'})", vk.title('ASSEMBLE 汇聚', { fx: 'assemble', at: .3, style: 'font-size:130px' }));
+T('domino', "vk.title('…', {fx:'domino'})", vk.title('DOMINO 多米诺', { fx: 'domino', at: .3, style: 'font-size:130px' }));
+T('wave', "vk.title('…', {fx:'wave'})", vk.title('~ wave wave ~', { fx: 'wave', at: .1, style: 'font-size:130px' }));
+T('type', "vk.title('…', {fx:'type', cps:14})", vk.title('npm i -g vidkit', { fx: 'type', cps: 14, at: .3, font: 'mono', style: 'font-size:84px' }), 2.6);
+T('scramble / decode', "vk.title('…', {fx:'scramble'})", vk.title('DECRYPTING 0xVIDKIT', { fx: 'scramble', at: .2, font: 'mono', style: 'font-size:80px' }));
+T('count', "vk.title('0', {fx:'count', to:2048, sep:','})", vk.title('0', { fx: 'count', to: 204800, sep: ',', at: .2, font: 'mono', style: 'font-size:150px' }));
+T('highlight', "vk.title('把 ==重点== 标出来')", vk.title('把 ==重点== 标出来', { fx: 'fade', at: .2, markAt: .6, style: 'font-size:110px' }));
+T('underline', "vk.title('画一条 __下划线__')", vk.title('画一条 __下划线__', { fx: 'fade', at: .2, markAt: .6, style: 'font-size:110px' }));
+T('swap', "vk.title('…', {fx:'swap', at:1})", vk.title('关键词换色', { fx: 'swap', at: .8, style: 'font-size:130px' }));
+T('stretch', "vk.title('…', {fx:'stretch', font:'display'})", vk.title('STRETCH', { fx: 'stretch', at: .3, d: 1, font: 'display', style: 'font-size:200px;font-weight:900' }));
+T('stack', "vk.stack(['KINETIC','TYPE','STACK'])", vk.stack(['KINETIC', 'TYPE STACKS', 'TO FILL THE BOX'], { at: .3, w: 760, style: 'font-family:var(--vk-display)' }), 2.8);
+demo('TEXT FX', 'basic presets ①', "vk.text('…', {fx:'up'|'down'|'left'|'right'|'scale'|'pop'|'zoom'|'blur'|'rise'})", 3.6, {}, [
+  vk.grid(['up', 'down', 'left', 'right', 'scale', 'pop', 'zoom', 'blur', 'rise'].map((f, i) => vk.badge(f, { fx: f, at: .3 + i * .25, size: 34, hl: i % 3 === 0 })), { cols: 3, gap: 30, w: 760 })]);
+demo('TEXT FX', 'basic presets ②', "vk.text('…', {fx:'wipe'|'wipe-left'|'wipe-up'|'wipe-down'|'reveal'|'grow'|'flip'|'fade'})", 3.6, {}, [
+  vk.grid(['wipe', 'wipe-left', 'wipe-up', 'wipe-down', 'reveal', 'grow', 'flip', 'fade', 'rise blur'].map((f, i) => vk.html(`<div class="vk-surface vk-mono" style="font-size:30px;font-weight:700;padding:14px 20px;text-align:center">${f}</div>`, { fx: f, at: .3 + i * .25 })), { cols: 3, gap: 26, w: 820 })]);
+
+/* ---------- transitions: each scene enters with the named transition ---------- */
+const TR = ['fade', 'crossfade', 'slide-left', 'slide-up', 'push-left', 'push-right', 'push-up', 'push-down', 'whip-left', 'wipe-left', 'wipe-right', 'wipe-up', 'wipe-down', 'zoom-in', 'zoom-out', 'blur', 'iris', 'iris-out', 'shape-diamond', 'shape-star', 'shape-hexagon', 'shape-heart', 'shape-triangle', 'shape-blob', 'split', 'split-h', 'split-open', 'diagonal', 'blinds', 'flash', 'dip', 'glitch', 'zoom-through'];
+const trModes = ['dark', 'accent', 'light'];
+TR.forEach((tr, i) => {
+  const d = { 'zoom-through': .9, dip: .7, flash: .5, glitch: .5, blinds: .7, 'iris-out': .7 }[tr] || .6;
+  demo('TRANSITION', tr, `vk.scene('…', 2, {transition:'${tr}:${d}'}, […])`, 1.9, { transition: { type: tr, d }, bg: trModes[i % 3] }, [
+    vk.h2(tr, { fx: false, font: 'mono', style: 'font-size:110px' }),
+    vk.small(`#${i + 1} / ${TR.length}`, { fx: false, font: 'mono' }),
+  ]);
+});
+
+/* ---------- SVG ---------- */
+demo('SVG', 'draw', "vk.svg('<path d=…/>', {fx:'draw', d:1.6})", 2.8, {}, [
+  vk.svg(`<path d="M40 220 C 120 40, 220 40, 260 150 S 380 260, 460 80"/><path d="M40 260 H460" stroke-dasharray="0"/><circle cx="460" cy="80" r="14"/>`, { viewBox: '0 0 500 300', w: 620, h: 372, at: .3, d: 1.6, each: .35, style: 'color:var(--accent)', strokeWidth: 6 })]);
+demo('SVG', 'draw-fill', "vk.svg('<rect/><circle/>…', {fx:'draw-fill'})", 2.8, {}, [
+  vk.svg(`<rect x="30" y="60" width="140" height="140" rx="20" fill="#3355FF"/><circle cx="260" cy="130" r="72" fill="#7C93FF"/><path d="${vk.shapePath('star', 420, 130, 78)}" fill="#FFC83D"/>`, { fx: 'draw-fill', viewBox: '0 0 520 260', w: 720, h: 360, at: .2, d: 1, each: .25, style: 'color:var(--fg)', strokeWidth: 5 })]);
+demo('SVG', 'morph', "vk.svg(path, {fx:'morph', paths:[circle, star, heart, square]})", 4.2, {}, [
+  vk.svg(`<path d="${vk.shapePath('circle', 150, 150, 120)}" fill="currentColor" stroke="none"/>`, { fx: 'morph', paths: ['circle', 'star', 'heart', 'square', 'circle'].map(k => vk.shapePath(k, 150, 150, 120)), d: .6, each: .8, at: .3, viewBox: '0 0 300 300', w: 380, h: 380, style: 'color:var(--accent)' })]);
+
+/* ---------- charts ---------- */
+const sample = [['一月', 12], ['二月', 19], ['三月', 15], ['四月', 27], ['五月', 34], ['六月', 41]];
+demo('CHART', 'bar', "vk.bar(data, {highlight:5, unit:'k'})", 3.4, {}, [vk.bar(sample, { highlight: 5, unit: 'k', w: 820, h: 330, at: .2, source: '示例数据' })]);
+demo('CHART', 'bar · horizontal', "vk.bar(data, {horizontal:true})", 3.4, {}, [vk.bar(sample.slice(0, 5), { horizontal: true, w: 820, h: 330, at: .2, unit: 'k', source: '示例数据' })]);
+demo('CHART', 'line', "vk.line(null, {series:[…], labels:[…]})", 3.6, {}, [vk.line(null, { series: [{ name: 'A', values: [3, 5, 4, 8, 11, 10, 15] }, { name: 'B', values: [2, 3, 5, 5, 6, 8, 9] }], labels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'], w: 860, h: 360, at: .2, source: '示例数据' })]);
+demo('CHART', 'pie', "vk.pie([{label, value}, …])", 3.4, {}, [vk.pie([['桌面', 48], ['移动', 37], ['平板', 15]], { at: .2, r: 150 })]);
+demo('CHART', 'donut', "vk.donut(data, {centerLabel:'总计'})", 3.4, {}, [vk.donut([['Go', 42], ['TypeScript', 31], ['Rust', 17], ['其他', 10]], { at: .2, r: 150, centerLabel: '示例数据', unit: '' })]);
+demo('CHART', 'ticker + ring', "vk.ticker(98.6, {decimals:1, unit:'%'}) · vk.ring(72)", 3.4, {}, [
+  vk.row([vk.ticker(98.6, { decimals: 1, unit: '%', label: '可用性（示例）', size: 110, at: .2 }), vk.ring(72, { label: '完成度', at: .4, r: 120 })], { gap: 120 })]);
+demo('CHART', 'table', "vk.table({header, rows, highlight:1})", 3.4, {}, [vk.table({ header: ['方案', '耗时', '体积'], rows: [['逐帧截图', '1.0×', '12 MB'], ['JPEG 截图', '0.4×', '12 MB'], ['Canvas 回传', '0.2×', '11 MB']], highlight: 1 }, { w: 760, at: .2, source: '示例数据' })]);
+
+/* ---------- blocks ---------- */
+const BK = (name, code, node, dur = 3.4, opts = {}) => demo('BLOCK', name, code, dur, opts, [node]);
+BK('hero', "vk.hero('Spark', {cursor:true})", vk.hero('Wordmark', { cursor: true, at: .2, size: 190 }));
+BK('terminal', "vk.terminal(['$ vk render a.html -o a.mp4', '✓ …'])", vk.terminal(['$ vk render promo.html -o out.mp4', '> frames 1380/1380', '✓ ffprobe h264 1280x720 30fps'], { at: .2, w: 760 }), 3.8);
+BK('code', "vk.code(src, {highlight:[3]})", vk.code(`import vk from 'vidkit'\nconst v = vk.video({ format: '9:16' })\nvk.scene('开场', 3, [vk.title('Hi')])\n// render: vk render a.html`, { at: .2, w: 760, highlight: [3] }));
+BK('cards', "vk.cards([{icon, title, text}, …], {cols:3})", vk.cards([{ icon: '⚡', title: '确定性', text: 'render(t) 纯函数' }, { icon: '✦', title: '预设', text: '文字 · 转场 · 图表' }, { icon: '⧉', title: '插件', text: 'vk.use(plugin)', hl: true }], { cols: 3, at: .2 }));
+BK('columns', "vk.columns([{title, code, text}, …])", vk.columns([{ title: '16:9', code: '1280×720', text: '宣传片、讲解' }, { title: '9:16', code: '1080×1920', text: '抖音 / 小红书' }, { title: '1:1', code: '1080×1080', text: '信息流' }, { title: '4:5', code: '1080×1350', text: '竖版海报' }], { at: .2 }));
+BK('kv', "vk.kv([['导入','…'], …])", vk.kv([['render', '逐帧截图 → ffmpeg'], ['qa', '重叠 · 安全区 · 字幕'], ['preview', '热更新 + 进度条']], { at: .2, w: 900 }));
+BK('gantt', "vk.gantt({rows:[{label,start,end}], range:[0,10], unit:'s'})", vk.gantt({ rows: [{ label: 'fonts', start: 0, end: 1.2 }, { label: 'build', start: 1.2, end: 2.0 }, { label: 'frames', start: 2.0, end: 8.5, hl: true, text: '4 workers' }, { label: 'mux', start: 8.5, end: 9.4 }], range: [0, 10], unit: 's' }, { at: .2, w: 1000 }));
+BK('diagram', "vk.diagram({nodes, edges})", vk.diagram({ w: 1000, h: 300, nodes: [{ id: 'a', x: 0, y: 105, w: 220, h: 90, label: 'HTML', sub: 'scene script' }, { id: 'b', x: 390, y: 90, w: 220, h: 120, label: 'render(t)', sub: 'Chromium', hl: true }, { id: 'c', x: 780, y: 20, w: 220, h: 90, label: 'MP4', sub: 'ffmpeg' }, { id: 'd', x: 780, y: 190, w: 220, h: 90, label: 'QA', sub: 'contact · text' }], edges: [['a', 'b'], ['b', 'c'], ['b', 'd']] }, { at: .2 }), 3.6);
+BK('quote', "vk.quote('…', {by:'…'})", vk.quote('Every frame is a pure function of time.', { by: 'vidkit 心智模型', at: .2, w: 1000 }));
+BK('image · Ken Burns', "vk.image('shot.png', {from:{s:1}, to:{s:1.15, x:-3}})", vk.image('assets/sample-screenshot.svg', { w: 880, h: 450, at: .1, to: { s: 1.2, x: -4, y: -3 }, caption: '示例截图（占位图）' }), 3.6);
+BK('device · browser', "vk.device('shot.png', {type:'browser', url:'…'})", vk.device('assets/sample-screenshot.svg', { type: 'browser', url: 'localhost:5173', w: 820, h: 400, at: .2 }), 3.2);
+BK('device · phone', "vk.device([vk.title('Hi')], {type:'phone'})", vk.row([vk.device([vk.spacer(120), vk.title('9:16', { fx: 'words', at: .8, size: 56 }), vk.small('手机框里放任何节点', { at: 1.2 })], { type: 'phone', w: 220, at: .2 }), vk.device('assets/sample-screenshot.svg', { type: 'laptop', w: 560, at: .5 })], { gap: 70 }), 3.4);
+BK('split', "vk.split([left…], [right…], {ratio:'5/7'})", vk.split([vk.h2('左文\n右演示', { at: .2 }), vk.text('5/7 栅格，左侧标题说明', { at: .5 })], [vk.terminal(['$ vk preview a.html', '✓ http://127.0.0.1:5173'], { at: .7, w: 600 })], { ratio: '5/7' }), 3.4);
+BK('cta', "vk.cta({title, sub, cmd, url, note})", vk.cta({ title: 'vidkit', titleSize: 150, sub: '现在就试试', cmd: 'vk new my.html', url: 'vk preview my.html', note: '本地 · 离线字体 · 确定性渲染' }, { at: .1 }), 4.2, { bg: 'accent' });
+
+/* ---------- camera ---------- */
+demo('CAMERA', 'push-in', "vk.scene('…', 3, {push:.08}, […])", 2.8, { push: .12 }, [vk.title('慢推 Push-in', { at: .2, style: 'font-size:110px' })]);
+demo('CAMERA', 'camera keys', "{camera:[{t:0,x:320,y:360,s:1.8},{t:1.6,x:640,y:360,s:1}]}", 3.2, { camera: [{ t: 0, x: 330, y: 380, s: 2.0 }, { t: .8, x: 330, y: 380, s: 2.0 }, { t: 2.2, x: 640, y: 360, s: 1, ease: 'house' }] }, [vk.row([vk.ticker(42, { size: 120, label: '特写', at: .1 }), vk.ticker(1024, { size: 120, label: '拉远揭示', at: 1.4 })], { gap: 140 })]);
+demo('CAMERA', 'shake', "{shake:[{t:1, amp:18, d:.6}]}", 2.8, { shake: [{ t: 1, amp: 18, d: .6 }] }, [vk.title('BOOM', { fx: 'squash', at: .95, font: 'display', style: 'font-size:220px' })]);
+demo('CAMERA', 'beatZoom (BPM 120)', "scene.beatZoom(.04) · vk.pulse(t)", 3, {}, [vk.el(ctx => { ctx.scene.beatZoom(.05); const d = document.createElement('div'); d.className = 'vk-h1'; d.style.fontSize = '120px'; d.textContent = '♪ 120 BPM'; ctx.scene.on((l, p, t) => d.style.color = vk.pulse(t) > .5 ? 'var(--accent)' : ''); return d; })]);
+
+/* ---------- textures & backgrounds ---------- */
+const TX = [['grain', { amount: .12 }], ['vignette', { amount: .6 }], ['flicker', { amount: .08 }], ['paper', { amount: .9 }], ['halftone', { amount: .5, size: 8 }], ['scanlines', { amount: .35, roll: true }], ['rgb', { amount: 4, pulse: 4 }]];
+TX.forEach(([name, o]) => demo('TEXTURE', name, `vk.video({texture:{${name}:${JSON.stringify(o)}}})`, 2.4, { texture: { [name]: o } }, [vk.title(name.toUpperCase(), { at: .2, font: 'display', style: 'font-size:170px' }), vk.small('也可逐场设置 scene({texture})', { at: .5 })]));
+const BGS = [['gradient', { spin: 20 }], ['mesh', {}], ['grid', { drift: 30 }], ['dots', { drift: 20 }], ['noise', { speed: .4 }]];
+BGS.forEach(([name, o]) => demo('BACKGROUND', name, `{bg:{type:'${name}'${Object.keys(o).length ? ', …' : ''}}}`, 2.4, { bg: { type: name, ...o } }, [vk.title(name, { at: .2, font: 'mono', style: 'font-size:130px' })]));
+
+/* ---------- layers ---------- */
+demo('LAYER', 'canvas2d · particles', "scene.canvas((ctx, local, info) => {…})  // stateless particles", 3.2, {}, [vk.el(ctx => {
+  ctx.scene.canvas((g, local, info) => {                 // position = f(seed, t): seekable, no state
+    for (let i = 0; i < 220; i++) {
+      const life = 2.2, t0 = vk.hash(i) * 1.6, a = local - t0; if (a < 0 || a > life) continue;
+      const ang = vk.hash(i * 3.3) * Math.PI * 2, sp = 180 + vk.hash(i * 7.7) * 380, x = 640 + Math.cos(ang) * sp * a, y = 380 + Math.sin(ang) * sp * a + 260 * a * a;
+      g.globalAlpha = 1 - a / life; g.fillStyle = v.theme.chart[i % 5]; g.save(); g.translate(x, y); g.rotate(a * 6 + i); g.fillRect(-6, -3, 12, 6); g.restore();
+    }
+  }, { z: 'back' });
+  return vk.title('Confetti', { at: .1, style: 'font-size:120px' }).build(ctx);
+})]);
+demo('LAYER', 'webgl · shader (Phase 3 接口)', "scene.webgl({frag:'void main(){…}'})", 3.2, { bg: 'dark' }, [vk.el(ctx => {
+  ctx.scene.webgl({ z: 'back', frag: `void main(){ vec2 uv = gl_FragCoord.xy / uRes; float t = uTime;
+    float v = sin(uv.x*10.0 + t*2.0) + sin(uv.y*8.0 - t*1.5) + sin((uv.x+uv.y)*6.0 + t);
+    vec3 c = mix(vec3(0.04,0.06,0.13), vec3(0.2,0.33,1.0), 0.5+0.5*sin(v*1.2)); gl_FragColor = vec4(c, 1.0); }` });
+  return vk.title('GLSL', { at: .2, font: 'display', style: 'font-size:180px' }).build(ctx);
+})]);
+
+/* ---------- captions (word timing hook) ---------- */
+demo('CAPTION', 'captions · karaoke words', "{cap:'…'} · v.caption(s, e, text, words)", 3.6, {}, [vk.el(ctx => {
+  const s0 = ctx.scene.start + .4, words = ['每', '个', '词', '都', '有', '时', '间', '戳'].map((w, i) => ({ w, t: s0 + .2 + i * .3 }));
+  v.caption(s0, s0 + 3, words.map(w => w.w).join(''), words);
+  return vk.sub('Phase 2 接口：词级时间 → 卡拉 OK 字幕', { at: .2 }).build(ctx);
+})]);
+
+vk.scene('outro', 3, { bg: { type: 'mesh' }, mode: 'dark', transition: 'iris:0.6' }, [
+  vk.hero('vidkit', { at: .3, size: 170 }),
+  vk.sub(`${vk.list('transitions').length} 转场 · ${vk.list('fx').length} 元素特效 · ${vk.list('textures').length} 质感 · ${vk.list('backgrounds').length} 背景`, { at: .9 }),
+]);
+</script>
+</body>
+</html>

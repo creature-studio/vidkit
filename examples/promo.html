@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Spark 宣传片 · vidkit 示例</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script>
+// 16:9 open-source promo. Every fact below comes from the Spark repo (github.com/zhangsanfeng1094/spark);
+// nothing is invented. Presets used: hero/letters, badges, cards, terminal typing, code, kv, diagram,
+// device browser, highlight/underline marks, swap, iris/push/wipe/zoom-through transitions, grid/mesh bg,
+// grain + vignette, push-in camera, captions, offline sfx.
+const v = vk.video({
+  format: '16:9', fps: 30, theme: 'tech-blue', title: 'Spark 宣传片',
+  transition: 'push-left:0.6', autoSfx: true, push: .03,
+  texture: { grain: { amount: .05 }, vignette: { amount: .2 } },
+  scoreOptions: { pad: [110, 164.81, 220], padGain: .02 },
+});
+
+/* 1 · 开场 */
+vk.scene('开场', 5, { bg: [{ type: 'grid', drift: 20 }], mode: 'dark', sfx: false,
+  cap: 'Spark：AI coding agent 的启动器与配置中心' }, [
+  vk.hero('Spark', { cursor: true, at: .3, size: 210, sfx: 'kick' }),
+  vk.sub('AI coding agent 的**启动器与配置中心**', { at: 1.3, fx: 'up' }),
+  vk.row(['终端启动器', '协议代理', '多 Profile 配置'].map((s, i) => vk.badge(s, { at: 2.0 + i * .18, hl: i === 0, sfx: 'pop' })), { gap: 16, mt: 26 }),
+]);
+
+/* 2 · 六个 agent */
+const agents = [['codex', 'Codex'], ['claude', 'Claude Code'], ['opencode', 'OpenCode'], ['grok', 'Grok Build'], ['one', 'One'], ['agy', 'Antigravity']];
+vk.scene('六个 Agent', 6, { bg: 'light', cap: '一个入口，六个 Agent：spark launch 直接启动' }, [
+  vk.h2('一个入口，**六个 Agent**', { fx: 'words', at: .2 }),
+  vk.cards(agents.map(([id, name], i) => ({ title: '`' + id + '`', text: name, hl: i === 0 })), { cols: 3, at: .9, each: .12, titleSize: 26, textSize: 17, gap: 16, mt: 22, w: 900 }),
+  vk.terminal(['$ spark launch codex --model gpt-4o'], { at: 2.4, w: 600, mt: 18, size: 19 }),
+]);
+
+/* 3 · 多 Profile */
+vk.scene('多 Profile', 6.5, { bg: 'dark', transition: 'wipe-left:0.6', cap: '多 Profile 一键切换，Grok、One 用临时 HOME 镜像隔离凭据' }, [
+  vk.split([
+    vk.label('~/.spark/config.json', { at: .2 }),
+    vk.h2('多 Profile\n一键切换', { at: .35 }),
+    vk.text('供应商、模型、API Key、Base URL 各存一份。启动 Grok、One 时用 ==临时 HOME 镜像== 隔离凭据。', { at: .9, markAt: 2.2 }),
+  ], [
+    vk.code(`"profiles": {\n  "default": {\n    "openai_base_url": "https://…/v1",\n    "api_key": "sk-...",\n    "models": ["gpt-4o", "gpt-4o-mini"],\n    "default_model": "gpt-4o"\n  }\n}`, { at: 1.2, w: 580, size: 17, highlight: [6] }),
+    vk.terminal(['$ spark launch claude --profile anthropic-official'], { at: 3.2, w: 580, size: 15, mt: 18 }),
+  ], { ratio: .44, gap: 40 }),
+]);
+
+/* 4 · Compat Gateway */
+vk.scene('兼容代理', 6.5, { bg: 'light', transition: 'zoom-in:0.6', cap: '协议不同？本地兼容代理自动转换，Claude 路径保留 thinking' }, [
+  vk.h2('协议不同？**代理来转**', { at: .2, fx: 'words' }),
+  vk.diagram({ w: 1060, h: 300, nodes: [
+    { id: 'codex', x: 0, y: 10, w: 290, h: 110, label: 'Codex', sub: 'POST /v1/responses' },
+    { id: 'claude', x: 0, y: 180, w: 290, h: 110, label: 'Claude Code', sub: '/v1/messages' },
+    { id: 'gw', x: 385, y: 85, w: 290, h: 130, label: 'Compat Gateway', sub: '本地运行 · 自动挂载', hl: true },
+    { id: 'cc', x: 770, y: 10, w: 290, h: 110, label: 'Chat Completions', sub: '第三方上游' },
+    { id: 'gm', x: 770, y: 180, w: 290, h: 110, label: 'Gemini', sub: 'generateContent' },
+  ], edges: [['codex', 'gw'], ['claude', 'gw'], ['gw', 'cc'], ['gw', 'gm']] }, { at: .8, mt: 34 }),
+  vk.text('Claude 路径保留 __thinking 思考过程__', { at: 3.4, markAt: 3.9, mt: 26 }),
+]);
+
+/* 5 · TUI + Web */
+const menu = ['Launch integration', 'Token usage', 'Manage profiles', 'Manage MCP servers', 'Manage skills', 'Show config file', 'Quit'];
+vk.scene('TUI 与 Web', 6.5, { bg: 'dark', transition: 'iris:0.7', cap: '终端 TUI，也有 Web 控制台：spark httpserver' }, [
+  vk.h2('终端 TUI，也有 **Web 控制台**', { at: .2, fx: 'words' }),
+  vk.row([
+    vk.el(ctx => {       // raw-code escape hatch: a TUI menu whose selection bar steps through items
+      const px = ctx.px, box = document.createElement('div');
+      box.className = 'vk-mono vk-surface';
+      box.style.cssText = `width:${px(430)}px;padding:${px(16)}px;border-radius:${px(14)}px;font-size:${px(19)}px;line-height:1.55;text-align:left;position:relative`;
+      box.innerHTML = `<div style="background:var(--accent2);color:var(--bg);font-weight:700;padding:${px(2)}px ${px(12)}px;border-radius:4px;margin-bottom:${px(10)}px">Spark · Menu</div>` +
+        `<div class="sel" style="position:absolute;left:${px(16)}px;right:${px(16)}px;height:${px(29.5)}px;background:var(--accent);border-radius:4px"></div>` +
+        menu.map(m => `<div style="position:relative;padding-left:${px(14)}px;white-space:nowrap">${m}</div>`).join('') +
+        `<div style="display:flex;justify-content:space-between;margin-top:${px(8)}px;font-size:.85em;color:var(--muted)"><span>Ready</span><span>↑/↓ Move · Enter Select</span></div>`;
+      const sel = box.querySelector('.sel'), top0 = px(16) + px(19 * 1.55) + px(10) + px(4);
+      ctx.scene.fx(box, 'up', { t: ctx.scene.time(.8) });
+      ctx.scene.on(local => { const i = Math.min(3, Math.max(0, Math.floor((local - 1.4) / .45) + 1)); sel.style.top = (top0 + i * px(19 * 1.55)) + 'px'; });
+      [1, 2, 3].forEach(i => ctx.scene.sfx(ctx.scene.start + 1.4 + (i - 1) * .45, 'tick', .45));
+      return box;
+    }),
+    vk.col([
+      vk.terminal(['$ spark httpserver', 'Spark HTTP server listening on', '→ http://127.0.0.1:8765'], { at: 2.4, w: 470, size: 19 }),
+      vk.text('浏览器里管理 Profiles', { at: 4.2, fx: 'up', mt: 16 }),
+    ]),
+  ], { gap: 44, mt: 30, alignItems: 'flex-start' }),
+]);
+
+/* 6 · MCP & Skills */
+vk.scene('MCP 与 Skills', 7, { bg: 'light', transition: 'push-up:0.6', cap: 'MCP 与 Skills 一处管好：定义只写一次，每个 Agent 独立启用' }, [
+  vk.h2('MCP 与 Skills，**一处管好**', { at: .2, fx: 'words' }),
+  vk.small('定义只写一次，每个 Agent 独立决定是否启用。', { at: .7 }),
+  vk.kv([
+    ['导入', '`spark mcp import claude` 从 Claude Code 导入'],
+    ['同步', '`spark mcp sync codex` 写入 Codex 配置'],
+    ['Agent Matrix', '**● ! ? ○** 每个 Agent 的启用与测试状态'],
+    ['安装 Skill', '本地 / Git / Catalog 三种来源'],
+    ['投影', '`spark skill sync` → .agents · .codex · .claude'],
+  ], { at: 1.2, each: .45, w: 980, rowH: 64, keyW: 190, mt: 24 }),
+]);
+
+/* 7 · Usage */
+vk.scene('用量', 6.5, { bg: 'dark', transition: 'slide-left:0.6', cap: '用量可查：Token、Prompt Caching、费用估算，全部本地记录' }, [
+  vk.h2('用量可查', { at: .2 }),
+  vk.row(['Today', '7D', '30D', 'All'].map((s, i) => vk.badge(s, { at: .7 + i * .12, size: 26, hl: i === 1 })), { gap: 12, mt: 20 }),
+  vk.terminal(['$ spark usage --model gpt-4o'], { at: 1.4, w: 560, mt: 22 }),
+  vk.columns([
+    { title: '输入 / 输出 Token', text: '兼容代理请求自动记录' },
+    { title: 'Prompt Caching', text: 'TUI 面板里一并查看' },
+    { title: '费用估算', text: '本地记录，零外部依赖' },
+  ], { at: 2.8, mt: 34 }),
+]);
+
+/* 8 · Update */
+vk.scene('一键升级', 6, { bg: 'light', transition: 'split-open:0.7', cap: 'spark update：识别安装方式，下载并校验后原地替换' }, [
+  vk.h2('**一键升级**', { at: .2, fx: 'letters' }),
+  vk.terminal(['$ spark update', '✓ 识别 npm / bun / pnpm 全局安装', '✓ 二进制从 GitHub Release 下载', '✓ 校验 checksums.txt 原地替换'], { at: .8, w: 700, mt: 26 }),
+]);
+
+/* 9 · CTA */
+vk.scene('现在就试试', 7, { bg: { type: 'mesh' }, mode: 'accent', transition: 'zoom-through:0.8', cap: 'npm i -g @ngominhbinh708/spark · MIT 许可 · Go 编写' }, [
+  vk.cta({ title: 'Spark', titleSize: 170, sub: '现在就试试', cmd: 'npm i -g @ngominhbinh708/spark', url: 'github.com/zhangsanfeng1094/spark', urlSize: 30, note: 'MIT 许可 · Go 编写 · 欢迎 Star 与 PR' }, { at: .2, sfx: 'chime' }),
+]);
+</script>
+</body>
+</html>
