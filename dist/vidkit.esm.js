@@ -1,4 +1,4 @@
-/*! vidkit 0.1.0 — deterministic HTML/JS → video. MIT. Bundled fonts: SIL OFL 1.1 (see fonts/LICENSES.md) */
+/*! vidkit 0.2.0 — deterministic HTML/JS → video. MIT. Bundled fonts: SIL OFL 1.1 (see fonts/LICENSES.md) */
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -7,9 +7,9 @@ var __export = (target, all) => {
 
 // src/core/ease.js
 function bezier(x1, y1, x2, y2) {
-  const A = (a, b) => 1 - 3 * b + 3 * a, B3 = (a, b) => 3 * b - 6 * a, C = (a) => 3 * a;
-  const calc = (t, a, b) => ((A(a, b) * t + B3(a, b)) * t + C(a)) * t;
-  const slope = (t, a, b) => 3 * A(a, b) * t * t + 2 * B3(a, b) * t + C(a);
+  const A = (a, b) => 1 - 3 * b + 3 * a, B4 = (a, b) => 3 * b - 6 * a, C = (a) => 3 * a;
+  const calc = (t, a, b) => ((A(a, b) * t + B4(a, b)) * t + C(a)) * t;
+  const slope = (t, a, b) => 3 * A(a, b) * t * t + 2 * B4(a, b) * t + C(a);
   return function(x) {
     if (x <= 0) return 0;
     if (x >= 1) return 1;
@@ -164,6 +164,7 @@ var clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;
 var clamp01 = (x) => clamp(x, 0, 1);
 var lerp = (a, b, p) => a + (b - a) * p;
 var frac = (x) => x - Math.floor(x);
+var frac9 = (x) => Math.max(0, x - Math.floor(x + 1e-9));
 var seg = (t, a, b) => clamp01((t - a) / (b - a));
 var progress = (t, t0, d, ease) => getEase(ease || "linear")(clamp01((t - t0) / d));
 var window01 = (t, a, b, din = 0.3, dout = 0.3) => Math.min(seg(t, a, a + din), 1 - seg(t, b - dout, b));
@@ -182,19 +183,30 @@ function kf(t, keys, ease) {
 var BeatGrid = class {
   constructor(o = {}) {
     this.fps = o.fps || 30;
+    this.lead = 1;
     this.set(o);
   }
   set(o = {}) {
     if (o.fps) this.fps = o.fps;
+    if (o.lead != null) this.lead = +o.lead;
     this.bpm = +o.bpm || 0;
     this.offset = +o.offset || 0;
+    this.meter = +o.meter || 4;
     this.times = Array.isArray(o.times) && o.times.length ? o.times.slice().sort((a, b) => a - b) : null;
     if (this.times && !this.bpm && this.times.length > 1) this.bpm = 60 / ((this.times[this.times.length - 1] - this.times[0]) / (this.times.length - 1));
     this.beat = this.bpm ? 60 / this.bpm : 0.5;
+    this.downIdx = null;
+    if (Array.isArray(o.downbeats) && o.downbeats.length) {
+      const idx = o.downbeats.map((d) => Math.round(this.index(d)));
+      this.downIdx = [...new Set(idx)].sort((a, b) => a - b);
+    } else if (o.downbeat != null) this.firstDown = +o.downbeat;
     return this;
   }
   get active() {
     return !!(this.bpm || this.times);
+  }
+  get leadT() {
+    return this.lead / this.fps;
   }
   // time of beat n (fractional allowed)
   at(n) {
@@ -218,13 +230,49 @@ var BeatGrid = class {
     }
     return lo + (t - T3[lo]) / (T3[lo + 1] - T3[lo]);
   }
-  // 1 on every beat (one frame early), decays exponentially. every=2 → every other beat
+  // ---- bars (measures). Named measure()/barIndex() so they never clash with the vk.bar() chart ----
+  // beat index where bar n starts (fractional n interpolates inside the bar)
+  barBeat(n) {
+    const D = this.downIdx;
+    if (!D) return (this.firstDown || 0) + n * this.meter;
+    const i = Math.floor(n), f = n - i;
+    if (i < 0) return D[0] + n * this.meter;
+    if (i >= D.length - 1) return D[D.length - 1] + (n - (D.length - 1)) * this.meter;
+    return D[i] + (D[i + 1] - D[i]) * f;
+  }
+  measure(n) {
+    return this.at(this.barBeat(n));
+  }
+  // fractional bar index at time t
+  barIndex(t) {
+    const b = this.index(t), D = this.downIdx;
+    if (!D) return (b - (this.firstDown || 0)) / this.meter;
+    if (b < D[0]) return (b - D[0]) / this.meter;
+    if (b >= D[D.length - 1]) return D.length - 1 + (b - D[D.length - 1]) / this.meter;
+    let lo = 0, hi = D.length - 1;
+    while (hi - lo > 1) {
+      const m = lo + hi >> 1;
+      if (D[m] <= b) lo = m;
+      else hi = m;
+    }
+    return lo + (b - D[lo]) / (D[lo + 1] - D[lo]);
+  }
+  // position of the beat inside its bar: 1..meter
+  beatInBar(t) {
+    const b = Math.floor(this.index(t + this.leadT) + 1e-6), bb = Math.floor(this.barIndex(this.at(b) + 1e-6)), s2 = Math.round(this.barBeat(bb));
+    return b - s2 + 1;
+  }
+  // 1 on every beat (`lead` frames early), decays exponentially. every=2 → every other beat
   pulse(t, k = 6, every = 1) {
-    return this.active ? Math.exp(-frac(this.index(t + 1 / this.fps) / every) * k) : 0;
+    return this.active ? Math.exp(-frac9(this.index(t + this.leadT) / every) * k) : 0;
+  }
+  // 1 on every bar start (every=2 → every other bar)
+  barPulse(t, k = 4, every = 1) {
+    return this.active ? Math.exp(-frac9(this.barIndex(t + this.leadT) / every) * k) : 0;
   }
   // one-shot accent at t0
   hit(t, t0, k = 8) {
-    return t < t0 - 1 / this.fps ? 0 : Math.exp(-k * Math.max(0, t - t0 + 1 / this.fps));
+    return t < t0 - this.leadT ? 0 : Math.exp(-k * Math.max(0, t - t0 + this.leadT));
   }
   // eased arrival exactly at t1, starting d earlier (default: half a beat)
   snap(t, t1, d) {
@@ -235,18 +283,38 @@ var BeatGrid = class {
   quantize(t, sub2 = 1) {
     return this.at(Math.round(this.index(t) * sub2) / sub2);
   }
+  // next grid point (beat or bar) at/after t: returns its time (without lead)
+  ceil(t, unit = "beat", n = 1) {
+    if (unit === "bar") {
+      const i2 = Math.ceil(this.barIndex(t) / n - 1e-6) * n;
+      return this.measure(i2);
+    }
+    const i = Math.ceil(this.index(t) / n - 1e-6) * n;
+    return this.at(i);
+  }
 };
 function parseTime(v, grid2, base = 0) {
   if (v == null || v === "") return 0;
   if (typeof v === "number") return v;
   v = String(v).trim();
-  if (v.startsWith("b:")) return grid2.at(+v.slice(2)) - 1 / grid2.fps - base;
+  if (v.startsWith("b:")) return grid2.at(+v.slice(2)) - grid2.leadT - base;
+  if (v.startsWith("m:")) return grid2.measure(+v.slice(2)) - grid2.leadT - base;
   return +v;
 }
 function parseDur(v, grid2) {
   if (typeof v === "number") return v;
   v = String(v || "");
-  return v.startsWith("b:") ? +v.slice(2) * grid2.beat : +v;
+  if (v.startsWith("b:")) return +v.slice(2) * grid2.beat;
+  if (v.startsWith("m:")) return +v.slice(2) * grid2.meter * grid2.beat;
+  return +v;
+}
+function gridEnd(v, grid2, cut) {
+  if (typeof v !== "string" || !grid2.active) return null;
+  const m = /^([bm]):(-?[\d.]+)$/.exec(v.trim());
+  if (!m) return null;
+  const n = +m[2], c = cut + grid2.leadT;
+  if (m[1] === "b") return grid2.at(Math.round(grid2.index(c)) + n) - grid2.leadT;
+  return grid2.measure(Math.round(grid2.barIndex(c)) + n) - grid2.leadT;
 }
 
 // src/core/stagger.js
@@ -598,6 +666,50 @@ function applyFx(el2, fxStr, o, scene, isExit) {
   if (Object.keys(from).length || Object.keys(to).length) api.tween(el2, { t: o.t, d, ease: e, from, to });
 }
 
+// src/fx/rhythm.js
+function beatValue(v, spec, t) {
+  const unit = spec.unit || "beat", k = spec.k, every = spec.every || 1;
+  if (unit === "bar") return v.beats.barPulse(t, k || 4, every);
+  if (unit === "onset") return v.music ? v.music.onsetHit(t, k || 10, spec.min != null ? spec.min : 0.3) : 0;
+  if (spec.beats) {
+    const pos = v.beats.beatInBar(t);
+    if (!spec.beats.includes(pos)) return 0;
+  }
+  return v.beats.pulse(t, k || 6, every);
+}
+function energyValue(v, spec, t) {
+  return v.music ? v.music.energy(t, spec.band || "loud", spec.smooth != null ? spec.smooth : 0.08) : 0;
+}
+var lerp2 = (r, x) => Array.isArray(r) ? r[0] + (r[1] - r[0]) * x : 1 + (r - 1) * x;
+function modulator(v, el2, beat, energy) {
+  const B4 = beat === true ? { scale: 0.06 } : beat, E = energy === true ? { scale: [1, 1.08] } : energy;
+  const S = v.tl.state(el2);
+  return (t) => {
+    let sc = 1, rot = 0, br = 1, bv = 0, ev = 0;
+    if (B4) {
+      bv = beatValue(v, B4, t);
+      if (B4.scale) sc *= 1 + B4.scale * bv;
+      if (B4.rotate) rot += B4.rotate * bv;
+      if (B4.brightness) br *= 1 + B4.brightness * bv;
+    }
+    if (E) {
+      ev = energyValue(v, E, t);
+      if (E.scale) sc *= lerp2(E.scale, ev);
+      if (E.rotate) rot += lerp2(E.rotate, ev) - (Array.isArray(E.rotate) ? 0 : 1);
+      if (E.brightness) br *= lerp2(E.brightness, ev);
+    }
+    el2.style.scale = Math.abs(sc - 1) > 1e-4 ? sc.toFixed(4) : "";
+    el2.style.rotate = Math.abs(rot) > 1e-3 ? rot.toFixed(3) + "deg" : "";
+    if (B4 && B4.brightness || E && E.brightness) {
+      const own = S.props.blur || S.props.brightness;
+      const base = own ? String(el2.style.filter || "").replace(/\s*brightness\([^)]*\)\s*$/, "") : "";
+      el2.style.filter = (base ? base + " " : "") + (Math.abs(br - 1) > 1e-3 ? `brightness(${br.toFixed(3)})` : "");
+    }
+    el2.style.setProperty("--beat", bv.toFixed(3));
+    el2.style.setProperty("--e", ev.toFixed(3));
+  };
+}
+
 // src/core/scene.js
 var Scene = class {
   constructor(video, o) {
@@ -699,9 +811,33 @@ var Scene = class {
     return this;
   }
   // zoom pulse on every beat (music): amount e.g. .02
-  beatZoom(amount = 0.02, k = 6, every = 1) {
+  beatZoom(amount = 0.02, k = 6, every = 1, unit = "beat") {
     this.ensureCam();
-    this.camCfg.extra.push((lt) => amount * this.video.beats.pulse(this.start + lt, k, every));
+    const B4 = this.video.beats;
+    this.camCfg.extra.push((lt) => amount * (unit === "bar" ? B4.barPulse(this.start + lt, k, every) : B4.pulse(this.start + lt, k, every)));
+    return this;
+  }
+  // camera zoom follows the music loudness (0..amount), e.g. .06 — needs vk.video({beats:'song.beats.json'})
+  energyZoom(amount = 0.05, band = "loud", smooth = 0.15) {
+    this.ensureCam();
+    const v = this.video;
+    this.camCfg.extra.push((lt) => v.music ? amount * v.music.energy(this.start + lt, band, smooth) : 0);
+    return this;
+  }
+  // rhythm modulation of elements: onBeat('.logo', {scale:.08, brightness:.4, unit:'beat'|'bar'|'onset', every, k, beats:[2,4]})
+  onBeat(target, o = { scale: 0.06 }) {
+    toEls(target, this.el).forEach((el2) => {
+      const f = modulator(this.video, el2, o, null);
+      this.on((l, p, t) => f(t));
+    });
+    return this;
+  }
+  // energize('.bg', {scale:[1,1.1], brightness:[.7,1.3], band:'low', smooth:.1})
+  energize(target, o = { scale: [1, 1.08] }) {
+    toEls(target, this.el).forEach((el2) => {
+      const f = modulator(this.video, el2, null, o);
+      this.on((l, p, t) => f(t));
+    });
     return this;
   }
   // ---- layers ----
@@ -979,6 +1115,8 @@ function stageCSS(v) {
   font-weight:700;padding:.3em .8em;border-radius:12px;line-height:1.35;white-space:${W < H ? "normal;width:max-content" : "nowrap"}}
 ${W < H ? `.vk-cap{left:${s2.left}px;right:${s2.right}px;transform:none;margin:0 auto;max-width:${W - s2.left - s2.right}px}` : ""}
 .vk-cap .kw{transition:none}.vk-cap .kw.on{color:${th.caption.karaoke}}
+.vk-cap[data-style=sweep] .kw{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(90deg,${th.caption.karaoke} calc(var(--p,0)*100%),${th.caption.fg} calc(var(--p,0)*100% + .5px))}
+.vk-cap[data-style=pop] .kw{display:inline-block;transform:scale(calc(1 + .12*var(--p,0)*(1 - var(--p,0))*4))}.vk-cap[data-style=pop] .kw.on{color:${th.caption.karaoke}}
 html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:hidden;width:${W}px;height:${H}px}
 .vk-wrap{max-width:${W < H ? 480 : 1120}px;margin:0 auto;padding:20px 16px 32px;font-family:var(--vk-sans)}
 .vk-wrap h1{font-size:18px;margin:0 0 12px}.vk-wrap h1 small{font-weight:400;opacity:.6;margin-left:8px}
@@ -1172,11 +1310,12 @@ function buildPreviewUI(v, Q2) {
     play.textContent = p ? "\u6682\u505C" : t >= DUR - 0.05 ? "\u91CD\u64AD" : "\u64AD\u653E";
     if (v.audioEl) {
       if (p) {
-        v.audioEl.currentTime = t;
+        v.audioEl.currentTime = t + (v.musicStart || 0);
         v.audioEl.play().catch(() => {
         });
       } else v.audioEl.pause();
     }
+    if (!p && v.voiceEls) v.voiceEls.forEach((x) => x.a.pause());
     if (p) playScore();
     else stopScore();
   }
@@ -1186,9 +1325,23 @@ function buildPreviewUI(v, Q2) {
   };
   const go = (nt) => {
     t = Math.max(0, Math.min(DUR - 1e-3, nt));
-    if (v.audioEl) v.audioEl.currentTime = t;
+    if (v.audioEl) v.audioEl.currentTime = t + (v.musicStart || 0);
+    if (v.voiceEls) v.voiceEls.forEach((x) => x.a.pause());
     if (v.playing) playScore();
     v.render(t);
+  };
+  const syncVoices = () => {
+    if (!v.voiceEls) return;
+    v.voiceEls.forEach((x) => {
+      const lt = t - x.t, on = v.playing && lt >= 0 && lt < x.dur;
+      if (on && x.a.paused) {
+        x.a.currentTime = lt;
+        x.a.volume = Math.min(1, x.gain);
+        x.a.play().catch(() => {
+        });
+      } else if (!on && !x.a.paused) x.a.pause();
+    });
+    if (v.audioEl) v.audioEl.volume = Math.min(1, (v.musicGain || 1) * (v.voiceEls.some((x) => !x.a.paused) ? 0.35 : 1));
   };
   function tick(now) {
     const dt = last ? (now - last) / 1e3 : 0;
@@ -1201,6 +1354,7 @@ function buildPreviewUI(v, Q2) {
       }
       v.render(t);
     }
+    syncVoices();
     requestAnimationFrame(tick);
   }
   play.onclick = (e) => {
@@ -1341,14 +1495,14 @@ function runQA(v) {
     texts.push({ el: el2, rs: tr });
   });
   for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
-    const A = texts[i], B3 = texts[j];
+    const A = texts[i], B4 = texts[j];
     let hit = false;
-    if (A.el.contains(B3.el) || B3.el.contains(A.el)) continue;
-    A.rs.forEach((a) => B3.rs.forEach((b) => {
+    if (A.el.contains(B4.el) || B4.el.contains(A.el)) continue;
+    A.rs.forEach((a) => B4.rs.forEach((b) => {
       const ix = Math.min(a.r, b.r) - Math.max(a.l, b.l), iy = Math.min(a.b, b.b) - Math.max(a.t, b.t);
       if (ix > Math.max(3, 0.12 * Math.min(a.r - a.l, b.r - b.l)) && iy > 0.35 * Math.min(a.b - a.t, b.b - b.t)) hit = true;
     }));
-    if (hit) issues.push({ type: "text-overlap", el: label2(A.el), other: label2(B3.el) });
+    if (hit) issues.push({ type: "text-overlap", el: label2(A.el), other: label2(B4.el) });
   }
   if (capEl && +capEl.style.opacity > 0) {
     const cr = R(capEl);
@@ -1372,8 +1526,177 @@ function hasCamMotion(el2) {
   const cam = el2.closest(".vk-cam");
   if (!cam) return false;
   if (el2.closest("[data-cam-keys]")) return true;
+  if (cam.style.scale || cam.style.rotate) return true;
   const tf = getComputedStyle(cam).transform;
   return !!tf && tf !== "none" && tf !== "matrix(1, 0, 0, 1, 0, 0)";
+}
+
+// src/audio/music.js
+var MusicInfo = class {
+  // data: parsed *.beats.json; o: {start, fps, lead, smooth}
+  constructor(data, o = {}) {
+    this.data = data;
+    this.start = +o.start || 0;
+    this.fps = o.fps || 30;
+    this.lead = o.lead != null ? o.lead : 1;
+    const sh = (a) => (a || []).map((t) => +(t - this.start).toFixed(4));
+    this.bpm = data.bpm;
+    this.meter = data.meter || 4;
+    this.beats = sh(data.beats);
+    this.downbeats = sh(data.downbeats);
+    this.onsets = sh(data.onsets);
+    this.onsetStrength = data.onsetStrength || this.onsets.map(() => 1);
+    this.env = data.envelope || { rate: 50 };
+    this.sections = (data.sections || []).map((s2, i) => ({ ...s2, index: i, start: s2.start - this.start, end: s2.end - this.start })).filter((s2) => s2.end > 0).map((s2) => ({ ...s2, start: Math.max(0, s2.start) }));
+    this.duration = (data.duration || 0) - this.start;
+    this.loudness = data.loudness || null;
+  }
+  get leadT() {
+    return this.lead / this.fps;
+  }
+  // envelope value 0..1 at video time t (linear interpolation, `lead` frames early like every visual hit).
+  // band: 'loud' (default, dB-scaled RMS) | 'rms' | 'low' | 'mid' | 'high' | 0..7 (mel band index)
+  // smooth: average over ±smooth seconds (box filter over envelope samples) for calmer motion
+  energy(t, band = "loud", smooth = 0) {
+    const E = this.env, arr = typeof band === "number" ? (E.bands || [])[band] : E[band];
+    if (!arr || !arr.length) return 0;
+    const x = (t + this.leadT + this.start) * E.rate;
+    if (!smooth) return sample(arr, x);
+    const r = Math.max(1, Math.round(smooth * E.rate));
+    let s2 = 0, n = 0;
+    for (let i = -r; i <= r; i += Math.max(1, Math.floor(r / 6))) {
+      s2 += sample(arr, x + i);
+      n++;
+    }
+    return s2 / n;
+  }
+  // exponential decay since the most recent onset (strength-weighted); min: ignore onsets weaker than this (0..1)
+  onsetHit(t, k = 10, min = 0.3) {
+    const T3 = this.onsets, tt = t + this.leadT;
+    let lo = 0, hi = T3.length - 1, j = -1;
+    while (lo <= hi) {
+      const m = lo + hi >> 1;
+      if (T3[m] <= tt) {
+        j = m;
+        lo = m + 1;
+      } else hi = m - 1;
+    }
+    for (let i = j; i >= 0 && tt - T3[i] < 1.5; i--) if (this.onsetStrength[i] >= min) return this.onsetStrength[i] * Math.exp(-k * (tt - T3[i]));
+    return 0;
+  }
+  // strong onsets in [a, b) (video time) — e.g. to place sfx or kinetic hits
+  onsetsIn(a, b, min = 0.3) {
+    return this.onsets.filter((t, i) => t >= a && t < b && this.onsetStrength[i] >= min);
+  }
+  section(t) {
+    const S = this.sections;
+    for (let i = S.length - 1; i >= 0; i--) if (t >= S[i].start) return { ...S[i], p: clamp01((t - S[i].start) / (S[i].end - S[i].start)) };
+    return S[0] ? { ...S[0], p: 0 } : null;
+  }
+};
+function sample(arr, x) {
+  if (x <= 0) return arr[0];
+  const i = Math.floor(x);
+  if (i >= arr.length - 1) return arr[arr.length - 1];
+  const f = x - i;
+  return arr[i] * (1 - f) + arr[i + 1] * f;
+}
+
+// src/audio/words.js
+var PUNCT = /[\s.,!?;:…、，。！？；：“”‘’"'()（）《》【】\-—~·]/;
+var norm = (s2) => String(s2).replace(new RegExp(PUNCT.source, "g"), "").toLowerCase();
+function mapWords(text2, words) {
+  const pieces = [], T3 = String(text2);
+  let pos = 0;
+  words.forEach((w, wi) => {
+    const key = norm(w.w);
+    if (!key) return;
+    for (let a = pos; a < T3.length; a++) {
+      if (PUNCT.test(T3[a])) continue;
+      let b = a, acc = "";
+      while (b < T3.length && acc.length < key.length) {
+        if (!PUNCT.test(T3[b])) acc += T3[b].toLowerCase();
+        b++;
+      }
+      if (acc === key) {
+        if (a > pos) pieces.push({ s: T3.slice(pos, a), wi: -1 });
+        pieces.push({ s: T3.slice(a, b), wi });
+        pos = b;
+        return;
+      }
+      if (a - pos > 40) break;
+    }
+  });
+  if (pos < T3.length) pieces.push({ s: T3.slice(pos), wi: -1 });
+  return pieces;
+}
+function alignToCues(data, o = {}) {
+  const off = +o.offset || 0, hold = o.hold != null ? o.hold : 0.5, pre = o.pre != null ? o.pre : 0.15;
+  const lines = (data.lines || []).filter((l) => l.words && l.words.length);
+  return lines.map((l, i) => {
+    const words = l.words.map((w) => ({ w: w.w, t: +(w.t - off).toFixed(3), end: +((w.end != null ? w.end : w.t + 0.2) - off).toFixed(3) }));
+    const next = lines[i + 1], nextStart = next ? next.words[0].t - off - 0.05 : Infinity;
+    const start = Math.max(0, words[0].t - pre), end = Math.min(nextStart, words[words.length - 1].end + hold);
+    return [+start.toFixed(3), +Math.max(start + 0.3, end).toFixed(3), l.text, words];
+  });
+}
+function chunkCues(text2, words, o = {}) {
+  const at = +o.at || 0, maxChars = o.maxChars || 18, hold = o.hold != null ? o.hold : 0.35;
+  const W = words.map((w) => ({ ...w, t: w.t + at, end: (w.end != null ? w.end : w.t + 0.2) + at }));
+  const pieces = mapWords(text2, W);
+  const clauses = [];
+  let cur = [];
+  pieces.forEach((p) => {
+    cur.push(p);
+    if (p.wi < 0 && /[，。！？；：,.!?;:]/.test(p.s)) {
+      clauses.push(cur);
+      cur = [];
+    }
+  });
+  if (cur.length) clauses.push(cur);
+  const units = (ps) => ps.reduce((n, p) => n + readUnits(p.s), 0);
+  const chunks = [];
+  let acc = [];
+  clauses.forEach((c) => {
+    const tiny = acc.length && units(acc) < 5, lim = tiny ? maxChars + 6 : maxChars;
+    if (acc.length && units(acc) + units(c) > lim) {
+      chunks.push(acc);
+      acc = [];
+    }
+    if (units(c) > maxChars) {
+      let part = [];
+      c.forEach((p) => {
+        if (part.length && units(part) + units([p]) > maxChars) {
+          chunks.push(part);
+          part = [];
+        }
+        part.push(p);
+      });
+      acc = part;
+    } else acc = acc.concat(c);
+  });
+  if (acc.length) chunks.push(acc);
+  const cues = [];
+  chunks.forEach((ch) => {
+    const ws = ch.filter((p) => p.wi >= 0).map((p) => W[p.wi]);
+    if (!ws.length) return;
+    const txt2 = ch.map((p) => p.s).join("").trim().replace(/[，,、；;：:]$/, "");
+    cues.push([ws[0].t - 0.1, ws[ws.length - 1].end + hold, txt2, ws.map((w) => ({ w: w.w, t: +w.t.toFixed(3), end: +w.end.toFixed(3) }))]);
+  });
+  for (let i = 0; i < cues.length - 1; i++) cues[i][1] = Math.min(cues[i][1], cues[i + 1][0] - 0.04);
+  return cues.map((c) => [+c[0].toFixed(3), +c[1].toFixed(3), c[2], c[3]]);
+}
+function readUnits(s2) {
+  let n = 0;
+  for (const ch of String(s2)) {
+    if (/\s/.test(ch) || PUNCT.test(ch)) continue;
+    n += /[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? 1 : 0.5;
+  }
+  return n;
+}
+function estimateSpeech(text2) {
+  const cjk = (String(text2).match(/[\u3400-\u9fff]/g) || []).length, latin = (String(text2).match(/[A-Za-z0-9]+/g) || []).length;
+  return +(cjk / 4.3 + latin / 2.7 + (String(text2).match(/[，。！？,.!?；;]/g) || []).length * 0.15).toFixed(2);
 }
 
 // src/layers/canvas.js
@@ -1553,13 +1876,35 @@ var Video = class {
     this.theme = resolveTheme(cfg.theme);
     this.k = Math.min(this.W, this.H) / 720;
     setDefaultEase(cfg.ease || this.theme.ease || "outCubic");
-    this.beats = new BeatGrid({ fps: this.fps, bpm: cfg.bpm, offset: cfg.beatOffset, times: cfg.beats });
+    this.lead = cfg.lead != null ? +cfg.lead : 1;
+    if (cfg.music && !cfg.audio) cfg.audio = cfg.music;
+    this.musicStart = +(cfg.musicStart || 0);
+    this.musicGain = cfg.musicGain != null ? +cfg.musicGain : 1;
+    let bdata = typeof cfg.beats === "string" ? loadJSON(cfg.beats) : cfg.beats && !Array.isArray(cfg.beats) && cfg.beats.beats ? cfg.beats : null;
+    if (bdata) this.music = new MusicInfo(bdata, { start: this.musicStart, fps: this.fps, lead: this.lead });
+    this.beats = new BeatGrid(this.music ? { fps: this.fps, lead: this.lead, bpm: bdata.bpm, times: this.music.beats, downbeats: this.music.downbeats, meter: this.music.meter } : { fps: this.fps, lead: this.lead, bpm: cfg.bpm, offset: cfg.beatOffset, times: Array.isArray(cfg.beats) ? cfg.beats : null, downbeats: cfg.downbeats, meter: cfg.meter, downbeat: cfg.downbeat });
     this.tl = new Timeline();
     this.scenes = [];
     this.layers = [];
     this.globalFns = [];
     this.overlays = [];
-    this.caps = (cfg.captions || []).slice();
+    this.caps = typeof cfg.captions === "string" ? alignToCues(loadJSON(cfg.captions), { offset: this.musicStart }) : (cfg.captions || []).slice();
+    this.lyrics = [];
+    if (cfg.lyrics) {
+      const L = typeof cfg.lyrics === "string" ? { src: cfg.lyrics } : cfg.lyrics, data = L.src ? loadJSON(L.src) : L.data || L;
+      this.lyrics = alignToCues(data, { offset: L.offset != null ? L.offset : this.musicStart, hold: L.hold });
+      if (L.captions) this.caps.push(...this.lyrics);
+    }
+    const VC = cfg.voice ? typeof cfg.voice === "string" ? { manifest: cfg.voice } : { ...cfg.voice } : null;
+    this.voiceCfg = VC;
+    this.voices = [];
+    this.voRequests = [];
+    this.voMissing = [];
+    if (VC) {
+      VC.manifest = VC.manifest || location.pathname.split("/").pop().replace(/\.html?$/i, "") + ".vo.json";
+      this.voManifest = loadJSON(VC.manifest, true);
+      this.voBase = new URL(VC.manifest, location.href).href.replace(/[^/]*$/, "");
+    }
     this.events = Array.isArray(cfg.score) ? cfg.score.slice() : [];
     this.pendingMedia = [];
     this.afterFonts = [];
@@ -1627,6 +1972,9 @@ var Video = class {
     if (typeof name === "object" && !Array.isArray(name)) {
       o = { ...name };
       nodes = dur;
+    } else if (dur && typeof dur === "object" && !Array.isArray(dur)) {
+      o = { ...dur, name };
+      nodes = opts;
     } else {
       if (Array.isArray(opts) || typeof opts === "function") {
         nodes = opts;
@@ -1640,8 +1988,12 @@ var Video = class {
     sc.transition = prev ? parseTransition(o.transition != null ? o.transition : this.cfg.transition) : { type: "none", d: 0 };
     if (o.start != null) sc.start = parseTime(o.start, this.beats);
     else sc.start = prev ? prev.start + prev.dur - sc.transition.d : 0;
-    const auto = o.dur === "auto" || o.dur == null;
+    const auto = (o.dur === "auto" || o.dur == null) && o.end == null;
     sc.dur = auto ? 0 : parseDur(o.dur, this.beats);
+    const cutIn = sc.start + sc.transition.d;
+    const gEnd = gridEnd(o.dur, this.beats, cutIn);
+    if (gEnd != null) sc.dur = gEnd - sc.start;
+    if (o.end != null) sc.dur = parseTime(o.end, this.beats) - sc.start;
     let mode = o.mode, bg = o.bg;
     if (typeof bg === "string" && this.theme.modes[bg]) {
       mode = bg;
@@ -1661,9 +2013,21 @@ var Video = class {
     if (o.texture) Object.entries(o.texture).forEach(([n, x]) => x && sc.texture(n, x));
     if (o.camera) sc.camera(o.camera);
     if (o.shake) [].concat(o.shake).forEach((s2) => typeof s2 === "object" ? sc.shake(s2.t, s2.amp, s2.d) : sc.shake(s2));
+    if (o.beat || o.energy) {
+      sc.ensureCam();
+      const f = modulator(this, sc.cam, o.beat, o.energy);
+      sc.on((l, p, t) => f(t));
+    }
     if (typeof nodes === "function") nodes(sc, this);
     else if (nodes) this.buildNodes(sc, [].concat(nodes).flat(), sc.content);
     if (auto) sc.dur = Math.max(1.5, sc.maxT + (o.hold != null ? o.hold : 2.2));
+    if (o.vo) this.addVoice(sc, o, auto);
+    const snap = o.snap !== void 0 ? o.snap : this.cfg.snap;
+    if (snap && gEnd == null && o.end == null && this.beats.active) {
+      const m = /^(beat|bar|b|m)(?::(\d+))?$/.exec(String(snap)), unit = m && (m[1] === "bar" || m[1] === "m") ? "bar" : "beat", n = m && m[2] ? +m[2] : 1;
+      sc.dur = this.beats.ceil(sc.start + sc.dur + this.beats.leadT, unit, n) - this.beats.leadT - sc.start;
+    }
+    if (sc.dur <= sc.transition.d) console.warn(`[vk] scene "${sc.name}" is shorter than its transition`);
     if (o.sfx !== false && this.cfg.autoSfx && prev && sc.transition.d > 0) this.sfx(sc.start + Math.min(0.05, sc.transition.d / 2), "whoosh", 0.5);
     return sc;
   }
@@ -1717,8 +2081,35 @@ var Video = class {
     return this.addLayer("canvas", draw, { z: "front", zIndex: 30, ...o });
   }
   sfx(t, name, gain = 1, freq) {
+    t = typeof t === "string" ? parseTime(t, this.beats) + this.beats.leadT : t;
     this.events.push([+t.toFixed(3), name, gain, freq]);
     return this;
+  }
+  // ---- voice-over ----
+  voiceEntry(text2) {
+    const M = this.voManifest;
+    return M && M.items ? M.items[text2] || null : null;
+  }
+  addVoice(sc, o, auto) {
+    const VC = this.voiceCfg || {}, text2 = [].concat(o.vo).join(""), e = this.voiceEntry(text2);
+    const lead = o.voLead != null ? o.voLead : Math.max(VC.lead != null ? VC.lead : 0.45, sc.transition.d + 0.1);
+    const tail = o.voTail != null ? o.voTail : VC.tail != null ? VC.tail : 0.7;
+    const dur = e ? e.duration : estimateSpeech(text2), at = sc.start + lead;
+    this.voRequests.push({ text: text2, scene: sc.name });
+    if (!e) {
+      this.voMissing.push(text2);
+      console.warn(`[vk] no TTS audio for scene "${sc.name}" \u2014 run: vk tts ${location.pathname.split("/").pop()}`);
+    }
+    if (auto) sc.dur = Math.max(sc.dur, lead + dur + tail);
+    else if (lead + dur > sc.dur) console.warn(`[vk] voice-over of "${sc.name}" (${(lead + dur).toFixed(2)}s) is longer than the scene (${sc.dur.toFixed(2)}s); use dur:'auto'`);
+    sc.vo = { text: text2, at, dur, lead, entry: e };
+    if (e) this.voices.push({ t: +at.toFixed(3), src: this.voBase + e.file, file: e.file, dur: e.duration, gain: o.voGain != null ? o.voGain : VC.gain != null ? VC.gain : 1, scene: sc.name, text: text2 });
+    if (o.cap === void 0 && VC.captions !== false) {
+      if (e && e.words && e.words.length) {
+        this.caps.push(...chunkCues(text2, e.words, { at, maxChars: VC.maxChars || (this.W < this.H ? 14 : 20) }));
+        sc.cap = null;
+      } else sc.cap = text2.split(/(?<=[。！？!?；;])/).filter((x) => x.trim());
+    }
   }
   caption(start, end, text2, words) {
     this.caps.push(words ? [start, end, text2, words] : [start, end, text2]);
@@ -1803,7 +2194,13 @@ var Video = class {
       __size: { width: this.W, height: this.H },
       __captions: this.caps,
       __audio: this.cfg.audio ? new URL(this.cfg.audio, location.href).href : null,
-      __scenes: S.map((s2) => ({ index: s2.index, name: s2.name, start: s2.start, dur: s2.dur, transition: s2.transition, settle: this.settleOf(s2) })),
+      __music: this.cfg.audio ? { src: new URL(this.cfg.audio, location.href).href, start: this.musicStart, gain: this.musicGain, duck: this.cfg.duck } : null,
+      __voice: this.voices,
+      __voRequests: this.voRequests,
+      __voMissing: this.voMissing,
+      __voiceCfg: this.voiceCfg ? { ...this.voiceCfg, manifestUrl: new URL(this.voiceCfg.manifest, location.href).href } : null,
+      __mix: this.cfg.mix || null,
+      __scenes: S.map((s2) => ({ index: s2.index, name: s2.name, start: s2.start, dur: s2.dur, transition: s2.transition, settle: this.settleOf(s2), vo: s2.vo ? { at: s2.vo.at, dur: s2.vo.dur, missing: !s2.vo.entry } : null })),
       __cues: this.events.map((e) => e[0]),
       __vk: { theme: this.cfg.theme || "tech-blue", format: this.format, safe: this.safe, zones: this.zones, title: this.cfg.title || document.title },
       __text: (t) => {
@@ -1824,6 +2221,11 @@ var Video = class {
       this.audioEl = new Audio(this.cfg.audio);
       this.audioEl.preload = "auto";
     }
+    if (this.voices.length && !RENDER) this.voiceEls = this.voices.map((x) => {
+      const a = new Audio(x.src);
+      a.preload = "auto";
+      return { ...x, a };
+    });
     if (RENDER) this.render(+Q.get("t") || 0);
     else setTimeout(() => {
       this.ui = buildPreviewUI(this, Q);
@@ -1893,6 +2295,7 @@ var Video = class {
       });
     }
     for (const L of this.layers) L.render(t, { ...info, local: t, p: t / this.duration });
+    if (this.beats.active || this.music) this.setRhythmVars(t);
     for (const f of this.globalFns) f(t);
     if (this.flashEl) {
       this.flashEl.style.opacity = flash;
@@ -1904,6 +2307,19 @@ var Video = class {
     registry.hooks.frame.forEach((f) => f(t, this));
     if (this.ui) this.ui.update(t);
   }
+  // CSS custom properties for rhythm-reactive styling: var(--beat) var(--bar) var(--energy) var(--low) var(--mid) var(--high)
+  setRhythmVars(t) {
+    const st = this.stage.style, B4 = this.beats, M = this.music;
+    st.setProperty("--beat", B4.pulse(t).toFixed(3));
+    st.setProperty("--bar", B4.barPulse(t).toFixed(3));
+    if (M) {
+      st.setProperty("--energy", M.energy(t).toFixed(3));
+      st.setProperty("--low", M.energy(t, "low").toFixed(3));
+      st.setProperty("--mid", M.energy(t, "mid").toFixed(3));
+      st.setProperty("--high", M.energy(t, "high").toFixed(3));
+    }
+  }
+  // captions; cues with word timing render as karaoke: each word gets --p (0→1 while it is spoken, `lead` frames early)
   renderCaption(t) {
     if (!this.capEl) return;
     let c = null;
@@ -1915,10 +2331,25 @@ var Video = class {
     if (c && this.ccOn) {
       if (el2.__c !== c) {
         el2.__c = c;
-        if (c[3]) el2.innerHTML = c[3].map((w) => `<span class="kw">${esc(w.w)}</span>`).join("");
-        else el2.textContent = c[2];
+        if (c[3]) {
+          const P = mapWords(c[2], c[3]);
+          el2.innerHTML = P.map((p) => p.wi < 0 ? esc(p.s) : `<span class="kw" data-i="${p.wi}">${esc(p.s)}</span>`).join("");
+          el2.__kw = [...el2.querySelectorAll(".kw")].map((s2) => ({ s: s2, w: c[3][+s2.dataset.i] }));
+        } else {
+          el2.textContent = c[2];
+          el2.__kw = null;
+        }
+        el2.classList.toggle("vk-karaoke", !!c[3]);
+        el2.dataset.style = this.cfg.karaoke || "sweep";
       }
-      if (c[3]) [...el2.children].forEach((s2, i) => s2.classList.toggle("on", t >= c[3][i].t));
+      if (el2.__kw) {
+        const tt = t + this.beats.leadT;
+        for (const { s: s2, w } of el2.__kw) {
+          const p = Math.max(0, Math.min(1, (tt - w.t) / Math.max(0.05, (w.end || w.t + 0.2) - w.t)));
+          s2.style.setProperty("--p", p.toFixed(3));
+          s2.classList.toggle("on", tt >= w.t);
+        }
+      }
       el2.style.opacity = Math.max(0, Math.min(1, (t - c[0]) / 0.2, (c[1] - t) / 0.2));
     } else el2.style.opacity = 0;
   }
@@ -1984,6 +2415,21 @@ function placeNode(el2, n, sc, parent) {
   if (o.fixed) sc.fixed.appendChild(el2);
   else if (o.pos || el2.classList.contains("vk-abs")) (sc.cam || sc.el).appendChild(el2);
   else parent.appendChild(el2);
+}
+function loadJSON(src, optional) {
+  const x = new XMLHttpRequest();
+  x.open("GET", src, false);
+  try {
+    x.send();
+  } catch (e) {
+    if (optional) return null;
+    throw e;
+  }
+  if (x.status >= 400 || x.status === 0 && !x.responseText) {
+    if (optional) return null;
+    throw new Error("[vk] cannot load " + src + " (" + x.status + ")");
+  }
+  return JSON.parse(x.responseText);
 }
 function esc(s2) {
   return String(s2).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
@@ -2078,6 +2524,10 @@ function finish(el2, o, ctx, defFx) {
   }
   if (o.out != null) applyFx(el2.__fxTarget || el2, o.outFx || exitFx(fx), { ...o, t: ctx.scene.time(o.out), d: o.outD || 0.4 }, ctx.scene, true);
   if (o.on) ctx.scene.on((local, p, t) => o.on(el2, local, p, t));
+  if (o.beat || o.energy) {
+    const f = modulator(ctx.video, el2, o.beat, o.energy);
+    ctx.scene.on((local, p, t) => f(t));
+  }
   return el2;
 }
 function exitFx(fx) {
@@ -2317,10 +2767,10 @@ FX.morph = (el2, o, api) => {
   const path = el2.tagName.toLowerCase() === "path" ? el2 : el2.querySelector("path");
   const seq = o.paths ? o.paths.slice() : [path.getAttribute("d"), o.to];
   const allCompat = seq.every((d) => compatible(d, seq[0]));
-  const norm = allCompat ? seq : seq.map((d) => resample(d, o.n || 120));
-  path.setAttribute("d", norm[0]);
+  const norm2 = allCompat ? seq : seq.map((d) => resample(d, o.n || 120));
+  path.setAttribute("d", norm2[0]);
   const step = o.each || (o.d || 0.9) + 0.4;
-  for (let i = 1; i < norm.length; i++) api.tween(path, { t: o.t + (i - 1) * step, d: o.d || 0.9, ease: o.ease || "inOutCubic", from: { "attr:d": norm[i - 1] }, to: { "attr:d": norm[i] } });
+  for (let i = 1; i < norm2.length; i++) api.tween(path, { t: o.t + (i - 1) * step, d: o.d || 0.9, ease: o.ease || "inOutCubic", from: { "attr:d": norm2[i - 1] }, to: { "attr:d": norm2[i] } });
 };
 
 // src/fx/text.js
@@ -2394,11 +2844,11 @@ function split2(el2, mode) {
   el2[key] = pieces;
   return pieces;
 }
-function perPiece(mode, A, B3, defEase, defD, defEach, exitTo) {
+function perPiece(mode, A, B4, defEase, defD, defEach, exitTo) {
   return (el2, o, api) => {
     const pieces = split2(el2, mode === "words" ? "words" : mode === "clip" ? "letters" : "chars");
     const each = o.each != null ? o.each : defEach;
-    let a = typeof A === "function" ? A(o, el2) : A, b = typeof B3 === "function" ? B3(o, el2) : B3, ease = o.ease || defEase;
+    let a = typeof A === "function" ? A(o, el2) : A, b = typeof B4 === "function" ? B4(o, el2) : B4, ease = o.ease || defEase;
     if (api.exit) {
       [a, b] = [b, exitTo || a];
       ease = o.ease || "inCubic";
@@ -3431,24 +3881,200 @@ G.noise = (sc, o, v) => {
     const n = m ? parseInt(m[1], 16) : 0;
     return [n >> 16 & 255, n >> 8 & 255, n & 255];
   };
-  const A = hex(o.from || v.color("bg", sc.mode)), B3 = hex(o.to || v.color("accent", sc.mode)), sc2 = o.scale || 3.2, sp = o.speed || 0.15;
+  const A = hex(o.from || v.color("bg", sc.mode)), B4 = hex(o.to || v.color("accent", sc.mode)), sc2 = o.scale || 3.2, sp = o.speed || 0.15;
   return { el: e, update(local) {
     const t = local * sp;
     for (let y = 0; y < h3; y++) for (let x = 0; x < w; x++) {
       let n = noise2(x / w * sc2 + t, y / h3 * sc2 - t * 0.7) * 0.65 + noise2(x / w * sc2 * 2.1 - t, y / h3 * sc2 * 2.1 + t) * 0.35;
       n = Math.pow(n, o.contrast || 1.6);
       const p = (y * w + x) * 4;
-      im.data[p] = A[0] + (B3[0] - A[0]) * n;
-      im.data[p + 1] = A[1] + (B3[1] - A[1]) * n;
-      im.data[p + 2] = A[2] + (B3[2] - A[2]) * n;
+      im.data[p] = A[0] + (B4[0] - A[0]) * n;
+      im.data[p + 1] = A[1] + (B4[1] - A[1]) * n;
+      im.data[p + 2] = A[2] + (B4[2] - A[2]) * n;
       im.data[p + 3] = 255;
     }
     g.putImageData(im, 0, 0);
   } };
 };
 
+// src/fx/lyrics.js
+var B3 = registry.blocks;
+var c01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+var esc3 = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+B3.lyrics = (cue, o = {}) => node({ fx: false, ...o }, function lyrics(ctx) {
+  const v = ctx.video, style = o.style || "pop", d = o.d || (style === "slam" ? 0.16 : 0.22);
+  const [, , text2, words] = Array.isArray(cue) ? cue : [cue.start, cue.end, cue.text, cue.words];
+  const el2 = h("div", "vk-lyric vk-lyric-" + style);
+  el2.style.cssText = `font-family:${o.font === "sans" ? "var(--vk-sans)" : "var(--vk-display),var(--vk-sans)"};font-weight:${o.weight || 900};line-height:1.12;font-size:${size(ctx, o.size || (style === "slam" ? 150 : 64))};text-align:${o.align || "center"};max-width:${len(ctx, o.w || 0.86, "x")};color:${o.color ? `var(--${o.color},${o.color})` : "var(--fg)"}` + (style === "slam" ? `;position:relative;width:${len(ctx, o.w || 0.86, "x")};height:1.3em;white-space:nowrap` : "");
+  const accent = o.accent || "var(--accent)", dim = o.dim != null ? o.dim : 0.42;
+  const P = mapWords(text2, words), W = [];
+  P.forEach((p) => {
+    if (p.wi < 0) {
+      const s3 = h("span", "vk-lp", esc3(p.s), el2);
+      s3.style.whiteSpace = "pre";
+      if (W.length) W[W.length - 1].tail.push(s3);
+      else if (style === "slam") s3.style.display = "none";
+      return;
+    }
+    const s2 = h("span", "vk-lw", esc3(p.s), el2);
+    s2.style.display = "inline-block";
+    s2.style.whiteSpace = "pre";
+    if (style === "slam") s2.style.cssText += ";position:absolute;left:50%;top:50%;translate:-50% -50%;transform-origin:50% 50%";
+    W.push({ s: s2, w: words[p.wi], tail: [] });
+  });
+  if (style === "slam") W.forEach((x) => x.tail.forEach((t) => t.style.display = "none"));
+  const lastEnd = W.length ? W[W.length - 1].w.end || W[W.length - 1].w.t + 0.3 : 0;
+  ctx.extend(lastEnd - ctx.scene.start + 0.3);
+  let fit = null;
+  if (style === "slam") v.afterFonts.push(() => {
+    const maxW = el2.clientWidth || v.W * 0.8;
+    fit = W.map((x) => Math.min(1, maxW / Math.max(1, x.s.offsetWidth)));
+  });
+  ctx.scene.on((local, p, t) => {
+    const tt = t + v.beats.leadT, bp = o.beat ? v.beats.pulse(t) : 0;
+    let cur = -1;
+    W.forEach((x, i) => {
+      if (tt >= x.w.t) cur = i;
+    });
+    W.forEach((x, i) => {
+      const a = (tt - x.w.t) / d, s2 = x.s, on = i === cur;
+      if (style === "karaoke") {
+        const pr = c01((tt - x.w.t) / Math.max(0.05, (x.w.end || x.w.t + 0.2) - x.w.t));
+        s2.style.color = "transparent";
+        s2.style.webkitBackgroundClip = "text";
+        s2.style.backgroundClip = "text";
+        s2.style.backgroundImage = `linear-gradient(90deg, ${accent} ${pr * 100}%, color-mix(in srgb, currentColor ${dim * 100}%, transparent) ${pr * 100}%)`;
+        s2.style.transform = on && o.beat ? `scale(${1 + o.beat * bp})` : "";
+        return;
+      }
+      if (style === "slam") {
+        const e2 = EASE.outCubic(c01(a)), show = on && a >= 0;
+        s2.style.opacity = show ? "1" : "0";
+        s2.style.transform = show ? `scale(${(fit && fit[i] || 1) * (1.35 - 0.35 * e2) * (1 + (o.beat || 0) * bp)}) rotate(${(hash(i + 7) - 0.5) * 6 * (1 - e2)}deg)` : "scale(.5)";
+        s2.style.color = hash(i * 3 + 1) > 0.7 ? accent : "";
+        return;
+      }
+      const e = style === "rise" ? EASE.outExpo(c01(a)) : EASE.outBack(c01(a)), vis = a >= 0;
+      s2.style.opacity = vis ? String(c01(a * 3)) : "0";
+      s2.style.transform = !vis ? "translateY(.35em) scale(.5)" : style === "rise" ? `translateY(${(1 - e) * 0.6}em)` : `translateY(${(1 - e) * 0.3}em) scale(${(0.55 + 0.45 * e) * (on ? 1 + (o.beat || 0) * bp : 1)})`;
+      if (style === "rise") s2.style.filter = vis && a < 1 ? `blur(${(1 - e) * 8}px)` : "";
+      s2.style.color = on ? accent : "";
+      x.tail.forEach((tn) => tn.style.opacity = s2.style.opacity);
+    });
+  });
+  return el2;
+});
+B3.spectrum = (o = {}) => node({ fx: "fade", ...o }, function spectrum(ctx) {
+  const v = ctx.video, n = o.bars || 16, px = ctx.px, H = px(o.h || 120);
+  const el2 = h("div", "vk-spectrum");
+  el2.style.cssText = `display:flex;align-items:${o.mirror ? "center" : "flex-end"};gap:${px(o.gap != null ? o.gap : 6)}px;height:${H}px;width:${len(ctx, o.w || 0.6, "x")}`;
+  const bars = Array.from({ length: n }, () => {
+    const b = h("i", null, null, el2);
+    b.style.cssText = `flex:1;height:100%;border-radius:${px(4)}px;background:${o.color ? `var(--${o.color},${o.color})` : "var(--accent)"};transform-origin:50% ${o.mirror ? "50%" : "100%"}`;
+    return b;
+  });
+  ctx.scene.on((local, p, t) => {
+    const M = v.music;
+    const nb = M && M.env.bands ? M.env.bands.length : 0;
+    bars.forEach((b, i) => {
+      let e = 0;
+      if (nb) {
+        const x = i * (nb - 1) / Math.max(1, n - 1), j = Math.floor(x), f = x - j;
+        e = M.energy(t, j, o.smooth != null ? o.smooth : 0.03) * (1 - f) + (j + 1 < nb ? M.energy(t, j + 1, o.smooth != null ? o.smooth : 0.03) * f : 0);
+      } else e = v.beats.pulse(t, 5) * (0.4 + 0.6 * hash(i));
+      b.style.transform = `scaleY(${Math.max(o.floor != null ? o.floor : 0.04, e).toFixed(3)})`;
+    });
+  });
+  return el2;
+});
+function lyricVideo(vk2, o = {}) {
+  const v = vk2.current, G2 = v.beats, M = v.music, lines = (o.lines || v.lyrics).filter((l) => l[3] && l[3].length);
+  if (!lines.length) throw new Error('[vk] lyricVideo: no lyric lines (vk.video({lyrics:"song.align.json"}))');
+  const lead = G2.leadT, styles = o.styles || ["pop", "rise", "slam", "karaoke"];
+  const bgs = o.bgs || ["dark", "accent", [{ type: "dots", drift: 24 }], "light", [{ type: "grid", drift: 30 }]];
+  const trs = o.transitions || ["none", "flash:0.25", "whip-left:0.3", "zoom-in:0.3"];
+  const secs = M ? M.sections : [];
+  const secOf = (t) => {
+    for (let i = secs.length - 1; i >= 0; i--) if (t >= secs[i].start - 0.05) return secs[i];
+    return secs[0] || { index: 0, label: "A", energy: 0.5 };
+  };
+  const medE = secs.length ? secs.map((s2) => s2.energy).sort((a, b) => a - b)[Math.floor(secs.length / 2)] : 0.5;
+  const tol = o.cutTolerance != null ? o.cutTolerance : 0.15;
+  const cutBefore = (t) => {
+    const x = t + tol + lead;
+    if (o.cut !== "beat") {
+      const b = G2.measure(Math.floor(G2.barIndex(x)));
+      if (b <= x) return b;
+    }
+    return G2.at(Math.floor(G2.index(x)));
+  };
+  const groups = [];
+  lines.forEach((l) => {
+    let c = cutBefore(l[3][0].t);
+    const g = groups[groups.length - 1];
+    if (g && c <= g.cut + 1e-3) {
+      const cb = G2.at(Math.floor(G2.index(l[3][0].t + tol + lead)));
+      if (cb > g.cut + 0.3) c = cb;
+      else {
+        g.lines.push(l);
+        return;
+      }
+    }
+    groups.push({ cut: c, lines: [l] });
+  });
+  const lastEnd = Math.max(...lines.map((l) => l[3][l[3].length - 1].end || l[3][l[3].length - 1].t + 0.3));
+  const endLyrics = G2.measure(Math.ceil(G2.barIndex(lastEnd + 0.4 + lead)));
+  const total = o.end || Math.min(M ? M.duration : Infinity, endLyrics + (o.outro ? G2.meter * G2.beat * 2 : 0));
+  const sceneFor = (name, endAbs, opts, nodes) => vk2.scene(name, { ...opts, end: endAbs - lead }, nodes);
+  const flashNode = (amt2) => vk2.el((ctx) => {
+    const e = document.createElement("div");
+    e.style.cssText = "position:absolute;inset:0;background:#fff;pointer-events:none;z-index:5;opacity:0";
+    ctx.scene.on((l, p, t) => {
+      e.style.opacity = (amt2 * G2.pulse(t, 9)).toFixed(3);
+    });
+    return e;
+  }, { fixed: true });
+  if (groups[0].cut > 1.2) {
+    const I = o.intro || {};
+    sceneFor("intro", groups[0].cut, { bg: I.bg || [{ type: "mesh" }], mode: "dark", beat: { scale: 0.025 } }, [
+      I.label ? vk2.label(I.label, { at: 0.2 }) : null,
+      vk2.title(I.title || document.title, { fx: "letters", at: "b:1", size: I.size || 110, beat: { scale: 0.05 }, style: "text-shadow:0 2px 10px rgba(0,0,0,.3)" }),
+      I.sub ? vk2.sub(I.sub, { at: "b:3", fx: "up", style: "text-shadow:0 2px 14px rgba(0,0,0,.55)" }) : null,
+      o.spectrum !== false ? vk2.spectrum({ at: 0.3, bars: 24, h: 90, w: 0.5, mt: 36, color: "fg" }) : null
+    ]);
+  }
+  const perSec = {};
+  groups.forEach((g, i) => {
+    const sec = secOf(g.cut + 0.1), hot = secs.length < 2 || sec.energy > medE, si = sec.index || 0, k = perSec[si] = perSec[si] == null ? 0 : perSec[si] + 1;
+    const ss = o.sectionStyles && o.sectionStyles[sec.label], style = ss ? [].concat(ss)[k % [].concat(ss).length] : styles[(si + k) % styles.length];
+    const st = g.lines.length > 1 && style === "slam" ? "pop" : style;
+    const endAbs = i + 1 < groups.length ? groups[i + 1].cut : endLyrics;
+    const bg = bgs[(si + k) % bgs.length];
+    sceneFor(`${sec.label}${i + 1}`, endAbs, {
+      bg,
+      mode: bg === "light" || bg === "accent" ? bg : "dark",
+      transition: i === 0 && groups[0].cut <= 1.2 ? "none" : trs[(i + si) % trs.length],
+      beat: hot ? { scale: o.zoom != null ? o.zoom : 0.035 } : null,
+      energy: o.energy !== false ? o.energy || { brightness: [0.8, 1.12], band: "low", smooth: 0.05 } : null
+    }, [
+      ...g.lines.map((l, j) => vk2.lyrics(l, { style: st, size: o.size || (st === "slam" ? 150 : g.lines.length > 1 ? 60 : 84), mt: j ? 18 : 0, beat: hot ? 0.06 : 0 })),
+      o.spectrum !== false && hot ? vk2.spectrum({ at: 0.1, bars: 32, h: 70, w: 0.7, pos: { x: 0.15, bottom: 0.06 }, mirror: false, color: "muted" }) : null,
+      hot && o.flash !== 0 ? flashNode(o.flash || 0.35) : null
+    ]);
+  });
+  if (o.outro && total > endLyrics + 0.5) {
+    const O = o.outro;
+    sceneFor("outro", total + lead, { bg: O.bg || "dark", transition: "fade:0.6" }, [
+      vk2.title(O.title || "", { fx: "letters-blur", at: 0.3, size: O.size || 84, beat: { scale: 0.03 } }),
+      O.sub ? vk2.sub(O.sub, { at: 1, fx: "up" }) : null,
+      O.small ? vk2.small(O.small, { at: 1.6, mt: 30 }) : null
+    ]);
+  }
+  return v;
+}
+
 // src/index.js
-var version = "0.1.0";
+var version = "0.2.0";
 var current = null;
 var env = { base: (() => {
   try {
@@ -3553,6 +4179,32 @@ var vk = {
   pulse: (t, k, every) => current.beats.pulse(t, k, every),
   hit: (t, t0, k) => current.beats.hit(t, t0, k),
   snap: (t, t1, d) => current.beats.snap(t, t1, d),
+  // Phase 2 rhythm helpers (absolute video time). Bars are "measures" so they never clash with the vk.bar() chart.
+  measure: (n) => current.beats.measure(n),
+  beatIndex: (t) => current.beats.index(t),
+  measureIndex: (t) => current.beats.barIndex(t),
+  beatInBar: (t) => current.beats.beatInBar(t),
+  barPulse: (t, k, every) => current.beats.barPulse(t, k, every),
+  onBeat: (t, o = {}) => o.unit === "bar" ? current.beats.barPulse(t, o.k || 4, o.every || 1) : o.unit === "onset" ? vk.onsetHit(t, o.k, o.min) : current.beats.pulse(t, o.k || 6, o.every || 1),
+  onsetHit: (t, k, min) => current.music ? current.music.onsetHit(t, k, min) : 0,
+  energy: (t, band, smooth) => current.music ? current.music.energy(t, band, smooth) : 0,
+  section: (t) => current.music ? current.music.section(t) : null,
+  get sections() {
+    return current && current.music ? current.music.sections : [];
+  },
+  get music() {
+    return current && current.music;
+  },
+  get lyricLines() {
+    return current ? current.lyrics : [];
+  },
+  quantize: (t, sub2) => current.beats.quantize(t, sub2),
+  lyricVideo: (o) => lyricVideo(vk, o),
+  MusicInfo,
+  alignToCues,
+  chunkCues,
+  mapWords,
+  estimateSpeech,
   Video,
   Scene,
   _setEnv(e) {

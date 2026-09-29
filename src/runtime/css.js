@@ -54,6 +54,8 @@ export function stageCSS(v) {
   font-weight:700;padding:.3em .8em;border-radius:12px;line-height:1.35;white-space:${W < H ? 'normal;width:max-content' : 'nowrap'}}
 ${W < H ? `.vk-cap{left:${s.left}px;right:${s.right}px;transform:none;margin:0 auto;max-width:${W - s.left - s.right}px}` : ''}
 .vk-cap .kw{transition:none}.vk-cap .kw.on{color:${th.caption.karaoke}}
+.vk-cap[data-style=sweep] .kw{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(90deg,${th.caption.karaoke} calc(var(--p,0)*100%),${th.caption.fg} calc(var(--p,0)*100% + .5px))}
+.vk-cap[data-style=pop] .kw{display:inline-block;transform:scale(calc(1 + .12*var(--p,0)*(1 - var(--p,0))*4))}.vk-cap[data-style=pop] .kw.on{color:${th.caption.karaoke}}
 html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:hidden;width:${W}px;height:${H}px}
 .vk-wrap{max-width:${W < H ? 480 : 1120}px;margin:0 auto;padding:20px 16px 32px;font-family:var(--vk-sans)}
 .vk-wrap h1{font-size:18px;margin:0 0 12px}.vk-wrap h1 small{font-weight:400;opacity:.6;margin-left:8px}

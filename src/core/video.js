@@ -1,7 +1,7 @@
 // Video: owns the stage, scene graph, timeline, layers, captions and the pure render(t).
 import { EASE, getEase, setDefaultEase } from './ease.js';
 import { mulberry32, hash } from './random.js';
-import { BeatGrid, parseDur, parseTime } from './time.js';
+import { BeatGrid, parseDur, parseTime, gridEnd } from './time.js';
 import { Timeline } from './timeline.js';
 import { cameraTransform } from './camera.js';
 import { registry } from './plugin.js';
@@ -12,6 +12,9 @@ import { fontFaces, stageCSS } from '../runtime/css.js';
 import { buildPreviewUI } from '../runtime/preview.js';
 import { runQA, visibleText } from '../runtime/qa.js';
 import { makeScore } from '../audio/score.js';
+import { MusicInfo } from '../audio/music.js';
+import { modulator } from '../fx/rhythm.js';
+import { alignToCues, chunkCues, mapWords, estimateSpeech } from '../audio/words.js';
 import { CanvasLayer } from '../layers/canvas.js';
 import { WebGLLayer } from '../layers/webgl.js';
 import { parseDeclarative } from '../authoring/declarative.js';
@@ -32,9 +35,33 @@ export class Video {
     this.theme = resolveTheme(cfg.theme);
     this.k = Math.min(this.W, this.H) / 720;           // type scale factor
     setDefaultEase(cfg.ease || this.theme.ease || 'outCubic');
-    this.beats = new BeatGrid({ fps: this.fps, bpm: cfg.bpm, offset: cfg.beatOffset, times: cfg.beats });
+    // ---- music + beat grid (Phase 2): beats may be a time list, or a `vk analyze` JSON (path or object) ----
+    this.lead = cfg.lead != null ? +cfg.lead : 1;                   // visual hits land `lead` frames before the sound
+    if (cfg.music && !cfg.audio) cfg.audio = cfg.music;
+    this.musicStart = +(cfg.musicStart || 0); this.musicGain = cfg.musicGain != null ? +cfg.musicGain : 1;
+    let bdata = typeof cfg.beats === 'string' ? loadJSON(cfg.beats) : (cfg.beats && !Array.isArray(cfg.beats) && cfg.beats.beats ? cfg.beats : null);
+    if (bdata) this.music = new MusicInfo(bdata, { start: this.musicStart, fps: this.fps, lead: this.lead });
+    this.beats = new BeatGrid(this.music
+      ? { fps: this.fps, lead: this.lead, bpm: bdata.bpm, times: this.music.beats, downbeats: this.music.downbeats, meter: this.music.meter }
+      : { fps: this.fps, lead: this.lead, bpm: cfg.bpm, offset: cfg.beatOffset, times: Array.isArray(cfg.beats) ? cfg.beats : null, downbeats: cfg.downbeats, meter: cfg.meter, downbeat: cfg.downbeat });
     this.tl = new Timeline();
-    this.scenes = []; this.layers = []; this.globalFns = []; this.overlays = []; this.caps = (cfg.captions || []).slice();
+    this.scenes = []; this.layers = []; this.globalFns = []; this.overlays = [];
+    this.caps = typeof cfg.captions === 'string' ? alignToCues(loadJSON(cfg.captions), { offset: this.musicStart }) : (cfg.captions || []).slice();
+    // lyrics: align JSON (vk align) → word-timed cues; shown as karaoke captions unless {captions:false}
+    this.lyrics = [];
+    if (cfg.lyrics) {
+      const L = typeof cfg.lyrics === 'string' ? { src: cfg.lyrics } : cfg.lyrics, data = L.src ? loadJSON(L.src) : L.data || L;
+      this.lyrics = alignToCues(data, { offset: L.offset != null ? L.offset : this.musicStart, hold: L.hold });
+      if (L.captions) this.caps.push(...this.lyrics);
+    }
+    // voice-over (TTS): manifest written by `vk tts page.html`; scenes with `vo:` get audio, timing and captions
+    const VC = cfg.voice ? (typeof cfg.voice === 'string' ? { manifest: cfg.voice } : { ...cfg.voice }) : null;
+    this.voiceCfg = VC; this.voices = []; this.voRequests = []; this.voMissing = [];
+    if (VC) {
+      VC.manifest = VC.manifest || (location.pathname.split('/').pop().replace(/\.html?$/i, '') + '.vo.json');
+      this.voManifest = loadJSON(VC.manifest, true);
+      this.voBase = new URL(VC.manifest, location.href).href.replace(/[^/]*$/, '');
+    }
     this.events = Array.isArray(cfg.score) ? cfg.score.slice() : [];
     this.pendingMedia = []; this.afterFonts = []; this.duration = 0; this.curT = 0; this.finalized = false;
     this.ui = null; this.playing = false; this.ccOn = true;
@@ -79,6 +106,7 @@ export class Video {
   scene(name, dur, opts, nodes) {
     let o;
     if (typeof name === 'object' && !Array.isArray(name)) { o = { ...name }; nodes = dur; }
+    else if (dur && typeof dur === 'object' && !Array.isArray(dur)) { o = { ...dur, name }; nodes = opts; }   // scene(name, {dur|end, …}, nodes)
     else { if (Array.isArray(opts) || typeof opts === 'function') { nodes = opts; opts = {}; } o = { ...(opts || {}), name, dur }; }
     if (this.finalized) console.warn('[vk] scene added after finalize(); call vk.video({manual:true}) and v.start()');
     const sc = new Scene(this, o);
@@ -86,8 +114,12 @@ export class Video {
     sc.transition = prev ? parseTransition(o.transition != null ? o.transition : this.cfg.transition) : { type: 'none', d: 0 };
     if (o.start != null) sc.start = parseTime(o.start, this.beats);
     else sc.start = prev ? prev.start + prev.dur - sc.transition.d : 0;
-    const auto = o.dur === 'auto' || o.dur == null;
+    const auto = (o.dur === 'auto' || o.dur == null) && o.end == null;
     sc.dur = auto ? 0 : parseDur(o.dur, this.beats);
+    const cutIn = sc.start + sc.transition.d;                       // the moment the scene is fully on screen
+    const gEnd = gridEnd(o.dur, this.beats, cutIn);               // 'b:N' / 'm:N' → end exactly on the grid
+    if (gEnd != null) sc.dur = gEnd - sc.start;
+    if (o.end != null) sc.dur = parseTime(o.end, this.beats) - sc.start;   // absolute cut time ('m:16', 'b:64', 42.5)
     // palette mode / background
     let mode = o.mode, bg = o.bg;
     if (typeof bg === 'string' && this.theme.modes[bg]) { mode = bg; bg = null; }
@@ -99,9 +131,18 @@ export class Video {
     if (o.texture) Object.entries(o.texture).forEach(([n, x]) => x && sc.texture(n, x));
     if (o.camera) sc.camera(o.camera);
     if (o.shake) [].concat(o.shake).forEach(s => typeof s === 'object' ? sc.shake(s.t, s.amp, s.d) : sc.shake(s));
+    if (o.beat || o.energy) { sc.ensureCam(); const f = modulator(this, sc.cam, o.beat, o.energy); sc.on((l, p, t) => f(t)); }   // whole-frame rhythm
     if (typeof nodes === 'function') nodes(sc, this);
     else if (nodes) this.buildNodes(sc, [].concat(nodes).flat(), sc.content);
     if (auto) sc.dur = Math.max(1.5, sc.maxT + (o.hold != null ? o.hold : 2.2));
+    if (o.vo) this.addVoice(sc, o, auto);
+    // snap: extend numeric/auto durations so the next cut lands on the next beat / bar ('beat' | 'bar' | 'b:2' | 'm:2')
+    const snap = o.snap !== undefined ? o.snap : this.cfg.snap;
+    if (snap && gEnd == null && o.end == null && this.beats.active) {
+      const m = /^(beat|bar|b|m)(?::(\d+))?$/.exec(String(snap)), unit = m && (m[1] === 'bar' || m[1] === 'm') ? 'bar' : 'beat', n = m && m[2] ? +m[2] : 1;
+      sc.dur = this.beats.ceil(sc.start + sc.dur + this.beats.leadT, unit, n) - this.beats.leadT - sc.start;
+    }
+    if (sc.dur <= sc.transition.d) console.warn(`[vk] scene "${sc.name}" is shorter than its transition`);
     if (o.sfx !== false && this.cfg.autoSfx && prev && sc.transition.d > 0) this.sfx(sc.start + Math.min(.05, sc.transition.d / 2), 'whoosh', .5);
     return sc;
   }
@@ -133,7 +174,25 @@ export class Video {
   tween(target, o) { this.tl.tween(typeof target === 'string' ? [...this.stage.querySelectorAll(target)] : [].concat(target), o, null); return this; }
   onRender(fn) { this.globalFns.push(fn); return this; }
   canvas(draw, o = {}) { return this.addLayer('canvas', draw, { z: 'front', zIndex: 30, ...o }); }
-  sfx(t, name, gain = 1, freq) { this.events.push([+t.toFixed(3), name, gain, freq]); return this; }
+  sfx(t, name, gain = 1, freq) { t = typeof t === 'string' ? parseTime(t, this.beats) + this.beats.leadT : t; this.events.push([+t.toFixed(3), name, gain, freq]); return this; }
+  // ---- voice-over ----
+  voiceEntry(text) { const M = this.voManifest; return M && M.items ? M.items[text] || null : null; }
+  addVoice(sc, o, auto) {
+    const VC = this.voiceCfg || {}, text = [].concat(o.vo).join(''), e = this.voiceEntry(text);
+    const lead = o.voLead != null ? o.voLead : Math.max(VC.lead != null ? VC.lead : .45, sc.transition.d + .1);
+    const tail = o.voTail != null ? o.voTail : (VC.tail != null ? VC.tail : .7);
+    const dur = e ? e.duration : estimateSpeech(text), at = sc.start + lead;
+    this.voRequests.push({ text, scene: sc.name });
+    if (!e) { this.voMissing.push(text); console.warn(`[vk] no TTS audio for scene "${sc.name}" — run: vk tts ${location.pathname.split('/').pop()}`); }
+    if (auto) sc.dur = Math.max(sc.dur, lead + dur + tail);
+    else if (lead + dur > sc.dur) console.warn(`[vk] voice-over of "${sc.name}" (${(lead + dur).toFixed(2)}s) is longer than the scene (${sc.dur.toFixed(2)}s); use dur:'auto'`);
+    sc.vo = { text, at, dur, lead, entry: e };
+    if (e) this.voices.push({ t: +at.toFixed(3), src: this.voBase + e.file, file: e.file, dur: e.duration, gain: o.voGain != null ? o.voGain : (VC.gain != null ? VC.gain : 1), scene: sc.name, text });
+    if (o.cap === undefined && VC.captions !== false) {
+      if (e && e.words && e.words.length) { this.caps.push(...chunkCues(text, e.words, { at, maxChars: VC.maxChars || (this.W < this.H ? 14 : 20) })); sc.cap = null; }
+      else sc.cap = text.split(/(?<=[。！？!?；;])/).filter(x => x.trim());
+    }
+  }
   caption(start, end, text, words) { this.caps.push(words ? [start, end, text, words] : [start, end, text]); return this; }
   texture(name, opts) { const f = registry.textures[name]; if (!f) { console.warn('[vk] unknown texture', name); return this; } const r = f(this, opts === true ? {} : typeof opts === 'number' ? { amount: opts } : (opts || {})); if (r) this.overlays.push(r); return this; }
 
@@ -180,7 +239,11 @@ export class Video {
     Object.assign(window, {
       __duration: this.duration, __fps: this.fps, __size: { width: this.W, height: this.H }, __captions: this.caps,
       __audio: this.cfg.audio ? new URL(this.cfg.audio, location.href).href : null,
-      __scenes: S.map(s => ({ index: s.index, name: s.name, start: s.start, dur: s.dur, transition: s.transition, settle: this.settleOf(s) })),
+      __music: this.cfg.audio ? { src: new URL(this.cfg.audio, location.href).href, start: this.musicStart, gain: this.musicGain, duck: this.cfg.duck } : null,
+      __voice: this.voices, __voRequests: this.voRequests, __voMissing: this.voMissing,
+      __voiceCfg: this.voiceCfg ? { ...this.voiceCfg, manifestUrl: new URL(this.voiceCfg.manifest, location.href).href } : null,
+      __mix: this.cfg.mix || null,
+      __scenes: S.map(s => ({ index: s.index, name: s.name, start: s.start, dur: s.dur, transition: s.transition, settle: this.settleOf(s), vo: s.vo ? { at: s.vo.at, dur: s.vo.dur, missing: !s.vo.entry } : null })),
       __cues: this.events.map(e => e[0]),
       __vk: { theme: this.cfg.theme || 'tech-blue', format: this.format, safe: this.safe, zones: this.zones, title: this.cfg.title || document.title },
       __text: t => { if (t != null) this.render(t); return visibleText(this.stage); },
@@ -189,6 +252,7 @@ export class Video {
     });
     if (this.events.length || this.cfg.scoreFn) window.SCORE = this.cfg.scoreFn || makeScore(this.events, this.cfg.scoreOptions || {}, this);
     if (this.cfg.audio && !RENDER) { this.audioEl = new Audio(this.cfg.audio); this.audioEl.preload = 'auto'; }
+    if (this.voices.length && !RENDER) this.voiceEls = this.voices.map(x => { const a = new Audio(x.src); a.preload = 'auto'; return { ...x, a }; });
     if (RENDER) this.render(+Q.get('t') || 0);
     else setTimeout(() => { this.ui = buildPreviewUI(this, Q); }, 0);
     return this;
@@ -242,6 +306,7 @@ export class Video {
       if (sc.el.getAnimations) sc.el.getAnimations({ subtree: true }).forEach(a => { if (a.playState !== 'paused') a.pause(); a.currentTime = local * 1000; });
     }
     for (const L of this.layers) L.render(t, { ...info, local: t, p: t / this.duration });
+    if (this.beats.active || this.music) this.setRhythmVars(t);
     for (const f of this.globalFns) f(t);
     if (this.flashEl) { this.flashEl.style.opacity = flash; if (flash) this.flashEl.style.background = flashColor; }
     for (const o of this.overlays) o.update && o.update(t, info);
@@ -250,14 +315,26 @@ export class Video {
     registry.hooks.frame.forEach(f => f(t, this));
     if (this.ui) this.ui.update(t);
   }
+  // CSS custom properties for rhythm-reactive styling: var(--beat) var(--bar) var(--energy) var(--low) var(--mid) var(--high)
+  setRhythmVars(t) {
+    const st = this.stage.style, B = this.beats, M = this.music;
+    st.setProperty('--beat', B.pulse(t).toFixed(3)); st.setProperty('--bar', B.barPulse(t).toFixed(3));
+    if (M) { st.setProperty('--energy', M.energy(t).toFixed(3)); st.setProperty('--low', M.energy(t, 'low').toFixed(3)); st.setProperty('--mid', M.energy(t, 'mid').toFixed(3)); st.setProperty('--high', M.energy(t, 'high').toFixed(3)); }
+  }
+  // captions; cues with word timing render as karaoke: each word gets --p (0→1 while it is spoken, `lead` frames early)
   renderCaption(t) {
     if (!this.capEl) return;
     let c = null;
     for (const x of this.caps) if (t >= x[0] && t < x[1]) { c = x; break; }
     const el = this.capEl;
     if (c && this.ccOn) {
-      if (el.__c !== c) { el.__c = c; if (c[3]) el.innerHTML = c[3].map(w => `<span class="kw">${esc(w.w)}</span>`).join(''); else el.textContent = c[2]; }
-      if (c[3]) [...el.children].forEach((s, i) => s.classList.toggle('on', t >= c[3][i].t));  // word-level timing (Phase 2 VO / lyrics)
+      if (el.__c !== c) {
+        el.__c = c;
+        if (c[3]) { const P = mapWords(c[2], c[3]); el.innerHTML = P.map(p => p.wi < 0 ? esc(p.s) : `<span class="kw" data-i="${p.wi}">${esc(p.s)}</span>`).join(''); el.__kw = [...el.querySelectorAll('.kw')].map(s => ({ s, w: c[3][+s.dataset.i] })); }
+        else { el.textContent = c[2]; el.__kw = null; }
+        el.classList.toggle('vk-karaoke', !!c[3]); el.dataset.style = this.cfg.karaoke || 'sweep';
+      }
+      if (el.__kw) { const tt = t + this.beats.leadT; for (const { s, w } of el.__kw) { const p = Math.max(0, Math.min(1, (tt - w.t) / Math.max(.05, (w.end || w.t + .2) - w.t))); s.style.setProperty('--p', p.toFixed(3)); s.classList.toggle('on', tt >= w.t); } }
       el.style.opacity = Math.max(0, Math.min(1, (t - c[0]) / .2, (c[1] - t) / .2));
     } else el.style.opacity = 0;
   }
@@ -302,6 +379,13 @@ function placeNode(el, n, sc, parent) {
   if (o.fixed) sc.fixed.appendChild(el);
   else if (o.pos || el.classList.contains('vk-abs')) (sc.cam || sc.el).appendChild(el);
   else parent.appendChild(el);
+}
+// synchronous same-origin JSON load at build time (pages are plain scripts; keeps authoring code linear)
+export function loadJSON(src, optional) {
+  const x = new XMLHttpRequest(); x.open('GET', src, false);
+  try { x.send(); } catch (e) { if (optional) return null; throw e; }
+  if (x.status >= 400 || x.status === 0 && !x.responseText) { if (optional) return null; throw new Error('[vk] cannot load ' + src + ' (' + x.status + ')'); }
+  return JSON.parse(x.responseText);
 }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
 export { EASE, hash };

@@ -1,5 +1,6 @@
 // Authoring node plumbing shared by text, layout, block and chart factories.
 import { applyFx } from '../fx/apply.js';
+import { modulator } from '../fx/rhythm.js';
 
 // A Node is {o, build(ctx) → Element}. ctx: {video, scene, theme, W, H, px, at(o), advance(t), extend(t), build(nodes, parent)}
 export function node(o, build, defFx) {
@@ -64,6 +65,7 @@ export function finish(el, o, ctx, defFx) {
   }
   if (o.out != null) applyFx(el.__fxTarget || el, o.outFx || exitFx(fx), { ...o, t: ctx.scene.time(o.out), d: o.outD || .4 }, ctx.scene, true);
   if (o.on) ctx.scene.on((local, p, t) => o.on(el, local, p, t));
+  if (o.beat || o.energy) { const f = modulator(ctx.video, el, o.beat, o.energy); ctx.scene.on((local, p, t) => f(t)); }   // rhythm-reactive (Phase 2)
   return el;
 }
 function exitFx(fx) { if (!fx) return 'fade'; return /^(type|count|swap|highlight|marker|underline|wave|stack|scramble|decode)$/.test(fx) ? 'fade' : fx; }

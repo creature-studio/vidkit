@@ -72,4 +72,4 @@ export function runQA(v) {
   registry.hooks.qa.forEach(f => f(rep, v));
   return rep;
 }
-function hasCamMotion(el) { const cam = el.closest('.vk-cam'); if (!cam) return false; if (el.closest('[data-cam-keys]')) return true; const tf = getComputedStyle(cam).transform; return !!tf && tf !== 'none' && tf !== 'matrix(1, 0, 0, 1, 0, 0)'; }
+function hasCamMotion(el) { const cam = el.closest('.vk-cam'); if (!cam) return false; if (el.closest('[data-cam-keys]')) return true; if (cam.style.scale || cam.style.rotate) return true; /* rhythm zoom (beat/energy) */ const tf = getComputedStyle(cam).transform; return !!tf && tf !== 'none' && tf !== 'matrix(1, 0, 0, 1, 0, 0)'; }

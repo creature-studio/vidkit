@@ -1,6 +1,6 @@
 {
   "name": "vidkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministic HTML/JS → MP4 video framework: render(t) core, effect presets, scene authoring API, CLI.",
   "type": "module",
   "main": "src/index.js",

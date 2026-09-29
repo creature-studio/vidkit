@@ -3,6 +3,7 @@
 import { parseTime, parseDur } from './time.js';
 import { normKeys } from './camera.js';
 import { applyFx } from '../fx/apply.js';
+import { modulator } from '../fx/rhythm.js';
 
 export class Scene {
   constructor(video, o) {
@@ -47,7 +48,13 @@ export class Scene {
   push(amount) { this.ensureCam(); this.camCfg.push = amount; return this; }
   shake(t, amp = 10, d = .6, k = 6, rot = 0) { this.ensureCam(); this.camCfg.shakes.push({ t: this.time(t), amp, d, k, rot }); return this; }
   // zoom pulse on every beat (music): amount e.g. .02
-  beatZoom(amount = .02, k = 6, every = 1) { this.ensureCam(); this.camCfg.extra.push(lt => amount * this.video.beats.pulse(this.start + lt, k, every)); return this; }
+  beatZoom(amount = .02, k = 6, every = 1, unit = 'beat') { this.ensureCam(); const B = this.video.beats; this.camCfg.extra.push(lt => amount * (unit === 'bar' ? B.barPulse(this.start + lt, k, every) : B.pulse(this.start + lt, k, every))); return this; }
+  // camera zoom follows the music loudness (0..amount), e.g. .06 — needs vk.video({beats:'song.beats.json'})
+  energyZoom(amount = .05, band = 'loud', smooth = .15) { this.ensureCam(); const v = this.video; this.camCfg.extra.push(lt => v.music ? amount * v.music.energy(this.start + lt, band, smooth) : 0); return this; }
+  // rhythm modulation of elements: onBeat('.logo', {scale:.08, brightness:.4, unit:'beat'|'bar'|'onset', every, k, beats:[2,4]})
+  onBeat(target, o = { scale: .06 }) { toEls(target, this.el).forEach(el => { const f = modulator(this.video, el, o, null); this.on((l, p, t) => f(t)); }); return this; }
+  // energize('.bg', {scale:[1,1.1], brightness:[.7,1.3], band:'low', smooth:.1})
+  energize(target, o = { scale: [1, 1.08] }) { toEls(target, this.el).forEach(el => { const f = modulator(this.video, el, null, o); this.on((l, p, t) => f(t)); }); return this; }
   // ---- layers ----
   canvas(draw, o = {}) { return this.video.addLayer('canvas', draw, { ...o, scene: this }); }
   webgl(o = {}) { return this.video.addLayer('webgl', null, { ...o, scene: this }); }

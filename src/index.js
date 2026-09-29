@@ -19,9 +19,13 @@ import './fx/blocks.js';
 import './fx/charts.js';
 import './fx/textures.js';
 import './fx/backgrounds.js';
+import './fx/lyrics.js';
 import './audio/score.js';
+import { lyricVideo } from './fx/lyrics.js';
+import { MusicInfo } from './audio/music.js';
+import { alignToCues, chunkCues, mapWords, estimateSpeech } from './audio/words.js';
 
-export const version = '0.1.0';
+export const version = '0.2.0';
 let current = null;
 const env = { base: (() => { try { return new URL('../', import.meta.url).href; } catch (e) { return ''; } })() };
 
@@ -51,6 +55,19 @@ export const vk = {
   BeatGrid, parseTime, shapePath, shapePoints, shapePolygon, resample, splitText,
   // beat helpers bound to the current video's grid
   beat: n => current.beats.at(n), pulse: (t, k, every) => current.beats.pulse(t, k, every), hit: (t, t0, k) => current.beats.hit(t, t0, k), snap: (t, t1, d) => current.beats.snap(t, t1, d),
+  // Phase 2 rhythm helpers (absolute video time). Bars are "measures" so they never clash with the vk.bar() chart.
+  measure: n => current.beats.measure(n), beatIndex: t => current.beats.index(t), measureIndex: t => current.beats.barIndex(t),
+  beatInBar: t => current.beats.beatInBar(t), barPulse: (t, k, every) => current.beats.barPulse(t, k, every),
+  onBeat: (t, o = {}) => o.unit === 'bar' ? current.beats.barPulse(t, o.k || 4, o.every || 1) : o.unit === 'onset' ? vk.onsetHit(t, o.k, o.min) : current.beats.pulse(t, o.k || 6, o.every || 1),
+  onsetHit: (t, k, min) => current.music ? current.music.onsetHit(t, k, min) : 0,
+  energy: (t, band, smooth) => current.music ? current.music.energy(t, band, smooth) : 0,
+  section: t => current.music ? current.music.section(t) : null,
+  get sections() { return current && current.music ? current.music.sections : []; },
+  get music() { return current && current.music; },
+  get lyricLines() { return current ? current.lyrics : []; },
+  quantize: (t, sub) => current.beats.quantize(t, sub),
+  lyricVideo: o => lyricVideo(vk, o),
+  MusicInfo, alignToCues, chunkCues, mapWords, estimateSpeech,
   Video, Scene,
   _setEnv(e) { Object.assign(env, e); },
 };

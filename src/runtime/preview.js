@@ -38,12 +38,15 @@ export function buildPreviewUI(v, Q) {
   }
   function setPlaying(p) {
     v.playing = p; play.textContent = p ? '暂停' : (t >= DUR - .05 ? '重播' : '播放');
-    if (v.audioEl) { if (p) { v.audioEl.currentTime = t; v.audioEl.play().catch(() => { }); } else v.audioEl.pause(); }
+    if (v.audioEl) { if (p) { v.audioEl.currentTime = t + (v.musicStart || 0); v.audioEl.play().catch(() => { }); } else v.audioEl.pause(); }
+    if (!p && v.voiceEls) v.voiceEls.forEach(x => x.a.pause());
     if (p) playScore(); else stopScore();
   }
   const toggle = () => { if (!v.playing && t >= DUR - .05) t = 0; setPlaying(!v.playing); };
-  const go = nt => { t = Math.max(0, Math.min(DUR - 1e-3, nt)); if (v.audioEl) v.audioEl.currentTime = t; if (v.playing) playScore(); v.render(t); };
-  function tick(now) { const dt = last ? (now - last) / 1000 : 0; last = now; if (v.playing) { t += Math.min(dt, .1); if (t >= DUR) { t = DUR - 1e-3; setPlaying(false); } v.render(t); } requestAnimationFrame(tick); }
+  const go = nt => { t = Math.max(0, Math.min(DUR - 1e-3, nt)); if (v.audioEl) v.audioEl.currentTime = t + (v.musicStart || 0); if (v.voiceEls) v.voiceEls.forEach(x => x.a.pause()); if (v.playing) playScore(); v.render(t); };
+  // voice-over clips follow the playhead (approximate in preview; the render mixes them sample-accurately)
+  const syncVoices = () => { if (!v.voiceEls) return; v.voiceEls.forEach(x => { const lt = t - x.t, on = v.playing && lt >= 0 && lt < x.dur; if (on && x.a.paused) { x.a.currentTime = lt; x.a.volume = Math.min(1, x.gain); x.a.play().catch(() => { }); } else if (!on && !x.a.paused) x.a.pause(); }); if (v.audioEl) v.audioEl.volume = Math.min(1, (v.musicGain || 1) * (v.voiceEls.some(x => !x.a.paused) ? .35 : 1)); };
+  function tick(now) { const dt = last ? (now - last) / 1000 : 0; last = now; if (v.playing) { t += Math.min(dt, .1); if (t >= DUR) { t = DUR - 1e-3; setPlaying(false); } v.render(t); } syncVoices(); requestAnimationFrame(tick); }
   play.onclick = e => { e.stopPropagation(); toggle(); };
   frame.onclick = toggle;
   seek.oninput = () => go(+seek.value / 100);
