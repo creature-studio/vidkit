@@ -109,6 +109,8 @@
       ms += `<g filter="url(#ink-wash)"><path d="M-20,${horizon + 10} C200,${horizon + 2} 420,${horizon + 16} 620,${horizon + 8} S900,${horizon + 2} ${WW + 20},${horizon + 12} L${WW + 20},${horizon - 6} L-20,${horizon - 6}Z" fill="#7d9186" opacity=".8"/></g>`;
     }
     mid.innerHTML = ms;
+    // far + mid never change (only their CSS transform pans): rasterise them once, filters included (vk.bake)
+    vk.bake(far); vk.bake(mid);
 
     // ---- live, back to front
     const G = cls => { const g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.setAttribute('class', cls); world.appendChild(g); return g; };
@@ -124,7 +126,7 @@
       const rays = [];
       for (let i = 0; i < Math.ceil(WW / 190); i++) { const x = 60 + i * 190 + H(seed + i) * 80, w = 30 + H(i * 3 + seed) * 40; const e = document.createElementNS('http://www.w3.org/2000/svg', 'path'); e.setAttribute('d', `M${f1(x)},${WL} L${f1(x + w)},${WL} L${f1(x + w - 90)},470 L${f1(x - 120)},470Z`); e.setAttribute('fill', 'url(#tp-ray)'); gRays.appendChild(e); rays.push(e); }
       P.rayBoost = 0;
-      P.fns.push(t => rays.forEach((e, i) => A(e, { opacity: (.35 + .35 * N(t * .25 + i * 3.7)) * (1 + P.rayBoost) })));
+      P.fns.push(t => rays.forEach((e, i) => A(e, { opacity: (.35 + .35 * N(t * .25 + i * 3.7)) * (1 + (P.rayBoostAt ? P.rayBoostAt(t) : P.rayBoost)) })));   // rayBoostAt(local): pure fn of time (a value set by a later sc.on would lag a frame and depend on seek order)
       // swaying weeds
       const weeds = (o.weeds || Array.from({ length: Math.ceil(WW / 120) }, (_, i) => 40 + i * 120 + H(seed * 7 + i) * 60)).map((x, i) => {
         const e = document.createElementNS('http://www.w3.org/2000/svg', 'path'); const tall = 90 + H(seed + i * 17) * 130;
@@ -147,6 +149,7 @@
       surf.innerHTML = `<path d="M-50,${WL} L${WW + 50},${WL}" stroke="#eef3ec" stroke-width="3" opacity=".9"/><path d="M-50,${WL + 1.5} L${WW + 50},${WL + 1.5}" stroke="${INK}" stroke-opacity=".28" stroke-width="1.2" filter="url(#ink-line)"/>` +
         `<g class="rip" stroke="#f4faf6" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-dasharray="14 26" opacity=".9"><path d="M-50,${WL + 7} L${WW + 50},${WL + 7}"/><path d="M-50,${WL + 15} L${WW + 50},${WL + 15}" stroke-dasharray="10 34"/></g>`;
       const rips = [...surf.querySelectorAll('.rip path')];
+      vk.bake(surf.querySelector('[filter]'));                    // static ink-line water line (world group pans it)
       P.fns.push(t => rips.forEach((p, i) => A(p, { 'stroke-dashoffset': -t * (10 + i * 5) })));
     } else {
       // surface view ripples (horizontal dashes in perspective)
@@ -168,6 +171,7 @@
         `<path d="M${L.x - r * .9},${y} Q${L.x},${y + ry * .3} ${L.x + r * .9},${y} M${L.x},${y - ry * .9} L${L.x},${y + ry * .9} M${L.x - r * .6},${y - ry * .7} L${L.x + r * .6},${y + ry * .7} M${L.x + r * .6},${y - ry * .7} L${L.x - r * .6},${y + ry * .7}" stroke="#3e5b3d" stroke-width="1" opacity=".5" fill="none"/>` +
         `<path d="M${L.x + r * .2},${y - ry} L${L.x},${y} L${L.x + r * .45},${y - ry * .85}Z" fill="${view === 'section' ? '#d2dccf' : '#dfe4d6'}"/></g>`;
       g.innerHTML = s; (L.front ? P.fore : gStems).appendChild(g);
+      g.querySelectorAll('[filter]').forEach(e => vk.bake(e));    // static ink-wob leaf / flower; the bob transform stays live
       const bob = { g, x: L.x, y, ph: i * 1.7 };
       P.fns.push(t => A(g, { transform: `translate(0 ${f1(Math.sin(t * 1.3 + bob.ph) * 1.2)})` }));
       return { x: L.x, y, r, g };

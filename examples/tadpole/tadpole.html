@@ -103,7 +103,7 @@ vk.scene('春水', 'auto', {
   });
   TP.bubbles(sc, P, l => { const p = S.pos(l, 2); return [p[0] + 10, p[1] - 8]; }, { active: l => l > tT && l < end(sc, 2), gap: .22 });
   sc.sfx(tT, 'bubbles', .7); sc.sfx(tHatch, 'pluck', .5, 392); sc.sfx(tHatch + .4, 'pluck', .45, 440);
-  P.rayBoost = 0; sc.on(l => { P.rayBoost = .8 * plat(l, tHatch - .5, tHatch + 1, end(sc, 1) + 2, end(sc, 3)); });
+  P.rayBoostAt = l => .8 * plat(l, tHatch - .5, tHatch + 1, end(sc, 1) + 2, end(sc, 3));   // read by the pond's rays in the same frame
   sc.add(vk.chapter('春水', { no: '一', at: .9, out: end(sc, 3) - .2 }));
 });
 
