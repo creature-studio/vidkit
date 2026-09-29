@@ -9,6 +9,7 @@
 - **可下沉**：随时 `scene.on(t => …)`、`vk.el(ctx => …)`、`scene.canvas()`、`scene.webgl()` 写原生代码。
 - **可扩展**：所有效果都是插件注册出来的，第三方插件与内置预设能力完全相同（`vk.use(plugin)`）。
 - **离线**：字体随包（均为 OFL 1.1），音效由 OfflineAudioContext 合成，渲染不联网。
+- **音频与节奏（Phase 2）**：`vk analyze` 节拍/强拍/段落/响度分析 → 画面卡点（提前一帧）；`vk align` 中英文词级对齐 → 卡拉 OK 字幕与歌词 MV；`vk tts` 配音驱动场景时长；渲染时自动 ducking + −14 LUFS 响度归一；`vk sync` 实测音画同步。
 
 ## 目录
 
@@ -19,12 +20,13 @@
 5. [主题](#主题)
 6. [画幅与安全区](#画幅与安全区)
 7. [字幕与音频](#字幕与音频)
-8. [下沉到原生代码](#下沉到原生代码)
-9. [CLI](#cli)
-10. [编写插件](#编写插件)
-11. [开发与测试](#开发与测试)
-12. [路线图（Phase 2 / 3）](#路线图)
-13. [字体许可](#字体许可)
+8. [音乐、节奏与配音（Phase 2）](#音乐节奏与配音phase-2)
+9. [下沉到原生代码](#下沉到原生代码)
+10. [CLI](#cli)
+11. [编写插件](#编写插件)
+12. [开发与测试](#开发与测试)
+13. [路线图（Phase 3）](#路线图)
+14. [字体与素材许可](#字体许可)
 
 ---
 
@@ -67,6 +69,8 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 | `promo.html` | 16:9 开源项目宣传片（Spark 仓库真实信息） | `out/promo.mp4` |
 | `explainer.html` | 16:9 数据讲解：全球 CO₂ 排放（Our World in Data 真实数据，`data/co2.json`） | `out/explainer.mp4` |
 | `vertical.html` | 9:16 竖屏短视频 ~15s，128 BPM 卡点，大字动效，避让平台 UI | `out/vertical.mp4` |
+| `mv.html` | 16:9 **节拍同步歌词 MV**：Kevin MacLeod《Voxel Revolution》（CC BY 4.0）+ TTS 人声；节拍/段落来自 `vk analyze`，歌词时间来自 `vk align --separate`，`vk.lyricVideo()` 一行生成（素材制作脚本 `mv/make-song.mjs`） | `out/mv.mp4` |
+| `explainer-vo.html` | CO₂ 讲解的**配音版**：每个场景 `vo:` + `dur:'auto'`，时长由 TTS 决定并吸附到背景音乐节拍，逐字高亮字幕，ducking + −14 LUFS | `out/explainer-vo.mp4` |
 | `gallery.html` | **FX Gallery 活文档**：每个预设一小段 + 名称 + 生成它的那行代码 | `out/gallery.mp4` |
 | `plugin-demo.html` | 插件示例（`plugins/hello-plugin.js`） | — |
 
@@ -95,25 +99,26 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 vidkit/
 ├─ package.json          name / bin(vk) / scripts
 ├─ bin/vk.mjs            CLI 入口
-├─ cli/                  render · stills · contact · qa · preview · new · lib（服务器、浏览器、ffprobe）
+├─ cli/                  render · stills · contact · qa · preview · new · lib · analyze · align · tts · sync · doctor · mix(混音/ducking/loudnorm) · py
+├─ tools/                vkaudio.py（Python 音频工具链）· setup-audio.sh · requirements-audio.txt
 ├─ src/
 │  ├─ index.js           vk 对象（ES module 入口）
 │  ├─ browser.js         IIFE 入口 → window.vk
 │  ├─ core/              ease · random · time(BeatGrid) · stagger · interp · camera · timeline · plugin · scene · video
 │  ├─ layers/            canvas.js · webgl.js
-│  ├─ fx/                apply · text · transitions · svg · shapes · charts · blocks · textures · backgrounds
+│  ├─ fx/                apply · text · transitions · svg · shapes · charts · blocks · textures · backgrounds · rhythm · lyrics
 │  ├─ authoring/         api(元素工厂) · node(公共选项/md) · themes · formats · declarative(data-* 兼容)
-│  ├─ audio/score.js     离线音效合成（kick/pop/whoosh…）
+│  ├─ audio/             score(离线音效合成) · music(节拍/包络/段落 MusicInfo) · words(对齐→字幕/卡拉 OK)
 │  └─ runtime/           css · preview · qa
-├─ dist/                 vidkit.js（IIFE，~165 KB）· vidkit.esm.js
+├─ dist/                 vidkit.js（IIFE，~200 KB）· vidkit.esm.js
 ├─ fonts/                Noto Sans SC · JetBrains Mono · Archivo · Anton · Instrument Serif（OFL 1.1）
-├─ examples/             promo · explainer · vertical · gallery · plugin-demo · data/ · assets/ · plugins/
+├─ examples/             promo · explainer · vertical · gallery · mv · explainer-vo · plugin-demo · data/ · assets/(music) · mv/ · plugins/
 ├─ scripts/              build · render-examples · list-presets · debug/probe 工具
-├─ test/core.test.mjs    缓动/时间/随机/节拍/插值的确定性单测
+├─ test/                core.test.mjs（缓动/时间/随机/节拍/插值）· audio.test.mjs（节拍网格/小节/提前一帧/词映射/混音表达式/分析器）
 └─ out/                  渲染产物（git 忽略）
 ```
 
-**渲染流程**：`vk render` 启动本地静态服务器 → N 个 Chromium worker 各自打开页面（`?render=1`）→ 对每帧调用 `window.__seek(t)`（内部就是 `video.render(t)`）→ 截图（默认 JPEG q95）→ ffmpeg 编码（yuv420p、bt709、`+faststart`）→ 若页面定义了音效 `window.SCORE` 则离线合成 WAV 并混入，或用 `--audio` 指定音乐 → 可选导出 SRT → ffprobe 校验 + blackdetect。
+**渲染流程**：`vk render` 启动本地静态服务器 → N 个 Chromium worker 各自打开页面（`?render=1`）→ 对每帧调用 `window.__seek(t)`（内部就是 `video.render(t)`）→ 截图（默认 JPEG q95）→ ffmpeg 编码（yuv420p、bt709、`+faststart`）→ 音频：离线合成音效 WAV + 音乐（`music`/`--audio`）+ 配音（`vk tts` 生成的片段）→ ffmpeg 混音（ducking、两遍 loudnorm）→ 可选导出 SRT → ffprobe 校验 + blackdetect。
 
 **时间模型**：场景在时间轴上首尾重叠，重叠长度 = 下一场景的转场时长（`start = 上一场景结束 − 转场时长`）。场景内所有时间都是**场景本地秒**（或 `'b:8'` 这样的节拍号，或 `'+0.3'` 表示相对上一个元素）。
 
@@ -131,7 +136,8 @@ const v = vk.video({
   transition: 'fade:0.4',    // 默认转场（名称:时长）
   push: .03,                 // 默认每个场景的缓慢推镜
   texture: { grain: { amount: .05 }, vignette: .3 },   // 全片质感
-  bpm: 128, beatOffset: 0,   // 节拍网格（或 beats: [0.52, 1.01, …] 显式节拍时间 → Phase 2 节拍检测直接填这里）
+  bpm: 128, beatOffset: 0,   // 节拍网格；或 beats: [0.52, 1.01, …] 显式节拍；或 beats: 'song.beats.json'（vk analyze 结果）
+  music: 'song.mp3', voice: {…}, captions: 'x.align.json', lyrics: {…}, mix: { lufs: -14 },   // Phase 2，见下文
   autoSfx: true,             // 转场自动 whoosh
   score: [[1.2, 'kick', 1]], scoreOptions: { pad: [110, 165, 220], beatKick: 2 },
   captions: [[0.5, 2.5, '手动字幕']],
@@ -312,9 +318,170 @@ vk.svg(`<path d="${vk.shapePath('circle', 150, 150, 120)}"/>`, {
 ## 字幕与音频
 
 - 每个场景写 `cap`，自动生成字幕轨（避开转场）；`vk render --srt` 同时导出 `.srt`。
-- 词级时间（卡拉 OK）：`v.caption(start, end, text, [{w:'每', t:1.2}, …])` —— 这正是 Phase 2 语音/歌词对齐要接入的数据格式。
-- 音乐：`vk render page.html --audio music.m4a --audio-offset 0.5`；节拍网格用 `bpm` 或 `beats:[…]`；`vk.beat(n)`、`vk.pulse(t)`、`vk.hit(t, t0)`、`vk.snap()`，场景时长/入场时间可写 `'b:8'`。
-- 音效：页面定义的 `score` / `sfx` 在渲染时由 OfflineAudioContext 离线合成成 WAV，与 `--audio` 混音。
+- 词级时间（卡拉 OK）：`v.caption(start, end, text, [{w:'每', t:1.2}, …])`，或直接由对齐 / TTS 结果生成（见下一节）。
+- 节拍网格：`bpm` 或 `beats:[…]`（显式时间）或 `beats:'song.beats.json'`（分析结果）；场景时长/入场时间可写 `'b:8'`（拍）、`'m:4'`（小节）。
+- 音效：页面定义的 `score` / `sfx` 在渲染时由 OfflineAudioContext 离线合成成 WAV，与音乐、配音一起混音。
+
+---
+
+## 音乐、节奏与配音（Phase 2）
+
+Phase 2 把"声音"变成时间轴的一等公民：**先离线分析音频 → 得到 JSON → 页面里用纯函数读取**。渲染依然确定性（分析结果是静态文件，页面不做任何实时音频处理）。
+
+### 安装音频工具链（一次）
+
+```bash
+tools/setup-audio.sh          # 在仓库内建 .venv（git 忽略）：librosa · faster-whisper · stable-ts · edge-tts · piper · torch(CPU) · demucs · beat_this
+tools/setup-audio.sh --light  # 不装 torch：节拍退化为 librosa（无神经网络 downbeat），无人声分离
+vk doctor                     # 检查每个组件是否可用
+```
+
+Python ≥ 3.10（测试环境 3.13，纯 CPU）。模型首次使用时下载到 `~/.cache`（whisper：HF Hub；beat_this / demucs：torch hub；piper 音色：`~/.cache/vidkit/piper`）。CLI 按 `VK_PYTHON` → `.venv/bin/python` → `python3` 的顺序找解释器。依赖清单见 `tools/requirements-audio.txt`，全部逻辑在 `tools/vkaudio.py`（可单独调用：`python tools/vkaudio.py analyze|align|tts|separate|sync|doctor`）。
+
+**工具选择与理由**
+
+| 任务 | 选用 | 理由 / 备选 |
+|---|---|---|
+| 节拍 + 强拍 | **beat_this**（CPJKU, ISMIR 2024） | 当前 SOTA 的节拍/强拍联合模型，CPU 上 40 秒歌曲 3–5 s；不需要 madmom（其在 Python 3.13 上无法安装）。无 torch 时退化为 librosa `beat_track` + 低频相位启发式估计强拍 |
+| onset / 响度 / 频段 / 段落 | **librosa** | 纯 Python 轮子、稳定；LUFS 用 ffmpeg `ebur128` 测 |
+| 词级对齐 | **stable-ts `align()` + faster-whisper small（int8）** | 已知文本的强制对齐，中文逐字、英文逐词；比 whisperX 依赖少（无需 pyannote/wav2vec2 中文模型） |
+| 人声分离 | **demucs htdemucs**（two-stem vocals） | 歌曲先分离再对齐，误差明显下降；结果缓存在 `~/.cache/vidkit/demucs` |
+| TTS | **edge-tts**（默认）/ **piper**（离线） | edge-tts 中文音色自然、自带 WordBoundary 词级时间（**需联网**）；piper 完全离线（`zh_CN-huayan-medium`），词时间由强制对齐补出 |
+| 混音 | **ffmpeg**（adelay/amix/volume 表达式/loudnorm 两遍） | 无额外依赖，采样级精确 |
+
+### `vk analyze`：音乐分析
+
+```bash
+vk analyze song.mp3                 # → song.beats.json
+vk analyze song.mp3 -o x.json --backend librosa --rate 50 --bands 8
+```
+
+输出（确定性，同一文件结果一致）：
+
+```jsonc
+{ "vidkit": "beats", "bpm": 122.0, "meter": 4,
+  "beats": [0.52, 1.01, …], "beatPos": [1,2,3,4,1,…], "downbeats": [0.52, 2.49, …],
+  "onsets": […], "onsetStrength": […],
+  "loudness": { "integrated": -13.9, "unit": "LUFS" },
+  "envelope": { "rate": 50, "loud": […], "rms": […], "low": […], "mid": […], "high": […], "bands": [[…] × 8] },  // 0..1
+  "sections": [{ "start": 0, "end": 15.7, "label": "A", "energy": .41 }, …],
+  "tool": { "beats": "beat_this", … } }
+```
+
+节拍后处理：局部直线拟合去抖（`--smooth 4`）+ 与强 onset 的中位偏移对齐（`--refine 40` ms，整体平移网格，不逐拍吸附；`--snap` 可逐拍吸附）；BPM = 节拍时间的稳健线性拟合斜率。段落：小节同步 chroma+MFCC 的 Foote novelty + 响度跳变，边界落在强拍上。
+
+### 在页面里使用音乐
+
+```js
+vk.video({
+  music: 'song.mp3',            // = audio；render 时自动混入（也可 --audio 覆盖）
+  musicStart: 12.5,             // 从音乐第 12.5 秒开始用（所有节拍/包络时间自动平移）
+  musicGain: .9,
+  beats: 'song.beats.json',     // 或 [0.5, 1.0, …] 显式节拍；或 bpm:120
+  lead: 1,                      // "提前一帧"规则：所有 pulse/hit/切点提前 1 帧（默认 1）
+  snap: 'bar',                  // dur:'auto' 的场景切点吸附到 'beat' | 'bar' | 'b:2' | 'm:2'
+});
+
+vk.beat(16)          // 第 16 拍的时间（秒）          vk.measure(4)   // 第 4 小节第一拍（避免与柱状图 vk.bar 冲突）
+vk.beatIndex(t)      // t 处的拍号（小数）            vk.measureIndex(t) / vk.beatInBar(t)
+vk.onBeat(t, { unit: 'beat'|'bar'|'onset', k: 6, every: 1 })   // 脉冲 exp(-frac(beat)·k)，拍点=1
+vk.pulse(t) / vk.hit(t, t0) / vk.barPulse(t)
+vk.energy(t, 'low'|'mid'|'high'|'loud'|0..7, smooth)             // 0..1 响度/频段包络（同样提前一帧）
+vk.onsetHit(t, k)    // 最近一个 onset 的冲击包络（按强度加权）
+vk.section(t)        // { start, end, label, energy }；vk.sections() 全部段落
+vk.quantize(t, 'beat'|'bar')
+```
+
+**元素 / 场景级节奏参数**（写 `scale` / `rotate` 独立 CSS 属性，与入场动画叠加而不冲突）：
+
+```js
+vk.title('DROP', { beat: { scale: .08, brightness: .3, unit: 'beat', k: 7, beats: [2, 4] } })  // 只在 2、4 拍脉冲
+vk.hero('BASS',  { energy: { scale: [1, 1.12], brightness: [.8, 1.3], band: 'low', smooth: .08 } })
+vk.scene('副歌', 'm:8', { beat: { scale: .02 }, energy: { brightness: [.85, 1.15] } }, [ … ])     // 整帧（镜头）调制
+sc.onBeat(el, { scale: .1 });  sc.energize(el, { scale: [1, 1.2] });  sc.energyZoom(.04, 'low');  sc.beatZoom(.03, 'bar')
+```
+
+每帧舞台上还有 CSS 变量 `--beat` `--bar` `--energy` `--low` `--mid` `--high`，纯 CSS 也能跟节奏：`style: 'opacity: calc(.5 + .5 * var(--beat))'`。
+
+**自动卡点切镜**：场景时长写 `'b:8'` / `'m:4'` 时，切点**精确落在网格上再减 lead 帧**（从上一场景切入点算起，已考虑转场重叠）；`end: 'm:16'` 指定绝对切点；`dur:'auto'` + `snap` 会把内容/配音决定的时长延长到下一个拍/小节。音效 `v.sfx('m:4', 'kick')` 也接受节拍时间，与画面共用同一套事件时间。
+
+### `vk align`：词级对齐（中文逐字 / 英文逐词）
+
+```bash
+vk align narration.wav --text script.txt            # 已知文本强制对齐（每行一句）
+vk align song.m4a --lyrics lyrics.txt --separate    # 歌曲：先 demucs 分离人声，再对齐歌词
+vk align talk.mp3 --lang en                          # 无文本：转写 + 词时间戳
+```
+
+输出 `{vidkit:'align', lang, lines:[{start, end, text, words:[{w, t, end}]}]}`：中文每个汉字一个单位（标点并入前一个字），英文每词一个单位。后处理 `repair_and_refine`：以句内最大的连续词簇为准修复离群词，再把句首词吸附到人声 onset（窗口 −0.3…+0.02 s）；`--no-refine` 关闭。
+
+接入字幕：
+
+```js
+vk.video({ captions: 'talk.align.json', karaoke: 'sweep' })                // 'sweep' 逐字扫色 | 'on' 逐字点亮 | 'pop' 逐字弹跳
+vk.video({ lyrics: { src: 'song.align.json', offset: 0, captions: false } })  // 歌词只做时间数据，由 lyricVideo 排版
+vk.lyrics(cue, { style: 'pop'|'rise'|'karaoke'|'slam', beat: true, size: 110 })  // 逐词动态字（按词时间触发）
+vk.spectrum({ bars: 32, h: 120, mirror: true })                             // 频谱条，由分析得到的 mel 频段驱动
+vk.lyricLines                                                               // 当前页面的歌词行（getter）
+```
+
+**歌词 MV 预设** `vk.lyricVideo({ intro, outro, styles, sectionStyles, bgs, cut: 'bar'|'beat', cutTolerance: .15, spectrum, flash, zoom, energy })`：每句歌词一个场景（同一小节内的句子合并），切点落在"首字之前最近的小节线"；按段落轮换字体动效与背景；高能段落（能量高于中位数）自动加节拍缩放、白闪与频谱；所有歌词场景亮度跟随低频响度。
+
+### `vk tts`：配音驱动时长
+
+```js
+vk.video({ voice: { manifest: 'page.vo.json', voice: 'zh-CN-YunxiNeural', rate: '+5%', lead: .5, tail: .8, maxChars: 16 }, karaoke: 'sweep' });
+vk.scene('总量', 'auto', { vo: '2024 年，全球排放约 378 亿吨二氧化碳。', voLead: .4 }, [ … ]);
+```
+
+```bash
+vk tts page.html                     # 为每个 vo: 合成音频 → page.vo/<hash>.mp3 + page.vo.json（按文本缓存，改一句只重合成一句）
+vk tts page.html --backend piper     # 离线
+vk tts --voices zh                   # 列出中文音色
+vk tts --text "你好，世界" -o hi.mp3   # 单句
+```
+
+- `dur:'auto'` 的场景时长 = `voLead + 语音时长 + voTail`（与动画结束时间取大者，再按 `snap` 吸附节拍）。
+- 字幕由 TTS 的词边界自动生成并切分（每条 ≤ `maxChars` 字，按标点断句），逐字卡拉 OK 高亮。
+- 未运行 `vk tts` 时页面仍可预览（按语速估计时长），`vk qa` 会报 `VO missing`；配音超出场景也会报 ISSUE。
+- 常用中文音色（edge-tts）：`zh-CN-XiaoxiaoNeural`（女，温暖）、`zh-CN-YunxiNeural`（男，讲解）、`zh-CN-YunjianNeural`（男，激昂）、`zh-CN-XiaoyiNeural`（女，活泼）、`zh-CN-YunyangNeural`（男，新闻）、`zh-TW-HsiaoChenNeural`、`zh-HK-HiuMaanNeural`；英文 `en-US-AriaNeural` / `en-US-GuyNeural` 等。piper：`zh_CN-huayan-medium`。
+
+### 混音（`vk render` 自动完成）
+
+音乐（按 `musicStart` 截取、配音处自动 ducking：attack 0.25 s / release 0.45 s、结尾淡出）+ 配音（adelay 采样级定位）+ 离线合成音效 → **两遍 loudnorm 到 −14 LUFS / −1.5 dBTP**（`linear=true`，不压缩动态）。
+
+```js
+vk.video({ mix: { lufs: -14, duck: -11, fadeOut: 2 } })     // duck = 配音时音乐衰减 dB
+```
+
+```bash
+vk render page.html -o out.mp4 --srt [--lufs -16|off] [--duck -8] [--no-voice]
+# 同时写出 out.audio.json（实测响度报告）与 out.words.json（带词时间的字幕，供 vk sync 使用）
+```
+
+只有 `score` 的旧页面保持原行为（峰值归一化、不做 loudnorm）。
+
+### `vk sync`：音画同步测量
+
+```bash
+vk sync out/mv.mp4 --beats examples/mv/song.beats.json      # 画面冲击帧（亮度跳变）vs 节拍 / 成片重新检测的 onset
+vk sync out/explainer-vo.mp4 --words out/explainer-vo.words.json   # 对成片音频重新对齐，比较字幕词时间
+```
+
+报告帧误差直方图、`within1Frame`、`late`、`onBeatOrOneFrameEarly` 等。示例实测（30 fps，详见 `out/*-sync.json`）：
+
+| 成片 | 结果 |
+|---|---|
+| `out/mv.mp4` | 所有节拍驱动的画面冲击均落在拍点或**提前 1 帧**，无滞后；成片 onset 与分析节拍中位差 ≈ 0 ms |
+| `out/explainer-vo.mp4` | 字幕词时间 vs 成片重新对齐：中位 −3.5 ms，无系统偏移（残差为对齐器本身的噪声，p90 ≈ 170 ms） |
+
+### 限制
+
+- 纯 CPU；whisper-small 对齐的逐字误差约 50 ms（中位），快速说唱/密集歌词更差；可 `--model medium` 换精度。
+- stable-ts 的 silero VAD 需从 GitHub torch hub 下载，受速率限制影响，故固定 `vad=False`。
+- edge-tts 需联网、是微软在线服务（商用条款请自行确认）；piper 中文音色 `huayan` 的数据集许可标注为 Unknown。
+- `beat.brightness` / `energy.brightness` 使用 CSS filter，大面积使用会拖慢渲染。
+- 预览里的配音播放是近似的（HTML audio 跟随播放头），以渲染结果为准。
 
 ---
 
@@ -351,9 +518,17 @@ vk contact page.html [-o sheet.png] [--times a,b | --settle] [--cols 4]   联系
 vk qa      page.html [--sample 0.5] [--json=report.json]      版面 QA + 可见文字快照
 vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]   开发服务器：热更新 + 进度条（--dev 同时监听 src/ 重建）
 vk new     video.html [--format 9:16] [--theme bold]          生成模板
+                                [--lufs -14|off] [--duck -10] [--no-voice]   ← render 的混音参数
+
+# 音频（Phase 2，需 tools/setup-audio.sh）
+vk analyze music.mp3 [-o music.beats.json] [--backend auto|beat_this|librosa] [--rate 50] [--bands 8]
+vk align   audio.wav [--text script.txt | --lyrics lyrics.txt] [--lang zh|en] [--model small] [--separate] [-o x.align.json]
+vk tts     page.html [--voice zh-CN-YunxiNeural] [--backend edge|piper] [--rate +0%] [--force]   (--voices zh · --text "…" -o a.mp3)
+vk sync    out.mp4 [--beats song.beats.json --music-start s] [--words out.words.json]
+vk doctor
 ```
 
-`vk qa` 检查项：文字重叠、文字溢出容器、出画、标题安全区、平台 UI 区（竖屏）、字幕宽度/换行/阅读速度（中文按 ≤9 字/秒）、字体是否加载、空白帧（含转场中点），并打印每个场景的可见文字快照，方便核对文案。ISSUE 为必须修，WARN 为建议检查（转场中点的 dip/flash 预期会报空白帧）。
+`vk qa` 检查项：文字重叠、文字溢出容器、出画、标题安全区、平台 UI 区（竖屏）、字幕宽度/换行/阅读速度（中文按 ≤9 字/秒）、字体是否加载、空白帧（含转场中点）、配音缺失 / 配音超出场景、音乐文件缺失、词时间非单调，并打印每个场景的可见文字快照，方便核对文案。ISSUE 为必须修，WARN 为建议检查（转场中点的 dip/flash 预期会报空白帧）。
 
 ---
 
@@ -400,7 +575,7 @@ vk.use({
 
 ```bash
 npm run build        # esbuild → dist/vidkit.js（IIFE, window.vk）+ dist/vidkit.esm.js
-npm test             # node --test：缓动端点/单调性、cubic-bezier 解析、stagger、BeatGrid、种子随机、插值、代码高亮
+npm test             # node --test：缓动端点/单调性、cubic-bezier 解析、stagger、BeatGrid（小节/提前一帧/网格切点）、种子随机、插值、代码高亮、词映射/字幕切分、混音表达式；有 .venv 时额外跑 click-track 分析测试
 npm run examples     # 渲染全部示例到 out/
 node scripts/list-presets.mjs   # 打印已注册预设（同步本文档）
 node scripts/debug-page.mjs /abs/page.html   # 打印页面报错与 console
@@ -412,12 +587,9 @@ ES module 用法：`import vk from 'vidkit/src/index.js'`（需要浏览器环�
 
 ## 路线图
 
-### Phase 2 · 音频（接口已预留）
+### Phase 2 · 音频与节奏 ✅（v0.2.0）
 
-- **导入音乐节拍检测**：离线分析（onset/tempo）→ 直接填入 `vk.video({ beats: [...] })`；`BeatGrid` 已支持显式节拍列表、`pulse/hit/snap/quantize`、`'b:N'` 时间写法、`beatZoom`、`rgb pulse`。
-- **词级歌词 / 配音对齐**：forced alignment 结果 → `v.caption(s, e, text, words)`（卡拉 OK 字幕已实现）；新增 `fx:'lyric'` 类预设按词触发。
-- **TTS**：`registry.sounds` 之外新增 `voice` 插件种类：文本 → 音频文件 + 词级时间戳，自动生成 `cap` 与场景时长（`dur:'auto'` 已支持按内容伸缩）。
-- 音频波形 / 频谱可视化预设（基于离线 FFT 预计算表，保持确定性）。
+已完成：`vk analyze` / `vk align` / `vk tts` / `vk sync`、节奏 API、卡拉 OK 字幕、歌词 MV 预设、配音驱动时长、混音与响度归一（见[音乐、节奏与配音](#音乐节奏与配音phase-2)）。后续可做：真人歌曲的多轨（stem）驱动、whisper medium/large 精度模式、`voice` 插件种类（接入更多 TTS 后端）、实时预览中的波形刷。
 
 ### Phase 3 · 角色与高级渲染
 
@@ -441,3 +613,5 @@ ES module 用法：`import vk from 'vidkit/src/index.js'`（需要浏览器环�
 | Instrument Serif（Regular / Italic） | editorial 主题标题、引用 |
 
 示例数据来源：`examples/data/co2.json` 摘自 Our World in Data《CO₂ and Greenhouse Gas Emissions》（github.com/owid/co2-data，基于 Global Carbon Project，CC BY 4.0，2026-09-29 获取）。`examples/assets/sample-screenshot.svg` 为合成占位图（画面标注"示例截图"）。
+
+音乐素材（`examples/assets/music/`，详见 `examples/mv/LICENSE-music.md`）：Kevin MacLeod（incompetech.com）《Voxel Revolution》《Wallpaper》节选，**CC BY 4.0**——使用或再发布成片时必须署名（示例片尾已署名）。MV 中的"人声"为 edge-tts 合成（微软在线服务，条款见 LICENSE-music.md）。
