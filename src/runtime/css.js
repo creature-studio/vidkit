@@ -6,7 +6,9 @@ export function fontFaces(base) {
     f('Archivo', 'Archivo-VF.ttf', 'font-weight:100 900;font-stretch:62% 125%;') +
     f('Anton', 'Anton-Regular.ttf', 'font-weight:400;') +
     f('Instrument Serif', 'InstrumentSerif-Regular.ttf', 'font-weight:400;font-style:normal;') +
-    f('Instrument Serif', 'InstrumentSerif-Italic.ttf', 'font-weight:400;font-style:italic;');
+    f('Instrument Serif', 'InstrumentSerif-Italic.ttf', 'font-weight:400;font-style:italic;') +
+    f('Ma Shan Zheng', 'MaShanZheng-Regular.ttf', 'font-weight:400;') +          // brush calligraphy (ink theme)
+    f('Noto Serif SC', 'NotoSerifSC-VF.ttf', 'font-weight:200 900;');            // serif body/captions (ink theme); fetched only when used
 }
 
 export function stageCSS(v) {
@@ -50,8 +52,8 @@ export function stageCSS(v) {
 .vk-ov{position:absolute;left:0;top:0;width:100%;height:100%;z-index:41;pointer-events:none}
 .vk-caret::after{content:"\\258D";color:var(--vk-caret);margin-left:2px}
 .vk-cap{position:absolute;left:50%;transform:translateX(-50%);text-align:center;opacity:0;z-index:50;pointer-events:none;
-  bottom:var(--cap-bottom);font-size:var(--cap-size);max-width:${W - s.left - s.right}px;background:${th.caption.bg};color:${th.caption.fg};font-family:var(--vk-sans);
-  font-weight:700;padding:.3em .8em;border-radius:12px;line-height:1.35;white-space:${W < H ? 'normal;width:max-content' : 'nowrap'}}
+  bottom:var(--cap-bottom);font-size:var(--cap-size);max-width:${W - s.left - s.right}px;background:${th.caption.bg};color:${th.caption.fg};font-family:${th.caption.font || 'var(--vk-sans)'};
+  font-weight:${th.caption.weight || 700};padding:${th.caption.padding || '.3em .8em'};border-radius:${th.caption.radius != null ? th.caption.radius : 12}px;line-height:1.35;white-space:${W < H ? 'normal;width:max-content' : 'nowrap'}${th.caption.border ? `;border-left:${th.caption.border}` : ''}${th.caption.tracking ? `;letter-spacing:${th.caption.tracking}` : ''}${th.caption.shadow ? `;box-shadow:${th.caption.shadow}` : ''}}
 ${W < H ? `.vk-cap{left:${s.left}px;right:${s.right}px;transform:none;margin:0 auto;max-width:${W - s.left - s.right}px}` : ''}
 .vk-cap .kw{transition:none}.vk-cap .kw.on{color:${th.caption.karaoke}}
 .vk-cap[data-style=sweep] .kw{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(90deg,${th.caption.karaoke} calc(var(--p,0)*100%),${th.caption.fg} calc(var(--p,0)*100% + .5px))}

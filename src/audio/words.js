@@ -78,3 +78,39 @@ export function estimateSpeech(text) {
   const cjk = (String(text).match(/[\u3400-\u9fff]/g) || []).length, latin = (String(text).match(/[A-Za-z0-9]+/g) || []).length;
   return +(cjk / 4.3 + latin / 2.7 + (String(text).match(/[，。！？,.!?；;]/g) || []).length * .15).toFixed(2);
 }
+
+// ---------------- multi-line / multi-voice voice-over (scene `vo:`) ----------------
+// vo: 'text' | ['a', 'b'] (legacy: joined into one line) | {text, voice, rate, pitch, gap, at, gain, who} | [who, text, opts?] | [ … mixed … ]
+// (`who` picks defaults from vk.video({voice:{cast:{who:{voice, rate, pitch}}}}))
+// → segments [{text, voice?, rate?, pitch?, gap?, at?, gain?, who?}]
+export function voSegments(vo) {
+  if (vo == null || vo === false) return [];
+  if (typeof vo === 'string') return [{ text: vo }];
+  if (Array.isArray(vo)) {
+    if (vo.every(x => typeof x === 'string')) return [{ text: vo.join('') }];
+    return vo.map(x => (typeof x === 'string' ? { text: x } : Array.isArray(x) ? { who: x[0], text: x[1], ...(x[2] || {}) } : { ...x })).filter(x => x.text);
+  }
+  return vo.text ? [{ ...vo }] : [];
+}
+// manifest key: the plain text for default-voice lines (backwards compatible), otherwise voice|rate|pitch|text
+export function voKey(seg) { return seg.voice || seg.rate || seg.pitch ? `${seg.voice || ''}|${seg.rate || ''}|${seg.pitch || ''}|${seg.text}` : seg.text; }
+// sequential timing: first line starts at `lead`, each next one `gap` (default o.gap) after the previous ends,
+// unless it gives an explicit scene-local `at`. durs[i] = clip seconds. Returns [{...seg, at, dur, end}] (scene-local).
+export function planVoice(segs, durs, o = {}) {
+  let cur = o.lead != null ? o.lead : .5; const gap = o.gap != null ? o.gap : .35;
+  return segs.map((s, i) => {
+    const at = s.at != null ? +s.at : (i ? cur + (s.gap != null ? +s.gap : gap) : cur + (s.gap != null ? +s.gap : 0));
+    const dur = +durs[i] || 0; cur = at + dur;
+    return { ...s, at: +at.toFixed(3), dur, end: +(at + dur).toFixed(3) };
+  });
+}
+// mouth-flap envelope from word timings (clip-relative {t, end}): 1 inside a word, soft ramps, 0 in pauses
+export function speakingAt(words, t, ramp = .05) {
+  let v = 0;
+  for (const w of words) {
+    const e = w.end != null ? w.end : w.t + .2;
+    if (t < w.t - ramp) break;
+    if (t <= e + ramp) v = Math.max(v, Math.min(1, (t - w.t + ramp) / ramp, (e + ramp - t) / ramp));
+  }
+  return Math.max(0, Math.min(1, v));
+}

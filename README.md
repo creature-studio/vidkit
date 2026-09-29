@@ -71,6 +71,7 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 | `vertical.html` | 9:16 竖屏短视频 ~15s，128 BPM 卡点，大字动效，避让平台 UI | `out/vertical.mp4` |
 | `mv.html` | 16:9 **节拍同步歌词 MV**：Kevin MacLeod《Voxel Revolution》（CC BY 4.0）+ TTS 人声；节拍/段落来自 `vk analyze`，歌词时间来自 `vk align --separate`，`vk.lyricVideo()` 一行生成（素材制作脚本 `mv/make-song.mjs`） | `out/mv.mp4` |
 | `explainer-vo.html` | CO₂ 讲解的**配音版**：每个场景 `vo:` + `dur:'auto'`，时长由 TTS 决定并吸附到背景音乐节拍，逐字高亮字幕，ducking + −14 LUFS | `out/explainer-vo.mp4` |
+| `tadpole/tadpole.html` | **水墨动画短片《小蝌蚪找妈妈》**（~126 s）：`ink` 主题 + 宣纸质感 + 墨线滤镜，竖排书法片名/章节名 + 朱印，SVG 角色 rig（蝌蚪群、青蛙、鸭、金鱼、鹅、乌龟），**多角色配音**（6 种 edge-tts 音色），程序合成古琴/笛子配乐（`tadpole/make-music.mjs`，CC0）与水声/蛙鸣/鸭叫音效 | `out/tadpole.mp4` |
 | `gallery.html` | **FX Gallery 活文档**：每个预设一小段 + 名称 + 生成它的那行代码 | `out/gallery.mp4` |
 | `plugin-demo.html` | 插件示例（`plugins/hello-plugin.js`） | — |
 
@@ -444,6 +445,16 @@ vk tts --text "你好，世界" -o hi.mp3   # 单句
 - `dur:'auto'` 的场景时长 = `voLead + 语音时长 + voTail`（与动画结束时间取大者，再按 `snap` 吸附节拍）。
 - 字幕由 TTS 的词边界自动生成并切分（每条 ≤ `maxChars` 字，按标点断句），逐字卡拉 OK 高亮。
 - 未运行 `vk tts` 时页面仍可预览（按语速估计时长），`vk qa` 会报 `VO missing`；配音超出场景也会报 ISSUE。
+- **多角色配音**：`vo` 可以是多句数组，每句可指定角色（`voice.cast` 里定义音色/语速/音高），逐句生成音频与字幕（字幕不重叠）：
+
+  ```js
+  vk.video({ voice: { manifest: 'p.vo.json', voice: 'zh-CN-XiaoxiaoNeural', gap: .3, cast: { tad: { voice: 'zh-CN-YunxiaNeural', rate: '+6%', pitch: '+10Hz' } } } });
+  vk.scene('问路', 'auto', { vo: ['旁白一句。', ['tad', '妈妈！', { gap: .6 }], { who: 'duck', text: '嘎嘎！', at: 9 }] }, (sc) => {
+    sc.voSegs;            // 构建节点前就已排好：[{text, at, dur, end, words, who}]（场景内时间）
+    sc.voAt(1); sc.voEndAt(1); sc.speaking(local, 'tad');   // 第 i 句起止、某角色此刻是否在说话（嘴型 0..1）
+  });
+  ```
+  `vk tts` 按（音色, 语速, 音高）分组合成；默认音色的句子仍按原文本缓存（向后兼容）。
 - 常用中文音色（edge-tts）：`zh-CN-XiaoxiaoNeural`（女，温暖）、`zh-CN-YunxiNeural`（男，讲解）、`zh-CN-YunjianNeural`（男，激昂）、`zh-CN-XiaoyiNeural`（女，活泼）、`zh-CN-YunyangNeural`（男，新闻）、`zh-TW-HsiaoChenNeural`、`zh-HK-HiuMaanNeural`；英文 `en-US-AriaNeural` / `en-US-GuyNeural` 等。piper：`zh_CN-huayan-medium`。
 
 ### 混音（`vk render` 自动完成）
@@ -600,6 +611,21 @@ ES module 用法：`import vk from 'vidkit/src/index.js'`（需要浏览器环�
 
 ---
 
+## 水墨套件（`ink`，Phase 3 预览）
+
+参照《三个和尚》式的水墨动画语言，`src/fx/ink.js` 提供：
+
+- 主题 `theme: 'ink'`（宣纸 #e4e5d8 / 墨 #1f2529 / 朱砂 #b5342a；马善政毛笔字 + 思源宋体；字幕条为宣纸底、红色左边框）与质感 `texture: { rice: {} }`（分形噪声纸纹 multiply + 暗角）。
+- `vk.installInk(video, { boil })` 注入 SVG 滤镜：`ink-line`（墨线抖动）、`ink-wob`、`ink-wash`（晕染）、`ink-far`（远山）、`ink-bleed`（湿笔洇开）、`ink-dry`（枯笔）。
+- 区块：`vk.vtitle('片名', { sub, seal })` 竖排书法片名 + 印章，`vk.chapter('春水', { no: '一' })` 角落竖排章节名，`vk.seal`、`vk.endcard`、`vk.credits`。
+- 转场：`ink`（墨滴晕开遮罩，可设焦点 x/y）、`wash`（模糊交叉淡化）；特效：`ink` / `brush` / `brush-x` / `stamp`。
+- 几何与 rig 工具：`vk.brushPath(points, width|fn)`（笔触轮廓）、`vk.sampleLine(fn, n)`、`vk.attr(el, {...})`（带缓存的 SVG 属性写入）；关键帧助手 `vk.bump / plat / hold / inRanges / smooth01 / kfSpline`（按时间参数化的 Catmull-Rom）。
+- 纯 DSP 合成（`vk.synth`，Node 与页面通用、确定性）：`pluck`（Karplus–Strong 古琴/琵琶，含滑音/吟猱）、`flute`、`drop`、`bubbles`、`splash`、`croak`、`quack`、`woodfish`、`gong` + `reverb`、`mixStereo`、`penta`（五声音阶）、`wavBytes`。同名 `sfx` 可直接用：`sc.sfx(t, 'croak', .8, 480)`。
+
+完整示例：`examples/tadpole/`（`lib/pond.js` 池塘场景、`lib/rigs.js` 角色、`lib/school.js` 蝌蚪群）。
+
+---
+
 ## 字体许可
 
 全部随包字体均为 **SIL Open Font License 1.1**（允许随软件打包、嵌入、再分发；不可单独售卖；修改版不得使用保留字体名；用这些字体渲染出的视频不受限制）。详见 `fonts/LICENSES.md` 与 `fonts/OFL-1.1.txt`。
@@ -611,6 +637,8 @@ ES module 用法：`import vk from 'vidkit/src/index.js'`（需要浏览器环�
 | Archivo（可变 wght + wdth） | 展示字体（bold / noir）；`stretch` 特效动画字宽轴 |
 | Anton | 窄体海报字（`font:'condensed'`） |
 | Instrument Serif（Regular / Italic） | editorial 主题标题、引用 |
+| Ma Shan Zheng 马善政毛笔楷书 | `ink` 主题书法标题 |
+| Noto Serif SC 思源宋体（可变 200–900） | `ink` 主题正文、字幕 |
 
 示例数据来源：`examples/data/co2.json` 摘自 Our World in Data《CO₂ and Greenhouse Gas Emissions》（github.com/owid/co2-data，基于 Global Carbon Project，CC BY 4.0，2026-09-29 获取）。`examples/assets/sample-screenshot.svg` 为合成占位图（画面标注"示例截图"）。
 

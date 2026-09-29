@@ -4,6 +4,7 @@ import { parseTime, parseDur } from './time.js';
 import { normKeys } from './camera.js';
 import { applyFx } from '../fx/apply.js';
 import { modulator } from '../fx/rhythm.js';
+import { speakingAt } from '../audio/words.js';
 
 export class Scene {
   constructor(video, o) {
@@ -69,6 +70,20 @@ export class Scene {
     if (r && r.el) { r.el.style.zIndex = 20; this.el.appendChild(r.el); }
     if (r && r.update) this.bgs.push((local, p, t) => r.update(t, { local, scene: this }));
     return this;
+  }
+  // ---- voice lines (scene vo:) ----
+  voAt(i = 0) { const s = this.voSegs && this.voSegs[i]; return s ? s.at : 0; }        // scene-local start of line i
+  voEndAt(i) { const S = this.voSegs || []; if (i == null) return this.voEnd || 0; const s = S[i]; return s ? s.end : 0; }
+  // 0..1 "is talking" envelope at scene-local time for line i (or any line when i is null / a `who` string).
+  // Uses TTS word timings; without TTS audio yet, a 4 Hz syllable estimate over the planned span.
+  speaking(local, i) {
+    const S = (this.voSegs || []).filter((s, j) => i == null || j === i || s.who === i);
+    let v = 0;
+    for (const s of S) {
+      if (local < s.at - .1 || local > s.end + .1) continue;
+      v = Math.max(v, s.words ? speakingAt(s.words, local - s.at) : Math.abs(Math.sin((local - s.at) * Math.PI * 4)));
+    }
+    return v;
   }
   sfx(t, name, gain = 1, freq) { this.video.sfx(this.start + this.time(t), name, gain, freq); return this; }
 }

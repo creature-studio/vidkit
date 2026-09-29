@@ -14,7 +14,7 @@ import { runQA, visibleText } from '../runtime/qa.js';
 import { makeScore } from '../audio/score.js';
 import { MusicInfo } from '../audio/music.js';
 import { modulator } from '../fx/rhythm.js';
-import { alignToCues, chunkCues, mapWords, estimateSpeech } from '../audio/words.js';
+import { alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt } from '../audio/words.js';
 import { CanvasLayer } from '../layers/canvas.js';
 import { WebGLLayer } from '../layers/webgl.js';
 import { parseDeclarative } from '../authoring/declarative.js';
@@ -86,7 +86,7 @@ export class Video {
     document.head.appendChild(s);
     const th = this.theme, k = this.k, st = this.stage.style;
     st.setProperty('--vk-sans', th.fonts.sans); st.setProperty('--vk-display', th.fonts.display); st.setProperty('--vk-mono', th.fonts.mono);
-    st.setProperty('--vk-serif', th.fonts.serif); st.setProperty('--vk-condensed', th.fonts.condensed || th.fonts.display);
+    st.setProperty('--vk-serif', th.fonts.serif); if (th.fonts.brush) st.setProperty('--vk-brush', th.fonts.brush); st.setProperty('--vk-condensed', th.fonts.condensed || th.fonts.display);
     Object.entries(th.scale).forEach(([n, px]) => st.setProperty('--vk-fs-' + n, Math.round(px * k) + 'px'));
     st.setProperty('--vk-gap', Math.round(28 * k) + 'px'); st.setProperty('--vk-radius', Math.round(th.radius * k) + 'px');
     st.setProperty('--vk-marker', th.marker); st.setProperty('--vk-caret', th.caret);
@@ -132,6 +132,7 @@ export class Video {
     if (o.camera) sc.camera(o.camera);
     if (o.shake) [].concat(o.shake).forEach(s => typeof s === 'object' ? sc.shake(s.t, s.amp, s.d) : sc.shake(s));
     if (o.beat || o.energy) { sc.ensureCam(); const f = modulator(this, sc.cam, o.beat, o.energy); sc.on((l, p, t) => f(t)); }   // whole-frame rhythm
+    if (o.vo) this.planSceneVoice(sc, o);                         // voice timing is known before the nodes → sc.voSegs usable while building
     if (typeof nodes === 'function') nodes(sc, this);
     else if (nodes) this.buildNodes(sc, [].concat(nodes).flat(), sc.content);
     if (auto) sc.dur = Math.max(1.5, sc.maxT + (o.hold != null ? o.hold : 2.2));
@@ -177,20 +178,38 @@ export class Video {
   sfx(t, name, gain = 1, freq) { t = typeof t === 'string' ? parseTime(t, this.beats) + this.beats.leadT : t; this.events.push([+t.toFixed(3), name, gain, freq]); return this; }
   // ---- voice-over ----
   voiceEntry(text) { const M = this.voManifest; return M && M.items ? M.items[text] || null : null; }
-  addVoice(sc, o, auto) {
-    const VC = this.voiceCfg || {}, text = [].concat(o.vo).join(''), e = this.voiceEntry(text);
+  // plan the scene's voice lines (scene-local times). Multi-line / multi-voice: vo: [{text, voice, rate, pitch, gap, at, who}, …]
+  planSceneVoice(sc, o) {
+    const VC = this.voiceCfg || {}, cast = VC.cast || {}, segs = voSegments(o.vo).map(sg => (sg.who && cast[sg.who] ? { ...cast[sg.who], ...sg } : sg));
     const lead = o.voLead != null ? o.voLead : Math.max(VC.lead != null ? VC.lead : .45, sc.transition.d + .1);
+    const entries = segs.map(sg => this.voiceEntry(voKey(sg)));
+    const plan = planVoice(segs, segs.map((sg, i) => entries[i] ? entries[i].duration : estimateSpeech(sg.text)), { lead, gap: o.voGap != null ? o.voGap : (VC.gap != null ? VC.gap : .35) });
+    plan.forEach((p, i) => { p.entry = entries[i]; p.key = voKey(segs[i]); p.words = entries[i] && entries[i].words ? entries[i].words : null; });
+    sc.voSegs = plan; sc.voLead = lead;
+    sc.voEnd = plan.length ? plan[plan.length - 1].end : lead;
+  }
+  addVoice(sc, o, auto) {
+    const VC = this.voiceCfg || {}, plan = sc.voSegs || [];
     const tail = o.voTail != null ? o.voTail : (VC.tail != null ? VC.tail : .7);
-    const dur = e ? e.duration : estimateSpeech(text), at = sc.start + lead;
-    this.voRequests.push({ text, scene: sc.name });
-    if (!e) { this.voMissing.push(text); console.warn(`[vk] no TTS audio for scene "${sc.name}" — run: vk tts ${location.pathname.split('/').pop()}`); }
-    if (auto) sc.dur = Math.max(sc.dur, lead + dur + tail);
-    else if (lead + dur > sc.dur) console.warn(`[vk] voice-over of "${sc.name}" (${(lead + dur).toFixed(2)}s) is longer than the scene (${sc.dur.toFixed(2)}s); use dur:'auto'`);
-    sc.vo = { text, at, dur, lead, entry: e };
-    if (e) this.voices.push({ t: +at.toFixed(3), src: this.voBase + e.file, file: e.file, dur: e.duration, gain: o.voGain != null ? o.voGain : (VC.gain != null ? VC.gain : 1), scene: sc.name, text });
+    const file = location.pathname.split('/').pop();
+    plan.forEach(p => {
+      this.voRequests.push({ text: p.text, key: p.key, voice: p.voice || null, rate: p.rate || null, pitch: p.pitch || null, scene: sc.name });
+      if (!p.entry) { this.voMissing.push(p.text); console.warn(`[vk] no TTS audio for scene "${sc.name}" line "${p.text.slice(0, 16)}" — run: vk tts ${file}`); }
+    });
+    const first = plan[0] || { at: sc.voLead }, end = sc.voEnd;
+    if (auto) sc.dur = Math.max(sc.dur, end + tail);
+    else if (end > sc.dur) console.warn(`[vk] voice-over of "${sc.name}" (${end.toFixed(2)}s) is longer than the scene (${sc.dur.toFixed(2)}s); use dur:'auto'`);
+    const allOk = plan.every(p => p.entry);
+    sc.vo = { text: plan.map(p => p.text).join(''), at: sc.start + first.at, dur: end - first.at, lead: first.at, entry: allOk ? (plan[0] && plan[0].entry) : null, segs: plan };
+    plan.forEach(p => { if (p.entry) this.voices.push({ t: +(sc.start + p.at).toFixed(3), src: this.voBase + p.entry.file, file: p.entry.file, dur: p.entry.duration, gain: p.gain != null ? p.gain : (o.voGain != null ? o.voGain : (VC.gain != null ? VC.gain : 1)), scene: sc.name, text: p.text, voice: p.voice || null, who: p.who || null }); });
     if (o.cap === undefined && VC.captions !== false) {
-      if (e && e.words && e.words.length) { this.caps.push(...chunkCues(text, e.words, { at, maxChars: VC.maxChars || (this.W < this.H ? 14 : 20) })); sc.cap = null; }
-      else sc.cap = text.split(/(?<=[。！？!?；;])/).filter(x => x.trim());
+      const caps = [];
+      plan.forEach(p => {
+        if (p.words && p.words.length) caps.push(...chunkCues(p.text, p.words, { at: sc.start + p.at, maxChars: VC.maxChars || (this.W < this.H ? 14 : 20) }));
+        else p.text.split(/(?<=[。！？!?；;])/).filter(x => x.trim()).forEach((x, j, arr) => { const d = p.dur / arr.length; caps.push([sc.start + p.at + j * d, sc.start + p.at + (j + 1) * d - .05, x]); });
+      });
+      for (let i = 0; i < caps.length - 1; i++) caps[i][1] = Math.min(caps[i][1], caps[i + 1][0] - .04);   // lines of different speakers never overlap
+      this.caps.push(...caps); sc.cap = null;
     }
   }
   caption(start, end, text, words) { this.caps.push(words ? [start, end, text, words] : [start, end, text]); return this; }
@@ -230,7 +249,7 @@ export class Video {
     if (this.caps.length) this.capEl = mk('div', 'vk-cap', this.stage);
     registry.hooks.init.forEach(f => f(this));
     const fontsCheck = this.cfg.fontsCheck || ['400 20px "Noto Sans SC"', '700 20px "Noto Sans SC"', '900 20px "Noto Sans SC"', '400 20px "JetBrains Mono"', '700 20px "JetBrains Mono"',
-      '900 20px "Archivo"', '400 20px "Anton"', '400 20px "Instrument Serif"'];
+      '900 20px "Archivo"', '400 20px "Anton"', '400 20px "Instrument Serif"'].concat(this.theme.fontsCheck || []);   // themes may add fonts (ink: Ma Shan Zheng, Noto Serif SC)
     this.fontsCheck = fontsCheck;
     window.__ready = Promise.all([
       Promise.all(fontsCheck.map(f => document.fonts.load(f, '中文Aa0'))).catch(() => { }),
@@ -268,7 +287,7 @@ export class Video {
       if (sc.el.classList.contains('on') !== on) sc.el.classList.toggle('on', on);
       if (!on) continue;
       active.push(sc);
-      sc.__st = { opacity: '', transform: '', filter: '', clipPath: '', transformOrigin: '', zIndex: String(sc.index + 1) };
+      sc.__st = { opacity: '', transform: '', filter: '', clipPath: '', maskImage: '', webkitMaskImage: '', transformOrigin: '', zIndex: String(sc.index + 1) };
     }
     // transitions: scene i's transition drives both i (incoming) and i-1 (outgoing)
     for (const sc of active) {

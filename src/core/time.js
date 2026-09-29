@@ -25,6 +25,31 @@ export function kf(t, keys, ease) {
   return keys[keys.length - 1][1];
 }
 
+// keyframe-animation helpers (the "三个和尚" rig style; all pure functions of t)
+export const smooth01 = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
+// half-sine bump: 0 outside (a, b), 1 at the midpoint — for one-off gestures (lean, hop, nod)
+export const bump = (t, a, b) => (t <= a || t >= b ? 0 : Math.sin(Math.PI * (t - a) / (b - a)));
+// plateau: smooth 0→1 over [a, b], hold 1 over [b, c], smooth 1→0 over [c, d]
+export function plat(t, a, b, c, d) { if (t <= a || t >= d) return 0; if (t < b) return smooth01((t - a) / (b - a)); if (t <= c) return 1; return smooth01((d - t) / (d - c)); }
+// step keys: value of the last key whose time is ≤ t (moods, facing, discrete states); before the first key → first value
+export function hold(t, keys) { let v = keys.length ? keys[0][1] : undefined; for (const k of keys) { if (t >= k[0]) v = k[1]; else break; } return v; }
+// true when t lies in any [a, b) of ranges
+export const inRanges = (t, ranges) => ranges.some(r => t >= r[0] && t < r[1]);
+
+// smooth keyframes (centripetal-free uniform Catmull–Rom in value, time-parameterised): passes through every key
+// without stopping (unlike kf's per-segment easing). keys [[t, v], …] with numbers or equal-length arrays. Clamped ends.
+export function kfSpline(t, keys) {
+  const n = keys.length; if (!n) return 0; if (n === 1 || t <= keys[0][0]) return keys[0][1]; if (t >= keys[n - 1][0]) return keys[n - 1][1];
+  let i = 1; while (i < n - 1 && t >= keys[i][0]) i++;
+  const k1 = keys[i - 1], k2 = keys[i], k0 = keys[i - 2] || k1, k3 = keys[i + 1] || k2;
+  const dt = k2[0] - k1[0], u = (t - k1[0]) / dt, u2 = u * u, u3 = u2 * u;
+  // tangents scaled to the segment duration (non-uniform key spacing)
+  const tan = (a, b, c, ta, tc) => (tc - ta > 0 ? (c - a) / (tc - ta) * dt : 0);
+  const one = (a, b, c, d) => { const m1 = tan(a, b, c, k0[0], k2[0]), m2 = tan(b, c, d, k1[0], k3[0]); return (2 * u3 - 3 * u2 + 1) * b + (u3 - 2 * u2 + u) * m1 + (-2 * u3 + 3 * u2) * c + (u3 - u2) * m2; };
+  if (Array.isArray(k1[1])) return k1[1].map((_, j) => one(k0[1][j], k1[1][j], k2[1][j], k3[1][j]));
+  return one(k0[1], k1[1], k2[1], k3[1]);
+}
+
 /* ---------- beat grid ----------
  * Either constant BPM (+offset) or an explicit list of beat times (Phase 2: `vk analyze` output), optionally with
  * downbeats (bar starts). Visual hits land on the audio frame or `lead` frames early (default 1), never late. */

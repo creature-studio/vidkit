@@ -32,18 +32,23 @@ export default async function tts(argv) {
   const voice = opt.voice || cfg.voice || DEF.voice[backend], rate = opt.rate || cfg.rate || DEF.rate, pitch = opt.pitch || cfg.pitch || DEF.pitch;
   const manifest = decodeURIComponent(new URL(cfg.manifestUrl).pathname), dir = path.dirname(manifest);
   const sub = path.basename(manifest).replace(/\.json$/i, ''), outdir = path.join(dir, sub);
-  const idOf = text => crypto.createHash('sha1').update([backend, voice, rate, pitch, text].join('|')).digest('hex').slice(0, 12);
-  const uniq = [...new Map(info.reqs.map(r => [r.text, r])).values()];
-  const items = uniq.map(r => ({ id: idOf(r.text), text: r.text }));
-  const reqFile = path.join(tmpdir('vktts-'), 'req.json');
-  fs.writeFileSync(reqFile, JSON.stringify({ backend, voice, rate, pitch, outdir, force: !!opt.force, items }));
-  console.log(`[vk tts] ${items.length} line(s) · ${backend} · ${voice} · rate ${rate} → ${path.relative(process.cwd(), outdir)}/`);
-  const res = JSON.parse((await vkaudio(['tts', reqFile])).trim().split('\n').pop());
+  // lines may override voice / rate / pitch (multi-voice dialogue): synthesise per (voice, rate, pitch) group
+  const idOf = (r, v, ra, pi) => crypto.createHash('sha1').update([backend, v, ra, pi, r.text].join('|')).digest('hex').slice(0, 12);
+  const uniq = [...new Map(info.reqs.map(r => [r.key || r.text, r])).values()];
+  const groups = new Map();
+  uniq.forEach(r => { const v = r.voice || voice, ra = r.rate || rate, pi = r.pitch || pitch, g = `${v}|${ra}|${pi}`; if (!groups.has(g)) groups.set(g, { v, ra, pi, items: [] }); groups.get(g).items.push({ id: idOf(r, v, ra, pi), text: r.text, key: r.key || r.text }); });
   const M = { vidkit: 'voice', version: 1, backend, voice, rate, pitch, generated: new Date().toISOString(), items: {} };
-  res.items.forEach(it => { M.items[it.text] = { id: it.id, file: `${sub}/${it.file}`, duration: it.duration, voice: it.voice, words: it.words, timing: it.timing }; });
+  const keep = new Set(), res = { items: [] };
+  for (const g of groups.values()) {
+    const reqFile = path.join(tmpdir('vktts-'), 'req.json');
+    fs.writeFileSync(reqFile, JSON.stringify({ backend, voice: g.v, rate: g.ra, pitch: g.pi, outdir, force: !!opt.force, items: g.items.map(({ id, text }) => ({ id, text })) }));
+    console.log(`[vk tts] ${g.items.length} line(s) · ${backend} · ${g.v} · rate ${g.ra} · pitch ${g.pi} → ${path.relative(process.cwd(), outdir)}/`);
+    const r = JSON.parse((await vkaudio(['tts', reqFile])).trim().split('\n').pop());
+    r.items.forEach((it, i) => { const key = g.items[i].key; res.items.push(it); M.items[key] = { id: it.id, file: `${sub}/${it.file}`, duration: it.duration, voice: it.voice, rate: g.ra, pitch: g.pi, words: it.words, timing: it.timing }; });
+    g.items.forEach(i => ['.mp3', '.wav', '.json'].forEach(e => keep.add(i.id + e)));
+  }
   fs.writeFileSync(manifest, JSON.stringify(M, null, 1));
   // drop clips no longer referenced
-  const keep = new Set(items.flatMap(i => [i.id + '.mp3', i.id + '.wav', i.id + '.json']));
   for (const f of fs.readdirSync(outdir)) if (!keep.has(f)) fs.rmSync(path.join(outdir, f));
   const total = res.items.reduce((s, i) => s + i.duration, 0);
   console.log(`[vk tts] ${res.items.length} clip(s), ${total.toFixed(1)}s of speech → ${path.relative(process.cwd(), manifest)}`);

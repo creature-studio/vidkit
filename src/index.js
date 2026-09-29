@@ -1,7 +1,7 @@
 // vidkit — deterministic HTML/JS → video framework. ES module entry; dist/vidkit.js exposes the same object as window.vk.
 import { EASE, getEase, bezier, spring, steps, setDefaultEase } from './core/ease.js';
 import { hash, hash2, mulberry32, noise1, noise2, boil, hrange, hpick } from './core/random.js';
-import { clamp, clamp01, lerp, frac, seg, progress, kf, window01, BeatGrid, parseTime } from './core/time.js';
+import { clamp, clamp01, lerp, frac, seg, progress, kf, window01, BeatGrid, parseTime, smooth01, bump, plat, hold, inRanges, kfSpline } from './core/time.js';
 import { stagger } from './core/stagger.js';
 import { lerpStr, compatible } from './core/interp.js';
 import { registry, register, use as usePlugin, list } from './core/plugin.js';
@@ -20,10 +20,12 @@ import './fx/charts.js';
 import './fx/textures.js';
 import './fx/backgrounds.js';
 import './fx/lyrics.js';
+import { inkDefs, installInk, brushPath, sampleLine, attr, INK } from './fx/ink.js';
 import './audio/score.js';
 import { lyricVideo } from './fx/lyrics.js';
 import { MusicInfo } from './audio/music.js';
-import { alignToCues, chunkCues, mapWords, estimateSpeech } from './audio/words.js';
+import { alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt } from './audio/words.js';
+import * as synth from './audio/synth.js';
 
 export const version = '0.2.0';
 let current = null;
@@ -51,7 +53,7 @@ export const vk = {
   // ---- core utilities (pure) ----
   ease: EASE, getEase, bezier, spring, steps, setDefaultEase,
   hash, hash2, rand: mulberry32, mulberry32, noise1, noise2, boil, hrange, hpick,
-  clamp, clamp01, lerp, frac, seg, progress, kf, window01, stagger, lerpStr, compatible,
+  clamp, clamp01, lerp, frac, seg, progress, kf, window01, stagger, lerpStr, compatible, smooth01, bump, plat, hold, inRanges, kfSpline,
   BeatGrid, parseTime, shapePath, shapePoints, shapePolygon, resample, splitText,
   // beat helpers bound to the current video's grid
   beat: n => current.beats.at(n), pulse: (t, k, every) => current.beats.pulse(t, k, every), hit: (t, t0, k) => current.beats.hit(t, t0, k), snap: (t, t1, d) => current.beats.snap(t, t1, d),
@@ -67,7 +69,8 @@ export const vk = {
   get lyricLines() { return current ? current.lyrics : []; },
   quantize: (t, sub) => current.beats.quantize(t, sub),
   lyricVideo: o => lyricVideo(vk, o),
-  MusicInfo, alignToCues, chunkCues, mapWords, estimateSpeech,
+  inkDefs, brushPath, sampleLine, attr, INK, installInk: o => installInk(current, o),
+  MusicInfo, alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt, synth,
   Video, Scene,
   _setEnv(e) { Object.assign(env, e); },
 };
