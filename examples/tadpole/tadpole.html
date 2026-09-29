@@ -289,7 +289,7 @@ vk.scene('小青蛙', 'auto', {
   const tLeg = at(sc, 0, '后腿'), tArm = at(sc, 0, '前腿'), tTail = at(sc, 0, '尾巴'), tUp = at(sc, 1, '跳上荷叶'), tSing = sc.voAt(2);
   // four big tadpoles in a row (close-up), metamorphosis synced to the words; then they hop onto leaves as froglets
   const n = 4, big = Array.from({ length: n }, () => TP.tadpole(P.chars)), little = Array.from({ length: n }, () => TP.frog(P.chars));
-  const leafSpot = [[222, P.WL], [262, P.WL], [452, P.WL], [492, P.WL]];
+  const leafSpot = [[203, P.WL], [277, P.WL], [432, P.WL], [510, P.WL]];
   const mom = TP.frog(P.chars);
   sc.on(l => {
     mom.set({ x: 720, y: P.WL, scale: 1.15, face: -1, blink: TP.blink(l, 41), happy: l > tSing - .3 ? 1 : 0, croak: bump(l, tSing + .9, tSing + 1.4), look: l < tUp ? [-.3, .8] : [-.8, .1] });
