@@ -55,6 +55,14 @@ export class Scene {
   add(...nodes) { this.video.buildNodes(this, nodes.flat(), this.content); return this; }
   // raw HTML string into the scene (fixed layer) or the content flow; returns the created root element
   html(str, o = {}) { const w = document.createElement('div'); w.innerHTML = str.trim(); const els = [...w.children]; const parent = o.flow ? this.content : (o.fixed ? this.fixed : (this.cam || this.el)); els.forEach(e => parent.appendChild(e)); return els.length === 1 ? els[0] : els; }
+  // per-scene texture overlay (same presets as video-level textures)
+  texture(name, o = {}) {
+    const f = this.video.constructor.registry.textures[name]; if (!f) { console.warn('[vk] unknown texture', name); return this; }
+    const r = f(this.video, o === true ? {} : typeof o === 'number' ? { amount: o } : o, this);
+    if (r && r.el) { r.el.style.zIndex = 20; this.el.appendChild(r.el); }
+    if (r && r.update) this.bgs.push((local, p, t) => r.update(t, { local, scene: this }));
+    return this;
+  }
   sfx(t, name, gain = 1, freq) { this.video.sfx(this.start + this.time(t), name, gain, freq); return this; }
 }
 function stOff(o, i, n) { if (!o || !o.stagger) return 0; const f = typeof o.stagger === 'function' ? o.stagger : (j => j * o.stagger); return f(i, n); }

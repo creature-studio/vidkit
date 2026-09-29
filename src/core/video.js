@@ -20,6 +20,7 @@ const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search)
 export const RENDER = Q.get('render') === '1';
 
 export class Video {
+  static registry = registry;
   constructor(cfg = {}, env = {}) {
     this.cfg = cfg = Object.assign({ fps: 30, transition: 'fade:0.4', localFonts: true, holdLast: true }, cfg);
     this.base = env.base || '';
@@ -95,6 +96,7 @@ export class Video {
     if (typeof bg === 'string' && /^(#|rgb|hsl|linear|radial)/.test(bg)) { sc.el.style.background = bg; bg = null; }
     this.scenes.push(sc); this.scenesEl.appendChild(sc.el); sc.el.style.zIndex = String(sc.index + 1);
     if (bg) [].concat(bg).forEach(b => this.addBackground(sc, b));
+    if (o.texture) Object.entries(o.texture).forEach(([n, x]) => x && sc.texture(n, x));
     if (o.camera) sc.camera(o.camera);
     if (o.shake) [].concat(o.shake).forEach(s => typeof s === 'object' ? sc.shake(s.t, s.amp, s.d) : sc.shake(s));
     if (typeof nodes === 'function') nodes(sc, this);
@@ -135,6 +137,14 @@ export class Video {
   caption(start, end, text, words) { this.caps.push(words ? [start, end, text, words] : [start, end, text]); return this; }
   texture(name, opts) { const f = registry.textures[name]; if (!f) { console.warn('[vk] unknown texture', name); return this; } const r = f(this, opts === true ? {} : typeof opts === 'number' ? { amount: opts } : (opts || {})); if (r) this.overlays.push(r); return this; }
 
+  // local time when the scene's entrance animations are done (latest tween end before the scene hands over);
+  // used by QA / stills / contact sheets to pick a representative frame
+  settleOf(sc) {
+    const nx = this.scenes[sc.index + 1], visEnd = (nx ? nx.start : sc.end) - sc.start - .25;
+    let m = Math.max(sc.transition.d || 0, Math.min(sc.maxT, visEnd));
+    this.tl.els.forEach(S => { if (S.owner !== sc) return; Object.values(S.props).forEach(arr => arr.forEach(tr => { const e = tr.t0 + tr.d; if (e <= visEnd && e > m) m = e; })); });
+    return +m.toFixed(3);
+  }
   /* ---------------- finalize ---------------- */
   start() { return this.finalize(); }
   finalize() {
@@ -170,7 +180,7 @@ export class Video {
     Object.assign(window, {
       __duration: this.duration, __fps: this.fps, __size: { width: this.W, height: this.H }, __captions: this.caps,
       __audio: this.cfg.audio ? new URL(this.cfg.audio, location.href).href : null,
-      __scenes: S.map(s => ({ index: s.index, name: s.name, start: s.start, dur: s.dur, transition: s.transition })),
+      __scenes: S.map(s => ({ index: s.index, name: s.name, start: s.start, dur: s.dur, transition: s.transition, settle: this.settleOf(s) })),
       __cues: this.events.map(e => e[0]),
       __vk: { theme: this.cfg.theme || 'tech-blue', format: this.format, safe: this.safe, zones: this.zones, title: this.cfg.title || document.title },
       __text: t => { if (t != null) this.render(t); return visibleText(this.stage); },

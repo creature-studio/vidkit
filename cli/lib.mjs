@@ -10,7 +10,7 @@ export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
 export const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json')));
 
 export function parseArgs(argv, flags = []) {
-  const opt = { _: [] }, F = new Set(['srt', 'png', 'jpeg', 'keep', 'no-score', 'no-video', 'json', 'open', 'dev', 'help', 'no-grain-check', ...flags]);
+  const opt = { _: [] }, F = new Set(['srt', 'png', 'jpeg', 'keep', 'no-score', 'no-video', 'json', 'open', 'dev', 'help', 'no-grain-check', 'settle', ...flags]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-o') { opt.out = argv[++i]; continue; }
@@ -77,7 +77,15 @@ export function run(cmd, args, input) {
 }
 export const fmtT = t => (Math.round(t * 1000) / 1000).toFixed(2);
 // settled times: 0.8 s before each scene ends (or mid-scene for short scenes); entrance: ~30% in
-export function settleTimes(info) { return info.scenes.map(s => ({ scene: s, t: s.start + Math.max(s.dur * .5, s.dur - .8) })); }
+// settled frame of each scene: after its own entry transition, before the next scene starts overlapping it
+export function settleTimes(info) {
+  return info.scenes.map(s => {
+    const next = info.scenes[s.index + 1], a = s.start + (s.transition && s.transition.d || 0), b = next ? next.start : s.start + s.dur;
+    let t = b - Math.min(.8, (b - a) * .3);
+    if (s.settle != null) t = Math.min(b - .05, Math.max(t, s.start + s.settle + .1)); // wait for entrance animations
+    return { scene: s, t: +(Math.max(a, t)).toFixed(3) };
+  });
+}
 export function contactTimes(info) {
   return info.scenes.flatMap(s => { const next = info.scenes[s.index + 1], end = next ? next.start : s.start + s.dur; const a = s.start + (s.transition.d || 0) + Math.min(1.0, (end - s.start) * .25), b = Math.min(end - .35, s.start + s.dur - .8); return b - a > .6 ? [a, b] : [b]; });
 }

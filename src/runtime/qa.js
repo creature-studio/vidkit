@@ -52,7 +52,7 @@ export function runQA(v) {
   for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
     const A = texts[i], B = texts[j]; let hit = false;
     if (A.el.contains(B.el) || B.el.contains(A.el)) continue;
-    A.rs.forEach(a => B.rs.forEach(b => { const ix = Math.min(a.r, b.r) - Math.max(a.l, b.l), iy = Math.min(a.b, b.b) - Math.max(a.t, b.t); if (ix > 3 && iy > .35 * Math.min(a.b - a.t, b.b - b.t)) hit = true; }));
+    A.rs.forEach(a => B.rs.forEach(b => { const ix = Math.min(a.r, b.r) - Math.max(a.l, b.l), iy = Math.min(a.b, b.b) - Math.max(a.t, b.t); if (ix > Math.max(3, .12 * Math.min(a.r - a.l, b.r - b.l)) && iy > .35 * Math.min(a.b - a.t, b.b - b.t)) hit = true; }));
     if (hit) issues.push({ type: 'text-overlap', el: label(A.el), other: label(B.el) });
   }
   if (capEl && +capEl.style.opacity > 0) {
@@ -67,4 +67,4 @@ export function runQA(v) {
   registry.hooks.qa.forEach(f => f(rep, v));
   return rep;
 }
-function hasCamMotion(el) { return !!el.closest('[data-cam-keys]'); }
+function hasCamMotion(el) { const cam = el.closest('.vk-cam'); if (!cam) return false; if (el.closest('[data-cam-keys]')) return true; const tf = getComputedStyle(cam).transform; return !!tf && tf !== 'none' && tf !== 'matrix(1, 0, 0, 1, 0, 0)'; }

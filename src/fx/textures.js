@@ -32,8 +32,8 @@ X.halftone = (v, o) => { const e = ov(), s = v.px(o.size || 7); e.style.cssText 
 // CRT scanlines, optional slow roll
 X.scanlines = (v, o) => { const e = ov(), s = v.px(o.size || 4); e.style.cssText += `;background:repeating-linear-gradient(0deg, rgba(0,0,0,${amt(o, .22)}) 0 ${s / 2}px, transparent ${s / 2}px ${s}px)`; return { el: e, update(t) { if (o.roll) e.style.backgroundPosition = `0 ${(t * (o.roll === true ? 30 : o.roll)) % s}px`; } }; };
 // RGB misregistration (riso / chromatic offset) via an SVG filter on the scene stack. o: {amount px, pulse (beats k), angle}
-X.rgb = (v, o) => {
-  const id = 'vk-rgb';
+X.rgb = (v, o, host) => {
+  const id = 'vk-rgb';  // host = scene for a per-scene texture
   const wrap = document.createElement('div'); wrap.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
   wrap.innerHTML = `<svg width="0" height="0"><filter id="${id}" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
     <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/><feOffset in="r" dx="0" dy="0" result="ro"/>
@@ -41,7 +41,8 @@ X.rgb = (v, o) => {
     <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/><feOffset in="b" dx="0" dy="0" result="bo"/>
     <feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>`;
   const offs = () => wrap.querySelectorAll('feOffset');
-  v.scenesEl.style.filter = `url(#${id})`;
+  const target = host ? host.el : v.scenesEl, fid = host ? id + '-' + host.index : id;
+  wrap.querySelector('filter').id = fid; target.style.filter = `url(#${fid})`;
   const ang = (o.angle || 0) * Math.PI / 180;
   return { el: wrap, update(t) { const a = v.px(amt(o, 2)) * (o.pulse ? (.25 + v.beats.pulse(t, o.pulse)) : 1) * (o.fn ? o.fn(t) : 1); const [r, b] = offs(); const dx = (a * Math.cos(ang)).toFixed(2), dy = (a * Math.sin(ang)).toFixed(2); r.setAttribute('dx', -dx); r.setAttribute('dy', -dy); b.setAttribute('dx', dx); b.setAttribute('dy', dy); } };
 };

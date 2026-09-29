@@ -6,6 +6,18 @@ import { getEase } from '../core/ease.js';
 import { clamp01 } from '../core/time.js';
 
 const B = registry.blocks;
+// single-pass tokenizer so highlighting never re-matches inside inserted markup
+export function highlightLine(ln, KW) {
+  const re = new RegExp(`(\\/\\/.*$|(?<=^|\\s)#.*$)|("[^"]*"|'[^']*'|\`[^\`]*\`)|${KW.source}`, 'g');
+  let out = '', last = 0, m;
+  while ((m = re.exec(ln))) {
+    out += esc(ln.slice(last, m.index));
+    const c = m[1] ? 'var(--muted)' : m[2] ? 'var(--accent2)' : 'var(--accent)';
+    out += `<span style="color:${c}">${esc(m[0])}</span>`; last = re.lastIndex;
+    if (m[0] === '') re.lastIndex++;
+  }
+  return out + esc(ln.slice(last));
+}
 const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 /* terminal: lines "$ cmd" are typed, "✓ …"/"> …"/plain lines fade in. o: {title, cps, w, gap, prompt} */
@@ -42,8 +54,7 @@ B.code = (src, o = {}) => node(o, function code(ctx) {
   const KW = /\b(const|let|var|function|return|import|from|export|await|async|new|if|else|for|of|in|class|true|false|null|def|fn|pub|use|package|func)\b/g;
   const t0 = ctx.at(o), each = o.each != null ? o.each : .12;
   src.replace(/\n$/, '').split('\n').forEach((ln, i) => {
-    let hs = esc(ln).replace(/(&quot;|"[^"]*"|'[^']*'|`[^`]*`)/g, '<span style="color:var(--accent2)">$1</span>')
-      .replace(KW, '<span style="color:var(--accent)">$1</span>').replace(/(\/\/.*|#.*)$/, '<span style="color:var(--muted)">$1</span>');
+    const hs = highlightLine(ln, KW);
     const row = h('div', null, hs || ' ', pre);
     if (o.highlight && o.highlight.includes(i + 1)) row.style.cssText = `background:color-mix(in srgb,var(--accent) 22%,transparent);margin:0 -${px(26)}px;padding:0 ${px(26)}px`;
     ctx.scene.fx(row, 'left', { t: t0 + i * each, d: .35, dist: px(14) });
@@ -154,7 +165,7 @@ B.diagram = (spec, o = {}) => node(o, function diagram(ctx) {
 /* quote: big quote mark, text, attribution */
 B.quote = (text, o = {}) => node(o, function quote(ctx) {
   const px = ctx.px, q = h('figure', 'vk-quote'); q.style.cssText = `margin:0;max-width:${len(ctx, o.w || 900, 'x')};text-align:${o.align || 'left'};position:relative`;
-  const mark = h('div', null, '“', q); mark.style.cssText = `font-family:var(--vk-serif);font-size:${px(180)}px;line-height:.6;color:var(--accent);height:${px(70)}px`;
+  const mark = h('div', null, '“', q); mark.dataset.qa = 'ignore'; mark.style.cssText = `font-family:var(--vk-serif);font-size:${px(180)}px;line-height:.6;color:var(--accent);height:${px(70)}px`;
   const body = h('blockquote', null, md(text), q); body.style.cssText = `margin:0;font-family:${o.serif === false ? 'var(--vk-sans)' : 'var(--vk-serif)'};font-size:${size(ctx, o.size || 50)};line-height:1.3;font-weight:${o.weight || 500}`;
   const t0 = ctx.at(o);
   ctx.scene.fx(mark, 'pop', { t: t0, d: .5 });

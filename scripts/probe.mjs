@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+import { startServer, pageUrl, LAUNCH } from '/workspace/vidkit/cli/lib.mjs';
+const { server, port } = await startServer();
+const b = await chromium.launch(LAUNCH); const p = await b.newPage({viewport:{width:1280,height:720}});
+p.on('pageerror', e => console.log('ERR', e.stack));
+p.on('console', m => console.log('LOG', m.text()));
+await p.goto(pageUrl(port, (await import('node:path')).resolve(process.argv[2]), { render: '1' }));
+await p.waitForFunction(() => window.__ready);
+const t = +process.argv[3];
+const r = await p.evaluate(([t, sel]) => { window.__seek(t); return [...document.querySelectorAll(sel)].filter(e=>e.getBoundingClientRect().width>0).slice(0,8).map(e => { const cs = getComputedStyle(e); const r = e.getBoundingClientRect(); let a = e, op = 1, vis=''; while (a && a.nodeType===1) { op *= +getComputedStyle(a).opacity; if (getComputedStyle(a).visibility==='hidden') vis+= a.className+'|'; a = a.parentElement; } return { tag: e.tagName, cls: String(e.className?.baseVal ?? e.className), op, vis, rect: [r.x, r.y, r.width, r.height].map(Math.round), tf: cs.transform, clip: cs.clipPath, dash: cs.strokeDasharray + ' / ' + cs.strokeDashoffset, style: e.getAttribute('style') }; }); }, [t, process.argv[4]]);
+console.log(JSON.stringify(r, null, 1));
+await b.close(); server.close();

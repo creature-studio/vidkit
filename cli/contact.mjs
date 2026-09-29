@@ -1,11 +1,11 @@
-// vk contact page.html -o sheet.png [--times a,b,c] [--cols 4] [--format 9:16]
-import { parseArgs, startServer, pageUrl, launch, probeInfo, workerPage, seek, contactTimes, fmtT, fs, path } from './lib.mjs';
+// vk contact page.html -o sheet.png [--times a,b,c | --settle] [--cols 4] [--format 9:16]
+import { parseArgs, startServer, pageUrl, launch, probeInfo, workerPage, seek, contactTimes, settleTimes, fmtT, fs, path } from './lib.mjs';
 export default async function contact(argv) {
   const opt = parseArgs(argv), abs = path.resolve(opt._[0] || ''); if (!fs.existsSync(abs)) throw new Error('usage: vk contact page.html -o sheet.png');
   const { server, port } = await startServer(); const params = { render: '1' }; if (opt.format) params.format = opt.format;
   const url = pageUrl(port, abs, params), browser = await launch(), info = await probeInfo(browser, url);
   const { width: W, height: H } = info.size;
-  const times = opt.times ? String(opt.times).split(',').map(Number) : contactTimes(info);
+  const times = opt.times ? String(opt.times).split(',').map(Number) : opt.settle ? settleTimes(info).map(x => x.t) : contactTimes(info);
   const page = await workerPage(browser, url, info, 1), imgs = [];
   for (const t of times) { await seek(page, t); imgs.push({ t, b64: (await page.screenshot({ type: 'jpeg', quality: 85, clip: { x: 0, y: 0, width: W, height: H } })).toString('base64') }); }
   const cols = +opt.cols || (W >= H ? 4 : 6), tw = W >= H ? 400 : 240, th = Math.round(tw * H / W);

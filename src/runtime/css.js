@@ -52,6 +52,7 @@ export function stageCSS(v) {
 .vk-cap{position:absolute;left:50%;transform:translateX(-50%);text-align:center;opacity:0;z-index:50;pointer-events:none;
   bottom:var(--cap-bottom);font-size:var(--cap-size);max-width:${W - s.left - s.right}px;background:${th.caption.bg};color:${th.caption.fg};font-family:var(--vk-sans);
   font-weight:700;padding:.3em .8em;border-radius:12px;line-height:1.35;white-space:${W < H ? 'normal;width:max-content' : 'nowrap'}}
+${W < H ? `.vk-cap{left:${s.left}px;right:${s.right}px;transform:none;margin:0 auto;max-width:${W - s.left - s.right}px}` : ''}
 .vk-cap .kw{transition:none}.vk-cap .kw.on{color:${th.caption.karaoke}}
 html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:hidden;width:${W}px;height:${H}px}
 .vk-wrap{max-width:${W < H ? 480 : 1120}px;margin:0 auto;padding:20px 16px 32px;font-family:var(--vk-sans)}

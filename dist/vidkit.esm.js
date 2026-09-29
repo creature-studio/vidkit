@@ -522,7 +522,8 @@ function shakeAt(shakes, lt, rate = 24) {
   let dx = 0, dy = 0, dr = 0;
   shakes.forEach((sh, si) => {
     if (lt < sh.t || lt > sh.t + sh.d) return;
-    const a = sh.amp * Math.exp(-sh.k * (lt - sh.t)) * (1 - (lt - sh.t) / sh.d), f = Math.floor(lt * rate);
+    const f = Math.floor(lt * rate + 1e-6), q = Math.max(0, f / rate - sh.t);
+    const a = sh.amp * Math.exp(-sh.k * q) * Math.max(0, 1 - q / sh.d);
     dx += (hash(f * 1.7 + si * 13) - 0.5) * 2 * a;
     dy += (hash(f * 2.3 + 9 + si * 13) - 0.5) * 2 * a;
     dr += (hash(f * 3.1 + 4 + si * 7) - 0.5) * a * 0.08 * (sh.rot || 0);
@@ -723,6 +724,21 @@ var Scene = class {
     const parent = o.flow ? this.content : o.fixed ? this.fixed : this.cam || this.el;
     els.forEach((e) => parent.appendChild(e));
     return els.length === 1 ? els[0] : els;
+  }
+  // per-scene texture overlay (same presets as video-level textures)
+  texture(name, o = {}) {
+    const f = this.video.constructor.registry.textures[name];
+    if (!f) {
+      console.warn("[vk] unknown texture", name);
+      return this;
+    }
+    const r = f(this.video, o === true ? {} : typeof o === "number" ? { amount: o } : o, this);
+    if (r && r.el) {
+      r.el.style.zIndex = 20;
+      this.el.appendChild(r.el);
+    }
+    if (r && r.update) this.bgs.push((local, p, t) => r.update(t, { local, scene: this }));
+    return this;
   }
   sfx(t, name, gain = 1, freq) {
     this.video.sfx(this.start + this.time(t), name, gain, freq);
@@ -950,6 +966,7 @@ function stageCSS(v) {
 .vk-cap{position:absolute;left:50%;transform:translateX(-50%);text-align:center;opacity:0;z-index:50;pointer-events:none;
   bottom:var(--cap-bottom);font-size:var(--cap-size);max-width:${W - s2.left - s2.right}px;background:${th.caption.bg};color:${th.caption.fg};font-family:var(--vk-sans);
   font-weight:700;padding:.3em .8em;border-radius:12px;line-height:1.35;white-space:${W < H ? "normal;width:max-content" : "nowrap"}}
+${W < H ? `.vk-cap{left:${s2.left}px;right:${s2.right}px;transform:none;margin:0 auto;max-width:${W - s2.left - s2.right}px}` : ""}
 .vk-cap .kw{transition:none}.vk-cap .kw.on{color:${th.caption.karaoke}}
 html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:hidden;width:${W}px;height:${H}px}
 .vk-wrap{max-width:${W < H ? 480 : 1120}px;margin:0 auto;padding:20px 16px 32px;font-family:var(--vk-sans)}
@@ -1318,7 +1335,7 @@ function runQA(v) {
     if (A.el.contains(B3.el) || B3.el.contains(A.el)) continue;
     A.rs.forEach((a) => B3.rs.forEach((b) => {
       const ix = Math.min(a.r, b.r) - Math.max(a.l, b.l), iy = Math.min(a.b, b.b) - Math.max(a.t, b.t);
-      if (ix > 3 && iy > 0.35 * Math.min(a.b - a.t, b.b - b.t)) hit = true;
+      if (ix > Math.max(3, 0.12 * Math.min(a.r - a.l, b.r - b.l)) && iy > 0.35 * Math.min(a.b - a.t, b.b - b.t)) hit = true;
     }));
     if (hit) issues.push({ type: "text-overlap", el: label2(A.el), other: label2(B3.el) });
   }
@@ -1336,7 +1353,11 @@ function runQA(v) {
   return rep;
 }
 function hasCamMotion(el2) {
-  return !!el2.closest("[data-cam-keys]");
+  const cam = el2.closest(".vk-cam");
+  if (!cam) return false;
+  if (el2.closest("[data-cam-keys]")) return true;
+  const tf = getComputedStyle(cam).transform;
+  return !!tf && tf !== "none" && tf !== "matrix(1, 0, 0, 1, 0, 0)";
 }
 
 // src/layers/canvas.js
@@ -1500,6 +1521,7 @@ function parseScene(v, sc) {
 var Q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
 var RENDER = Q.get("render") === "1";
 var Video = class {
+  static registry = registry;
   constructor(cfg = {}, env2 = {}) {
     this.cfg = cfg = Object.assign({ fps: 30, transition: "fade:0.4", localFonts: true, holdLast: true }, cfg);
     this.base = env2.base || "";
@@ -1620,6 +1642,7 @@ var Video = class {
     this.scenesEl.appendChild(sc.el);
     sc.el.style.zIndex = String(sc.index + 1);
     if (bg) [].concat(bg).forEach((b) => this.addBackground(sc, b));
+    if (o.texture) Object.entries(o.texture).forEach(([n, x]) => x && sc.texture(n, x));
     if (o.camera) sc.camera(o.camera);
     if (o.shake) [].concat(o.shake).forEach((s2) => typeof s2 === "object" ? sc.shake(s2.t, s2.amp, s2.d) : sc.shake(s2));
     if (typeof nodes === "function") nodes(sc, this);
@@ -1695,6 +1718,20 @@ var Video = class {
     if (r) this.overlays.push(r);
     return this;
   }
+  // local time when the scene's entrance animations are done (latest tween end before the scene hands over);
+  // used by QA / stills / contact sheets to pick a representative frame
+  settleOf(sc) {
+    const nx = this.scenes[sc.index + 1], visEnd = (nx ? nx.start : sc.end) - sc.start - 0.25;
+    let m = Math.max(sc.transition.d || 0, Math.min(sc.maxT, visEnd));
+    this.tl.els.forEach((S) => {
+      if (S.owner !== sc) return;
+      Object.values(S.props).forEach((arr) => arr.forEach((tr) => {
+        const e = tr.t0 + tr.d;
+        if (e <= visEnd && e > m) m = e;
+      }));
+    });
+    return +m.toFixed(3);
+  }
   /* ---------------- finalize ---------------- */
   start() {
     return this.finalize();
@@ -1750,7 +1787,7 @@ var Video = class {
       __size: { width: this.W, height: this.H },
       __captions: this.caps,
       __audio: this.cfg.audio ? new URL(this.cfg.audio, location.href).href : null,
-      __scenes: S.map((s2) => ({ index: s2.index, name: s2.name, start: s2.start, dur: s2.dur, transition: s2.transition })),
+      __scenes: S.map((s2) => ({ index: s2.index, name: s2.name, start: s2.start, dur: s2.dur, transition: s2.transition, settle: this.settleOf(s2) })),
       __cues: this.events.map((e) => e[0]),
       __vk: { theme: this.cfg.theme || "tech-blue", format: this.format, safe: this.safe, zones: this.zones, title: this.cfg.title || document.title },
       __text: (t) => {
@@ -2143,7 +2180,12 @@ function spacer(hh = 20) {
 function html(str, o = {}) {
   return node(o, function html_() {
     const w = h("div", "vk-html", str);
-    return w.children.length === 1 && !o.wrap ? w.firstElementChild : w;
+    if (w.children.length === 1 && !o.wrap) {
+      const c = w.firstElementChild;
+      c.remove();
+      return c;
+    }
+    return w;
   }, null);
 }
 function el(fn, o = {}) {
@@ -2155,6 +2197,8 @@ function svg(markup, o = {}) {
   return node(o, function svg_(ctx) {
     const w = h("div", "vk-svg", markup.trim().startsWith("<svg") ? markup : `<svg viewBox="${o.viewBox || "0 0 400 300"}" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="${o.strokeWidth || 4}" stroke-linecap="round" stroke-linejoin="round">${markup}</svg>`);
     const svgEl = w.firstElementChild;
+    svgEl.remove();
+    svgEl.classList.add("vk-svg");
     if (o.w) svgEl.setAttribute("width", ctx.px(o.w));
     if (o.h) svgEl.setAttribute("height", ctx.px(o.h));
     return svgEl;
@@ -2597,6 +2641,18 @@ T2["zoom-through"] = (e, c) => {
 
 // src/fx/blocks.js
 var B = registry.blocks;
+function highlightLine(ln, KW) {
+  const re = new RegExp(`(\\/\\/.*$|(?<=^|\\s)#.*$)|("[^"]*"|'[^']*'|\`[^\`]*\`)|${KW.source}`, "g");
+  let out = "", last = 0, m;
+  while (m = re.exec(ln)) {
+    out += esc2(ln.slice(last, m.index));
+    const c = m[1] ? "var(--muted)" : m[2] ? "var(--accent2)" : "var(--accent)";
+    out += `<span style="color:${c}">${esc2(m[0])}</span>`;
+    last = re.lastIndex;
+    if (m[0] === "") re.lastIndex++;
+  }
+  return out + esc2(ln.slice(last));
+}
 var esc2 = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 B.terminal = (lines, o = {}) => node(o, function terminal(ctx) {
   const px = ctx.px, win = h("div", "vk-term vk-mono");
@@ -2634,7 +2690,7 @@ B.code = (src, o = {}) => node(o, function code(ctx) {
   const KW = /\b(const|let|var|function|return|import|from|export|await|async|new|if|else|for|of|in|class|true|false|null|def|fn|pub|use|package|func)\b/g;
   const t0 = ctx.at(o), each = o.each != null ? o.each : 0.12;
   src.replace(/\n$/, "").split("\n").forEach((ln, i) => {
-    let hs = esc2(ln).replace(/(&quot;|"[^"]*"|'[^']*'|`[^`]*`)/g, '<span style="color:var(--accent2)">$1</span>').replace(KW, '<span style="color:var(--accent)">$1</span>').replace(/(\/\/.*|#.*)$/, '<span style="color:var(--muted)">$1</span>');
+    const hs = highlightLine(ln, KW);
     const row2 = h("div", null, hs || " ", pre);
     if (o.highlight && o.highlight.includes(i + 1)) row2.style.cssText = `background:color-mix(in srgb,var(--accent) 22%,transparent);margin:0 -${px(26)}px;padding:0 ${px(26)}px`;
     ctx.scene.fx(row2, "left", { t: t0 + i * each, d: 0.35, dist: px(14) });
@@ -2784,6 +2840,7 @@ B.quote = (text2, o = {}) => node(o, function quote(ctx) {
   const px = ctx.px, q = h("figure", "vk-quote");
   q.style.cssText = `margin:0;max-width:${len(ctx, o.w || 900, "x")};text-align:${o.align || "left"};position:relative`;
   const mark = h("div", null, "\u201C", q);
+  mark.dataset.qa = "ignore";
   mark.style.cssText = `font-family:var(--vk-serif);font-size:${px(180)}px;line-height:.6;color:var(--accent);height:${px(70)}px`;
   const body = h("blockquote", null, md(text2), q);
   body.style.cssText = `margin:0;font-family:${o.serif === false ? "var(--vk-sans)" : "var(--vk-serif)"};font-size:${size(ctx, o.size || 50)};line-height:1.3;font-weight:${o.weight || 500}`;
@@ -2900,6 +2957,7 @@ B.badge = (text2, o = {}) => node(o, function badge(ctx) {
 
 // src/fx/charts.js
 var B2 = registry.blocks;
+var gradId = 0;
 var rows = (data) => data.map((d) => Array.isArray(d) ? { label: d[0], value: +d[1] } : { ...d, value: +d.value });
 var fmtNum = (v, o) => {
   const dec = o.decimals | 0;
@@ -2912,6 +2970,7 @@ var fmtNum = (v, o) => {
   return (o.prefix || "") + s2 + (o.unit || o.suffix || "");
 };
 var pal = (ctx, i, d) => d && d.color || ctx.theme.chart[i % ctx.theme.chart.length];
+var barCol = (ctx, o, i, d) => d.color || (o.colors ? pal(ctx, i, d) : o.highlight != null ? "color-mix(in srgb, var(--muted) 55%, transparent)" : "var(--accent)");
 function niceMax(v) {
   const e = Math.pow(10, Math.floor(Math.log10(v || 1))), m = v / e;
   return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * e;
@@ -2930,7 +2989,7 @@ B2.bar = (data, o = {}) => node(o, function bar(ctx) {
       const tr = h("div", null, null, r);
       tr.style.cssText = `flex:1;position:relative;height:${px(Math.min(40, H / D.length * 0.62))}px`;
       const b = h("div", null, null, tr);
-      b.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:${d.value / max * 100}%;background:${isHl(d, i) ? "var(--accent)" : pal(ctx, i + 1, d)};border-radius:${px(6)}px;transform-origin:left center`;
+      b.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:${d.value / max * 100}%;background:${isHl(d, i) ? "var(--accent)" : barCol(ctx, o, i, d)};border-radius:${px(6)}px;transform-origin:left center`;
       const v = h("div", "vk-mono", "", tr);
       v.style.cssText = `position:absolute;left:calc(${d.value / max * 100}% + ${px(10)}px);top:50%;transform:translateY(-50%);font-size:${px(20)}px;font-weight:700;white-space:nowrap`;
       sc.fx(b, "grow", { t: t0 + i * each, d: 0.8, ease: "outExpo" });
@@ -2950,7 +3009,7 @@ B2.bar = (data, o = {}) => node(o, function bar(ctx) {
       const c = h("div", null, null, plot);
       c.style.cssText = `flex:1;position:relative;height:${d.value / max * 100}%;display:flex;flex-direction:column;justify-content:flex-start`;
       const b = h("div", null, null, c);
-      b.style.cssText = `position:absolute;inset:0;background:${isHl(d, i) ? "var(--accent)" : pal(ctx, i + 1, d)};border-radius:${px(6)}px ${px(6)}px 0 0;transform-origin:center bottom;${isHl(d, i) || o.highlight == null ? "" : "opacity:.55"}`;
+      b.style.cssText = `position:absolute;inset:0;background:${isHl(d, i) ? "var(--accent)" : barCol(ctx, o, i, d)};border-radius:${px(6)}px ${px(6)}px 0 0;transform-origin:center bottom`;
       const v = h("div", "vk-mono", "", c);
       v.style.cssText = `position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:${px(6)}px;font-size:${px(o.valueSize || 18)}px;font-weight:700;white-space:nowrap`;
       const l = h("div", null, md(d.label), c);
@@ -2959,7 +3018,7 @@ B2.bar = (data, o = {}) => node(o, function bar(ctx) {
       sc.fx(v, "count", { t: t0 + i * each, d: 0.8, to: d.value, format: (x) => fmtNum(x, o) });
       sc.fx(l, "fade", { t: t0 + i * each, d: 0.3 });
     });
-    box.style.paddingBottom = px(34) + "px";
+    plot.style.marginBottom = px(38) + "px";
     box.style.paddingLeft = px(40) + "px";
   }
   if (o.source) {
@@ -2971,10 +3030,14 @@ B2.bar = (data, o = {}) => node(o, function bar(ctx) {
   return box;
 }, null);
 B2.line = (data, o = {}) => node(o, function line(ctx) {
-  const px = ctx.px, W = o.w || 900, H = o.h || 380, P = { l: 56, r: 24, t: 20, b: 40 };
+  const px = ctx.px, W = o.w || 900, H = o.h || 380;
   const series = o.series || [{ name: o.name || "", values: rows(data).map((d2) => d2.value) }];
   const labels = o.labels || (data ? rows(data).map((d2) => d2.label) : series[0].values.map((_, i) => String(i + 1)));
   const all = series.flatMap((s2) => s2.values), min = o.min != null ? o.min : Math.min(0, ...all), max = o.max || niceMax(Math.max(...all));
+  const axisDec = o.axisDecimals != null ? o.axisDecimals : Number.isInteger((max - min) / 4) ? 0 : 1;
+  const axisTxt = (g) => fmtNum(min + (max - min) * g / 4, { ...o, decimals: axisDec, unit: "" });
+  const multi = series.length > 1, endW = multi && o.endLabel !== false ? o.labelRight || 190 : 24;
+  const P = { l: 18 + Math.max(...[0, 1, 2, 3, 4].map((g) => axisTxt(g).length)) * 8.8, r: endW, t: 20, b: 40 };
   const n = labels.length, X2 = (i) => P.l + (W - P.l - P.r) * (n === 1 ? 0.5 : i / (n - 1)), Y = (v) => P.t + (H - P.t - P.b) * (1 - (v - min) / (max - min));
   const box = h("div", "vk-chart vk-line");
   box.style.cssText = `width:${px(W)}px;height:${px(H)}px;position:relative;flex:none`;
@@ -2985,7 +3048,7 @@ B2.line = (data, o = {}) => node(o, function line(ctx) {
     const v = min + (max - min) * g / 4, y = Y(v);
     s("line", { x1: P.l, x2: W - P.r, y1: y, y2: y, stroke: "var(--line)", "stroke-width": g ? 1 : 2, "stroke-dasharray": g ? "4 6" : "" }, axis);
     const tx = s("text", { x: P.l - 10, y: y + 5, "text-anchor": "end", fill: "var(--muted)", "font-size": 14, "font-family": "JetBrains Mono, monospace" }, axis);
-    tx.textContent = fmtNum(v, { ...o, decimals: o.axisDecimals != null ? o.axisDecimals : Number.isInteger((max - min) / 4) ? 0 : 1, unit: "" });
+    tx.textContent = axisTxt(g);
   }
   const step = Math.ceil(n / (o.maxLabels || 8));
   labels.forEach((lb, i) => {
@@ -2994,12 +3057,13 @@ B2.line = (data, o = {}) => node(o, function line(ctx) {
     tx.textContent = lb;
   });
   sc.fx(axis, "fade", { t: t0, d: 0.4 });
+  const ends = [];
   series.forEach((se, k) => {
     const col3 = se.color || (k === 0 ? "var(--accent)" : pal(ctx, k + 1));
     const pts = se.values.map((v, i) => [X2(i), Y(v)]);
     const dPath = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
-    if (o.area !== false && k === 0) {
-      const gid = "vkg" + Math.floor(Math.random() * 1e9);
+    if (k === 0 && (o.area === true || o.area !== false && !multi)) {
+      const gid = "vkg" + ++gradId;
       const defs = s("defs", {}, svgEl), lg = s("linearGradient", { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
       s("stop", { offset: 0, "stop-color": col3, "stop-opacity": 0.35 }, lg);
       s("stop", { offset: 1, "stop-color": col3, "stop-opacity": 0 }, lg);
@@ -3015,11 +3079,31 @@ B2.line = (data, o = {}) => node(o, function line(ctx) {
       sc.fx(c, "pop", { t: t0 + 0.2 + k * 0.3 + d * (i / Math.max(1, n - 1)), d: 0.3 });
     });
     const lastV = se.values[se.values.length - 1], lp = pts[pts.length - 1];
+    if (o.endLabel === false) return;
     const lab = h("div", "vk-mono", "", box);
-    lab.style.cssText = `position:absolute;left:${px(lp[0])}px;top:${px(lp[1]) - px(44)}px;transform:translateX(-80%);font-size:${px(o.valueSize || 22)}px;font-weight:800;color:${col3};white-space:nowrap`;
+    lab.style.cssText = `position:absolute;font-size:${px(o.valueSize || 22)}px;font-weight:800;color:${col3};white-space:nowrap;line-height:1`;
+    if (multi) {
+      lab.style.left = px(lp[0] + 14) + "px";
+      ends.push({ lab, y: lp[1] });
+    } else {
+      lab.style.left = px(lp[0]) + "px";
+      lab.style.top = px(lp[1]) - px(44) + "px";
+      lab.style.transform = "translateX(-80%)";
+    }
     sc.fx(lab, "count", { t: t0 + 0.2 + k * 0.3, d, to: lastV, from: se.values[0], format: (x) => (se.name ? se.name + " " : "") + fmtNum(x, o) });
     sc.fx(lab, "fade", { t: t0 + 0.2, d: 0.3 });
   });
+  if (ends.length) {
+    const gap = (o.valueSize || 22) * 1.25;
+    ends.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + gap);
+    const over = ends[ends.length - 1].y - (H - P.b);
+    if (over > 0) ends.forEach((e) => e.y -= over);
+    for (let i = ends.length - 2; i >= 0; i--) ends[i].y = Math.min(ends[i].y, ends[i + 1].y - gap);
+    ends.forEach((e) => {
+      e.lab.style.top = px(e.y) - px((o.valueSize || 22) / 2) + "px";
+    });
+  }
   if (o.source) {
     const sEl = h("div", null, md(o.source), box);
     sEl.style.cssText = `position:absolute;right:0;top:100%;margin-top:${px(4)}px;font-size:${px(14)}px;color:var(--muted)`;
@@ -3245,7 +3329,7 @@ X.scanlines = (v, o) => {
     if (o.roll) e.style.backgroundPosition = `0 ${t * (o.roll === true ? 30 : o.roll) % s2}px`;
   } };
 };
-X.rgb = (v, o) => {
+X.rgb = (v, o, host) => {
   const id = "vk-rgb";
   const wrap = document.createElement("div");
   wrap.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
@@ -3255,7 +3339,9 @@ X.rgb = (v, o) => {
     <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/><feOffset in="b" dx="0" dy="0" result="bo"/>
     <feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>`;
   const offs = () => wrap.querySelectorAll("feOffset");
-  v.scenesEl.style.filter = `url(#${id})`;
+  const target = host ? host.el : v.scenesEl, fid = host ? id + "-" + host.index : id;
+  wrap.querySelector("filter").id = fid;
+  target.style.filter = `url(#${fid})`;
   const ang = (o.angle || 0) * Math.PI / 180;
   return { el: wrap, update(t) {
     const a = v.px(amt(o, 2)) * (o.pulse ? 0.25 + v.beats.pulse(t, o.pulse) : 1) * (o.fn ? o.fn(t) : 1);

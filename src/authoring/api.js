@@ -44,13 +44,13 @@ export function split(left, right, o = {}) {
 }
 export function spacer(hh = 20) { return node({}, function spacer_(ctx) { const e = h('div'); e.style.height = ctx.px(hh) + 'px'; e.style.flex = 'none'; return e; }, null); }
 // raw code escape hatches
-export function html(str, o = {}) { return node(o, function html_() { const w = h('div', 'vk-html', str); return w.children.length === 1 && !o.wrap ? w.firstElementChild : w; }, null); }
+export function html(str, o = {}) { return node(o, function html_() { const w = h('div', 'vk-html', str); if (w.children.length === 1 && !o.wrap) { const c = w.firstElementChild; c.remove(); return c; } return w; }, null); }
 // custom element: fn(ctx) → Element (full access to ctx.scene for tweens / on())
 export function el(fn, o = {}) { return node(o, function el_(ctx) { return fn(ctx); }, null); }
 export function svg(markup, o = {}) {
   return node(o, function svg_(ctx) {
     const w = h('div', 'vk-svg', markup.trim().startsWith('<svg') ? markup : `<svg viewBox="${o.viewBox || '0 0 400 300'}" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="${o.strokeWidth || 4}" stroke-linecap="round" stroke-linejoin="round">${markup}</svg>`);
-    const svgEl = w.firstElementChild;
+    const svgEl = w.firstElementChild; svgEl.remove(); svgEl.classList.add('vk-svg');
     if (o.w) svgEl.setAttribute('width', ctx.px(o.w)); if (o.h) svgEl.setAttribute('height', ctx.px(o.h));
     return svgEl;
   }, 'draw');

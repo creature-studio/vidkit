@@ -22,7 +22,7 @@ export default async function qa(argv) {
     const cis = r.issues.filter(i => /^caption/.test(i.type) || (i.type === 'text-overlap' && /vk-cap/.test(i.el + i.other)));
     report.captions.push({ text: c[2], start: c[0], end: c[1], issues: cis, chars: [...c[2]].length });
     for (const i of cis) log(i.level === 'warn' ? 'WARN' : 'ISSUE', `caption "${c[2]}" ${i.type} ${i.w || i.other || i.zone || ''}`);
-    const cps = [...c[2]].length / (c[1] - c[0]); if (cps > 7) log('WARN', `caption "${c[2]}" reads fast: ${cps.toFixed(1)} chars/s`);
+    const cps = readUnits(c[2]) / (c[1] - c[0]); if (cps > 9) log('WARN', `caption "${c[2]}" reads fast: ${cps.toFixed(1)} units/s (CJK char = 1, other = 0.5; limit 9)`);
   }
   // blank-frame sampling
   const step = +(opt.sample || .5), times = [];
@@ -37,3 +37,6 @@ export default async function qa(argv) {
   if (opt.json) { const f = typeof opt.json === 'string' ? path.resolve(opt.json) : abs.replace(/\.html?$/i, '') + '-qa.json'; fs.writeFileSync(f, JSON.stringify(report, null, 2)); console.log('  report', f); }
   await browser.close(); server.close(); return report;
 }
+
+// reading load: a CJK character ≈ one unit, latin letters/digits ≈ half a unit (Netflix zh guideline ≈ 9 chars/s)
+function readUnits(s) { let n = 0; for (const ch of s) { if (/\s/.test(ch)) continue; n += /[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? 1 : .5; } return n; }

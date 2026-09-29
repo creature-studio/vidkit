@@ -107,3 +107,12 @@ test('timeline: last-started tween wins, immediateRender, order-independent seek
   const snap = t => { const f = build(); f.tl.apply(f.el, f.S, t); return JSON.stringify(f.el.style); };
   for (const t of [3.7, 0.2, 1.9, 3.1, 1.2]) { tl.apply(el, S, t); assert.equal(JSON.stringify(el.style), snap(t)); }
 });
+
+test('code highlighter never re-matches inside its own markup', async () => {
+  const { highlightLine } = await import('../src/fx/blocks.js');
+  const KW = /\b(const|return)\b/g;
+  const out = highlightLine(`const s = 'a' // note "x"`, KW);
+  assert.equal((out.match(/<span/g) || []).length, 3);
+  assert.ok(!out.includes('style="color:var(--accent2)">\'a\'</span>'.replace('\'a\'', '<span')));
+  assert.equal(out.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;/g, "'"), `const s = 'a' // note "x"`);
+});
