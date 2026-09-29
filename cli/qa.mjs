@@ -24,6 +24,15 @@ export default async function qa(argv) {
     for (const i of cis) log(i.level === 'warn' ? 'WARN' : 'ISSUE', `caption "${c[2]}" ${i.type} ${i.w || i.other || i.zone || ''}`);
     const cps = readUnits(c[2]) / (c[1] - c[0]); if (cps > 9) log('WARN', `caption "${c[2]}" reads fast: ${cps.toFixed(1)} units/s (CJK char = 1, other = 0.5; limit 9)`);
   }
+  // audio (Phase 2): voice-over coverage, music file, word timing sanity
+  for (const s of info.scenes) {
+    if (!s.vo) continue; const nx = info.scenes[s.index + 1], vis = nx ? nx.start + (nx.transition.d || 0) * .5 : s.start + s.dur;
+    if (s.vo.missing) log('ISSUE', `scene ${s.index + 1} "${s.name}": vo: text has no TTS audio (timing estimated) — run vk tts ${path.basename(abs)}`);
+    if (s.vo.at + s.vo.dur > vis + .05) log('ISSUE', `scene ${s.index + 1} "${s.name}": voice-over ends at ${fmtT(s.vo.at + s.vo.dur)}s but the scene hands over at ${fmtT(vis)}s (use dur:'auto')`);
+  }
+  if (info.music) { const f = decodeURIComponent(new URL(info.music.src).pathname); if (!fs.existsSync(f)) log('ISSUE', `music file not found: ${f}`); }
+  info.caps.filter(c => c[3]).forEach(c => { for (let i = 1; i < c[3].length; i++) if (c[3][i].t < c[3][i - 1].t - 1e-3) { log('WARN', `caption "${c[2]}": word times not monotonic at "${c[3][i].w}"`); break; } });
+  if (info.voice && info.voice.length) console.log(`  [audio] ${info.voice.length} voice clip(s), ${info.voice.reduce((a, v) => a + v.dur, 0).toFixed(1)}s speech${info.music ? ' + music bed' : ''}`);
   // blank-frame sampling
   const step = +(opt.sample || .5), times = [];
   for (let t = 0; t < info.dur; t += step) times.push(+t.toFixed(3));

@@ -1,0 +1,11 @@
+# vidkit Phase 2 audio tooling (Python ≥3.10; tested on 3.13 / CPU only). Installed by tools/setup-audio.sh into .venv/
+librosa>=0.10          # onsets, RMS/loudness, mel bands, tempo, section novelty (fallback beat tracker)
+soundfile
+faster-whisper>=1.0    # CTranslate2 Whisper: transcription + word timestamps (CPU int8)
+stable-ts>=2.17        # forced alignment of known text/lyrics (align()) on top of faster-whisper
+edge-tts>=7            # TTS (online, Microsoft Edge voices, word boundaries incl. Chinese)
+piper-tts>=1.2         # TTS (offline ONNX voices; words come from forced alignment)
+# heavy / optional (torch CPU): installed by setup-audio.sh unless --light
+# torch torchaudio      (from https://download.pytorch.org/whl/cpu)
+# demucs>=4             vocal separation for songs (vk align --separate)
+# beat_this @ git+https://github.com/CPJKU/beat_this.git   SOTA beat + downbeat tracker (ISMIR 2024)
