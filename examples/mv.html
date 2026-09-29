@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>每一帧都是时间的函数 · vidkit MV</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script>
+// Beat-synced lyric video (Phase 2). Everything timing-related comes from analysis of the finished song:
+//   mv/song.beats.json  ← vk analyze mv/song.m4a            (beats, downbeats, onsets, loudness envelope, sections)
+//   mv/song.align.json  ← vk align mv/song.m4a --lyrics mv/lyrics.txt --separate   (demucs vocals + word alignment)
+// Song = "Voxel Revolution" by Kevin MacLeod (incompetech.com, CC BY 4.0) + TTS vocals (see mv/make-song.mjs, mv/LICENSE-music.md).
+// Cuts land on bar lines one frame early, words pop exactly when sung, high-energy sections pulse/flash on the beat,
+// scene brightness follows the low-band loudness, the spectrum is driven by the analysed mel bands.
+vk.video({
+  format: '16:9', fps: 30, theme: 'bold', title: '每一帧都是时间的函数',
+  music: 'mv/song.m4a', beats: 'mv/song.beats.json',
+  lyrics: { src: 'mv/song.align.json', captions: false },
+  texture: { grain: { amount: .05 }, vignette: .25 },
+});
+vk.lyricVideo({
+  intro: { title: '每一帧\n都是时间的函数', sub: 'vidkit · 节拍同步歌词 MV', label: 'RENDER(T) · 122 BPM' },
+  outro: { title: 'render(t)', sub: '一帧一个纯函数', small: 'Music: "Voxel Revolution" Kevin MacLeod (incompetech.com) · CC BY 4.0 · Vocals: TTS (edge-tts)' },
+});
+</script>
+</body>
+</html>

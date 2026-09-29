@@ -1,0 +1,8 @@
+一行代码，一帧画面
+时间是唯一的变量
+Every frame is a function of time
+节拍落下，画面就跳
+提前一帧，永远不晚
+Hit it on the beat
+声音和光，同一张表
+渲染出片，再来一遍

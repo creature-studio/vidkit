@@ -1,0 +1,8 @@
+{
+ "units": 60,
+ "medianAbsMs": 50,
+ "p90AbsMs": 155,
+ "meanSignedMs": 19,
+ "within1Frame30": 0.317,
+ "within100ms": 0.8
+}
