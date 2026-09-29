@@ -15,7 +15,7 @@ export function stageCSS(v) {
 #stage{position:absolute;left:0;top:0;width:${W}px;height:${H}px;overflow:hidden;transform-origin:0 0;background:#000;color:#fff;
   font-family:var(--vk-sans);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;font-kerning:normal}
 #stage *,#stage *::before,#stage *::after{box-sizing:border-box;transition:none!important}
-#stage .vk-scenes{position:absolute;inset:0}
+#stage .vk-scenes{position:absolute;inset:0;z-index:0;isolation:isolate} /* own stacking context: scene z-indexes never cover overlays/captions */
 #stage .vk-scene{position:absolute;inset:0;display:none;overflow:hidden;background:var(--bg);color:var(--fg)}
 #stage .vk-scene.on{display:block}
 #stage .vk-cam{position:absolute;left:0;top:0;width:${W}px;height:${H}px;transform-origin:0 0}

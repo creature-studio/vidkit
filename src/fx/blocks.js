@@ -34,7 +34,7 @@ B.terminal = (lines, o = {}) => node(o, function terminal(ctx) {
     const row = h('div', null, null, win); row.style.whiteSpace = 'pre-wrap';
     const m = /^\$\s?(.*)$/.exec(line);
     if (m) {
-      row.innerHTML = `<span style="color:var(--accent2)">${esc(o.prompt || '$')} </span><span class="cmd"></span>`;
+      row.innerHTML = `<span style="color:var(--prompt,var(--accent2))">${esc(o.prompt || '$')} </span><span class="cmd"></span>`;
       sc.fx(row.querySelector('.cmd'), 'type', { t, cps, text: m[1], caretHold: .6 });
       t += Array.from(m[1]).length / cps + .45;
     } else {
@@ -225,7 +225,7 @@ B.cta = (spec, o = {}) => node(o, function cta(ctx) {
   if (spec.sub) { const e = h('div', 'vk-h3', md(spec.sub), box); ctx.scene.fx(e, 'up', { t: t0 + .7 }); }
   let t = t0 + 1.0;
   if (spec.cmd) {
-    const term = h('div', 'vk-mono', `<span style="color:var(--accent2)">$ </span><span class="c"></span>`, box);
+    const term = h('div', 'vk-mono', `<span style="color:var(--prompt,var(--accent2))">$ </span><span class="c"></span>`, box);
     term.style.cssText = `background:var(--surface);color:var(--fg);border-radius:${px(16)}px;padding:${px(18)}px ${px(30)}px;font-size:${px(spec.cmdSize || 26)}px;white-space:nowrap;text-align:left;border:1px solid var(--line)`;
     ctx.scene.fx(term, 'fade', { t, d: .4 }); ctx.scene.fx(term.querySelector('.c'), 'type', { t: t + .3, cps: 32, text: spec.cmd, caretHold: 1 });
     t += .3 + spec.cmd.length / 32 + .3;

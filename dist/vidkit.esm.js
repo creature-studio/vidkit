@@ -915,7 +915,18 @@ function deepMerge(a, b) {
 }
 function modeVars(theme, mode) {
   const m = theme.modes[mode] || theme.modes[theme.mode];
-  return { "--bg": m.bg, "--fg": m.fg, "--muted": m.muted, "--surface": m.surface, "--line": m.line, "--accent": m.accent, "--accent2": m.accent2, "--on-accent": m.onAccent };
+  return {
+    "--bg": m.bg,
+    "--fg": m.fg,
+    "--muted": m.muted,
+    "--surface": m.surface,
+    "--line": m.line,
+    "--accent": m.accent,
+    "--accent2": m.accent2,
+    "--on-accent": m.onAccent,
+    // colour for terminal prompts etc. drawn on --surface: accent2 unless it would vanish into the surface
+    "--prompt": m.prompt || (m.accent2.toLowerCase() === m.surface.toLowerCase() ? m.muted : m.accent2)
+  };
 }
 
 // src/runtime/css.js
@@ -929,7 +940,7 @@ function stageCSS(v) {
 #stage{position:absolute;left:0;top:0;width:${W}px;height:${H}px;overflow:hidden;transform-origin:0 0;background:#000;color:#fff;
   font-family:var(--vk-sans);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;font-kerning:normal}
 #stage *,#stage *::before,#stage *::after{box-sizing:border-box;transition:none!important}
-#stage .vk-scenes{position:absolute;inset:0}
+#stage .vk-scenes{position:absolute;inset:0;z-index:0;isolation:isolate} /* own stacking context: scene z-indexes never cover overlays/captions */
 #stage .vk-scene{position:absolute;inset:0;display:none;overflow:hidden;background:var(--bg);color:var(--fg)}
 #stage .vk-scene.on{display:block}
 #stage .vk-cam{position:absolute;left:0;top:0;width:${W}px;height:${H}px;transform-origin:0 0}
@@ -1344,6 +1355,11 @@ function runQA(v) {
     if (cr.w > W - s2.left - s2.right + 2) issues.push({ type: "caption-too-wide", el: label2(capEl), w: Math.round(cr.w) });
     if (W >= H && capEl.getClientRects().length && cr.h > parseFloat(getComputedStyle(capEl).fontSize) * 2) issues.push({ type: "caption-wraps", el: label2(capEl) });
     for (const z of v.zones) if (cr.r > z.x && cr.l < z.x + z.w && cr.b > z.y && cr.t < z.y + z.h) issues.push({ type: "caption-in-ui-zone", el: label2(capEl), zone: z.name, level: "warn" });
+    const sr2 = stage.getBoundingClientRect(), sx2 = sr2.width / W || 1, pe = capEl.style.pointerEvents;
+    capEl.style.pointerEvents = "auto";
+    const hit = document.elementFromPoint(sr2.left + (cr.l + cr.w / 2) * sx2, sr2.top + (cr.t + cr.h / 2) * sx2);
+    capEl.style.pointerEvents = pe;
+    if (hit && !hit.closest(".vk-cap")) issues.push({ type: "caption-covered", el: label2(capEl), other: label2(hit) });
   }
   if (!visibleText(stage) && !stage.querySelector(".vk-scene.on svg, .vk-scene.on img, .vk-scene.on video, .vk-scene.on canvas")) issues.push({ type: "blank-frame", el: "no visible text or media", level: "warn" });
   const missing = v.fontsCheck.filter((f) => !document.fonts.check(f, "\u4E2D\u6587Aa"));
@@ -2670,7 +2686,7 @@ B.terminal = (lines, o = {}) => node(o, function terminal(ctx) {
     row2.style.whiteSpace = "pre-wrap";
     const m = /^\$\s?(.*)$/.exec(line);
     if (m) {
-      row2.innerHTML = `<span style="color:var(--accent2)">${esc2(o.prompt || "$")} </span><span class="cmd"></span>`;
+      row2.innerHTML = `<span style="color:var(--prompt,var(--accent2))">${esc2(o.prompt || "$")} </span><span class="cmd"></span>`;
       sc.fx(row2.querySelector(".cmd"), "type", { t, cps, text: m[1], caretHold: 0.6 });
       t += Array.from(m[1]).length / cps + 0.45;
     } else {
@@ -2927,7 +2943,7 @@ B.cta = (spec, o = {}) => node(o, function cta(ctx) {
   }
   let t = t0 + 1;
   if (spec.cmd) {
-    const term = h("div", "vk-mono", `<span style="color:var(--accent2)">$ </span><span class="c"></span>`, box);
+    const term = h("div", "vk-mono", `<span style="color:var(--prompt,var(--accent2))">$ </span><span class="c"></span>`, box);
     term.style.cssText = `background:var(--surface);color:var(--fg);border-radius:${px(16)}px;padding:${px(18)}px ${px(30)}px;font-size:${px(spec.cmdSize || 26)}px;white-space:nowrap;text-align:left;border:1px solid var(--line)`;
     ctx.scene.fx(term, "fade", { t, d: 0.4 });
     ctx.scene.fx(term.querySelector(".c"), "type", { t: t + 0.3, cps: 32, text: spec.cmd, caretHold: 1 });

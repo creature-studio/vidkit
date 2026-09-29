@@ -5,7 +5,7 @@
 
 - **确定性**：每一帧 = `render(t)`，不依赖真实时钟、不读 `Math.random()`（setup 阶段的随机数已被种子化）。任意跳帧、并行渲染、重复渲染结果一致。
 - **简单**：`vk.video()` + `vk.scene()` + 元素工厂，写宣传片 / 数据讲解 / 竖屏短视频不需要写一行动画代码。
-- **效果丰富**：42 个元素特效、44 个转场（含别名）、19 个区块/图表、7 种质感、5 种背景、4 套主题、9 种画幅预设。
+- **效果丰富**：42 个元素特效、44 个转场（均含别名；去重后 39 / 40）、19 个区块/图表、7 种质感、5 种背景、4 套主题、9 种画幅预设。
 - **可下沉**：随时 `scene.on(t => …)`、`vk.el(ctx => …)`、`scene.canvas()`、`scene.webgl()` 写原生代码。
 - **可扩展**：所有效果都是插件注册出来的，第三方插件与内置预设能力完全相同（`vk.use(plugin)`）。
 - **离线**：字体随包（均为 OFL 1.1），音效由 OfflineAudioContext 合成，渲染不联网。
@@ -345,7 +345,7 @@ vk.el(ctx => { /* 在节点列表里插入任意元素，ctx.scene / ctx.px / ct
 ```text
 vk render  page.html -o out.mp4 [--fps 30] [--scale 2] [--format 16:9|9:16|1:1|4:5] [--audio music.m4a]
                                 [--audio-offset s] [--grain 6] [--workers 4] [--from s --to s] [--crf 18]
-                                [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--keep]
+                                [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
 vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2]   静帧 PNG（默认每个场景动画落定后的一帧）
 vk contact page.html [-o sheet.png] [--times a,b | --settle] [--cols 4]   联系表（每场景 2 帧，或 --settle 1 帧）
 vk qa      page.html [--sample 0.5] [--json=report.json]      版面 QA + 可见文字快照

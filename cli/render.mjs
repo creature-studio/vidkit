@@ -1,5 +1,5 @@
 // vk render page.html -o out.mp4 [--fps 30] [--scale 1] [--format 9:16] [--audio a.m4a] [--audio-offset 0] [--grain 6]
-//   [--workers 4] [--from 0 --to 10] [--crf 18] [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--keep]
+//   [--workers 4] [--from 0 --to 10] [--crf 18] [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
 import { parseArgs, startServer, pageUrl, launch, probeInfo, workerPage, seek, shot, run, ffprobeLine, tmpdir, fs, path, os, spawn } from './lib.mjs';
 
 export default async function render(argv) {
@@ -48,17 +48,18 @@ export default async function render(argv) {
   let audio = opt.audio ? path.resolve(opt.audio) : (info.audio ? decodeURIComponent(new URL(info.audio).pathname) : null), isScore = false;
   if (!audio && info.hasScore && !opt.noScore) {
     const browser = await launch(); const page = await browser.newPage(); await page.goto(url); await page.waitForFunction(() => window.__ready);
-    const b64 = await page.evaluate(async ([secs, off]) => {
+    const b64 = await page.evaluate(async ([secs, off, maxGain]) => {
       const sr = 48000, ac = new OfflineAudioContext(2, Math.ceil(sr * (secs + .05)), sr); window.SCORE(ac);
       const buf = await ac.startRendering(), ch = [buf.getChannelData(0), buf.getChannelData(1)], start = Math.floor(off * sr), n = Math.max(0, Math.floor(secs * sr) - start);
       let peak = 1e-9; for (const c of ch) for (let i = start; i < start + n; i++) peak = Math.max(peak, Math.abs(c[i]));
-      const g = Math.min(8, .89 / peak), dv = new DataView(new ArrayBuffer(44 + n * 4)), w = (o, s) => [...s].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+      const g = Math.min(maxGain, .89 / peak), // peak-normalise, but never boost a quiet score (pads) by more than maxGain
+        dv = new DataView(new ArrayBuffer(44 + n * 4)), w = (o, s) => [...s].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
       w(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); w(8, 'WAVE'); w(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true);
       dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, n * 4, true);
       for (let i = 0; i < n; i++) for (let c = 0; c < 2; c++) dv.setInt16(44 + i * 4 + c * 2, Math.max(-1, Math.min(1, ch[c][start + i] * g)) * 32767, true);
       let bin = ''; const u8 = new Uint8Array(dv.buffer); for (let i = 0; i < u8.length; i += 32768) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
       return btoa(bin);
-    }, [t1, t0]);
+    }, [t1, t0, +(opt["score-gain-max"] || 2)]);
     await browser.close();
     audio = path.join(tmp, 'score.wav'); fs.writeFileSync(audio, Buffer.from(b64, 'base64')); isScore = true;
     console.log('  audio: window.SCORE rendered offline (OfflineAudioContext → WAV)');

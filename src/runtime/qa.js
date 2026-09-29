@@ -59,6 +59,11 @@ export function runQA(v) {
     const cr = R(capEl); if (cr.w > W - s.left - s.right + 2) issues.push({ type: 'caption-too-wide', el: label(capEl), w: Math.round(cr.w) });
     if (W >= H && capEl.getClientRects().length && cr.h > parseFloat(getComputedStyle(capEl).fontSize) * 2) issues.push({ type: 'caption-wraps', el: label(capEl) });
     for (const z of v.zones) if (cr.r > z.x && cr.l < z.x + z.w && cr.b > z.y && cr.t < z.y + z.h) issues.push({ type: 'caption-in-ui-zone', el: label(capEl), zone: z.name, level: 'warn' });
+    // occlusion: the caption's centre must hit the caption itself (not a scene or layer stacked above it)
+    const sr = stage.getBoundingClientRect(), sx = sr.width / W || 1, pe = capEl.style.pointerEvents;
+    capEl.style.pointerEvents = 'auto'; // hit-testing skips pointer-events:none
+    const hit = document.elementFromPoint(sr.left + (cr.l + cr.w / 2) * sx, sr.top + (cr.t + cr.h / 2) * sx); capEl.style.pointerEvents = pe;
+    if (hit && !hit.closest('.vk-cap')) issues.push({ type: 'caption-covered', el: label(capEl), other: label(hit) });
   }
   if (!visibleText(stage) && !stage.querySelector('.vk-scene.on svg, .vk-scene.on img, .vk-scene.on video, .vk-scene.on canvas')) issues.push({ type: 'blank-frame', el: 'no visible text or media', level: 'warn' });
   const missing = v.fontsCheck.filter(f => !document.fonts.check(f, '中文Aa'));

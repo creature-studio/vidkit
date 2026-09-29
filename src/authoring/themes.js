@@ -88,5 +88,7 @@ function deepMerge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'obj
 // CSS custom properties for a palette mode
 export function modeVars(theme, mode) {
   const m = theme.modes[mode] || theme.modes[theme.mode];
-  return { '--bg': m.bg, '--fg': m.fg, '--muted': m.muted, '--surface': m.surface, '--line': m.line, '--accent': m.accent, '--accent2': m.accent2, '--on-accent': m.onAccent };
+  return { '--bg': m.bg, '--fg': m.fg, '--muted': m.muted, '--surface': m.surface, '--line': m.line, '--accent': m.accent, '--accent2': m.accent2, '--on-accent': m.onAccent,
+    // colour for terminal prompts etc. drawn on --surface: accent2 unless it would vanish into the surface
+    '--prompt': m.prompt || (m.accent2.toLowerCase() === m.surface.toLowerCase() ? m.muted : m.accent2) };
 }
