@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>小蝌蚪找妈妈 · 水墨动画短片（vidkit）</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="lib/pond.js"></script>
+<script src="lib/rigs.js"></script>
+<script src="lib/school.js"></script>
+<script>
+// 小蝌蚪找妈妈 — ink-wash animated short (original drawing; story after the classic Chinese children's tale).
+// Visual language after the "三个和尚" ink short: rice paper, washed mountains, ink-line filters, vertical brush titles
+// with a red seal, corner chapter titles, a paper caption bar with a red border. Every frame = render(t).
+// Voice: edge-tts (vk tts), one voice per character via voice.cast; captions are word-timed from TTS.
+// Music: procedurally synthesised guqin / flute bed (make-music.mjs, original, CC0); SFX: vidkit synth kit.
+const v = vk.video({
+  format: '16:9', fps: 30, theme: 'ink', title: '小蝌蚪找妈妈', transition: 'wash:1.0',
+  texture: { rice: { amount: .5 } },
+  music: 'tadpole.music.m4a', musicGain: 1,
+  voice: {
+    manifest: 'tadpole.vo.json', voice: 'zh-CN-XiaoxiaoNeural', rate: '+10%', lead: .5, tail: .7, gap: .28, maxChars: 18,
+    cast: {
+      tad: { voice: 'zh-CN-YunxiaNeural', rate: '+6%', pitch: '+10Hz' },
+      duck: { voice: 'zh-CN-liaoning-XiaobeiNeural', rate: '+4%' },
+      fish: { voice: 'zh-CN-YunxiNeural', rate: '-4%', pitch: '-4Hz' },
+      goose: { voice: 'zh-CN-XiaoyiNeural', rate: '+0%', pitch: '-6Hz' },
+      turtle: { voice: 'zh-CN-YunyangNeural', rate: '-8%', pitch: '-12Hz' },
+      frog: { voice: 'zh-TW-HsiaoChenNeural', rate: '-6%' },
+    },
+  },
+  karaoke: 'sweep', mix: { lufs: -14, duck: -9, fadeOut: 2.5 },
+});
+TP.defs(v);
+const { kf, kfSpline: ks, plat, bump, clamp, noise1: N } = vk;
+const sm = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+// scene-local time at which `phrase` starts inside voice line i (TTS word timings; proportional estimate without TTS)
+function at(sc, i, phrase) {
+  const s = sc.voSegs[i]; if (!s) return 0; if (!phrase) return s.at;
+  const clean = phrase.replace(/[，。！？、：；“”\s—]/g, '');
+  if (!s.words) { const idx = s.text.replace(/[，。！？、：；“”\s—]/g, '').indexOf(clean); return s.at + Math.max(0, idx) / s.text.length * s.dur; }
+  const chars = s.words.map(w => w.w).join(''), idx = chars.indexOf(clean); if (idx < 0) return s.at;
+  let c = 0; for (const w of s.words) { if (c >= idx) return s.at + w.t; c += w.w.length; } return s.at;
+}
+const end = (sc, i) => sc.voEndAt(i);
+// appear/disappear envelope for hints and highlights
+const showP = (t, a, b) => (t < a ? 0 : t < a + .6 ? (t - a) / .6 : t < b ? 1 : t < b + .5 ? 1 - (t - b) / .5 : 0);
+function hintAt(sc, P, kind, a, b, where) {
+  const h = TP.hint(P.fx, kind);
+  sc.on(l => { const w = where(l); h.set({ ...w, p: showP(l, a, b) }); });
+  sc.sfx(a, 'pluck', .5, 587.33); sc.sfx(a + .12, 'pluck', .35, 880);
+}
+
+/* ============================================================ 0 · title */
+vk.scene('片头', 6.5, { transition: 'none' }, (sc) => {
+  const P = TP.pond(sc, { view: 'surface', horizon: 250, seed: 2, sun: { x: 800, y: 118, r: 34 }, worldW: 1000, cam: [[0, 0], [6.5, 30]],
+    lotus: [{ x: 560, y: 330, r: 64, tilt: .26 }, { x: 760, y: 392, r: 86, tilt: .28, flower: true, fh: 110, fs: 1.25 }, { x: 900, y: 300, r: 48, tilt: .25 }, { x: 420, y: 452, r: 70, tilt: .3, front: true }],
+    reeds: [{ x: 940, h: 330, lean: -.6 }, { x: 958, h: 260, lean: -.9, w: 5 }, { x: 975, h: 380, lean: -.4 }] });
+  TP.willow(sc, P, { x: 980, n: 7 });
+  TP.school(sc, P, { n: 6, scale: .9, spread: 12, path: [[0, 1040, 450], [3, 820, 470], [5, 680, 440], [7, 600, 470]], face: () => -1 });
+  TP.rings(sc, P, [{ t: .8, x: 640, y: 360 }, { t: 2.6, x: 860, y: 430 }, { t: 4.4, x: 700, y: 480 }], {});
+  sc.sfx(.3, 'gong', .8, 98); sc.sfx(.8, 'drop', .5, 760); sc.sfx(2.6, 'drop', .4, 640); sc.sfx(4.4, 'drop', .35, 820);
+  sc.add(vk.vtitle('小蝌蚪找妈妈', { sub: '一则童话　水墨动画短片', seal: '水墨', size: 100, at: .5, sealAt: 1.9, out: 5.7, outD: .7 }));
+});
+
+/* ============================================================ 1 · 春水 (eggs → tadpoles) */
+vk.scene('春水', 'auto', {
+  transition: { type: 'ink', d: 1.2, x: .6, y: .6 },
+  vo: [
+    '春天来了，池塘里的水暖了。青蛙妈妈在水草上，生下了一团圆圆的卵。',
+    '太阳暖暖地照着，卵动了起来——变成了一群小蝌蚪！',
+    ['tad', '咕噜噜，我们出来啦！'],
+    '大脑袋，黑身子，甩着长尾巴，游来游去。',
+  ],
+}, (sc) => {
+  const P = TP.pond(sc, { seed: 3, worldW: 1100, cam: [[0, 0], [end(sc, 0), 20], [end(sc, 3) + 1, 110]], weeds: [150, 330, 470, 505, 640, 820, 980],
+    lotus: [{ x: 820, r: 70, flower: true, fh: 100 }, { x: 250, r: 52 }], reeds: [{ x: 30, h: 480, lean: .5 }, { x: 55, h: 400, lean: .8, w: 5 }] });
+  const EX = 488, EY = 352;
+  const t0 = at(sc, 0, '青蛙妈妈'), tLay = at(sc, 0, '生下'), tHatch = sc.voAt(1) + .3;
+  // mother frog: sits on the leaf, dives, swims to the weeds, lays eggs, swims away
+  const fr = TP.frog(P.chars);
+  const fx = [[0, 800], [t0 - .4, 800], [t0 + .5, 690], [tLay, 540], [end(sc, 0) + .2, 520], [end(sc, 0) + 2.4, 1150]];
+  const fy = [[0, 168], [t0 - .4, 168], [t0 + .1, 150], [t0 + .5, 230], [tLay, 330], [end(sc, 0) + .2, 322], [end(sc, 0) + 2.4, 220]];
+  sc.on(l => {
+    const x = ks(l, fx), y = ks(l, fy), swim = l > t0 + .3 ? 1 : 0, dive = bump(l, t0 - .5, t0 + .6);
+    fr.set({ x, y, scale: .95, face: l < end(sc, 0) ? -1 : 1, jump: Math.max(dive, swim * (.55 + .35 * Math.sin(l * 5))), rot: swim ? (l < tLay ? -38 : l < end(sc, 0) ? 5 : -18) * (l < end(sc, 0) ? -1 : 1) : 0,
+      blink: TP.blink(l, 2), happy: l > tLay && l < end(sc, 0) + .2 ? 1 : 0, look: [0, .5], smile: 1 });
+  });
+  TP.rings(sc, P, [{ t: t0 + .2, x: 700, r: 48 }]);
+  sc.sfx(t0 + .15, 'splash', .9, 1300);
+  // eggs
+  const eg = TP.eggs(P.back, 7);
+  const rel = i => tHatch + 1.6 + i * .32;                         // tadpole i wriggles free
+  sc.on(l => eg.set({ x: EX, y: EY, scale: 1.25, t: l, appear: clamp((l - tLay) / 2.4, 0, 1), grow: i => clamp((l - tHatch - i * .08) / 1.4, 0, 1), gone: i => clamp((l - rel(i)) / .35, 0, 1) }));
+  for (let i = 0; i < 7; i++) sc.sfx(tLay + i * .34, 'drop', .25, 900 + i * 60), sc.sfx(rel(i), 'drop', .4, 1100 + (i % 3) * 180);
+  // the school: born at the eggs, then swims loops
+  const tT = sc.voAt(2), tS = sc.voAt(3);
+  const path = [[rel(0), EX, EY], [rel(6) + .4, 470, 330], [tT + .2, 420, 300], [end(sc, 2), 430, 300], [tS + 1.2, 560, 270], [tS + 2.6, 690, 320], [tS + 4.2, 640, 390], [end(sc, 3) + .6, 520, 330], [end(sc, 3) + 2, 560, 300]];
+  const S = TP.school(sc, P, {
+    n: 7, path, lag: .18,
+    pos: (l, i) => { const e = eg.pos[i], ep = [EX + e[0] * 1.25, EY + e[1] * 1.25]; if (l < rel(i)) return ep; const k = sm((l - rel(i)) / 1.3); if (k >= 1) return null; const L = ks(l - .18 * i, path.map(p => [p[0], [p[1], p[2]]])); const off = [Math.cos(i * 2.4 + .6) * (12 + Math.sqrt(i) * 17) * 1.35, Math.sin(i * 2.4 + .6) * (12 + Math.sqrt(i) * 17) * .8]; return [ep[0] + (L[0] + off[0] - ep[0]) * k, ep[1] + (L[1] + off[1] - ep[1]) * k]; },
+    visible: (l, i) => clamp((l - rel(i) + .05) / .15, 0, 1),
+    meta: (l, i) => ({ scale: 1.35 * (.55 + .45 * sm((l - rel(i)) / 1.5)) }),
+    target: l => (l < tS ? [450, 250] : null), talk: l => sc.speaking(l, 'tad'), happy: l => (l > tT - .2 && l < end(sc, 2) + .6 ? 1 : 0), excite: l => plat(l, tT - .2, tT + .3, end(sc, 2), end(sc, 2) + .6),
+  });
+  TP.bubbles(sc, P, l => { const p = S.pos(l, 2); return [p[0] + 10, p[1] - 8]; }, { active: l => l > tT && l < end(sc, 2), gap: .22 });
+  sc.sfx(tT, 'bubbles', .7); sc.sfx(tHatch, 'pluck', .5, 392); sc.sfx(tHatch + .4, 'pluck', .45, 440);
+  P.rayBoost = 0; sc.on(l => { P.rayBoost = .8 * plat(l, tHatch - .5, tHatch + 1, end(sc, 1) + 2, end(sc, 3)); });
+  sc.add(vk.chapter('春水', { no: '一', at: .9, out: end(sc, 3) - .2 }));
+});
+
+/* ============================================================ 2 · 鸭妈妈 */
+vk.scene('鸭妈妈', 'auto', {
+  transition: { type: 'ink', d: 1.2, x: .7, y: .3 },
+  vo: [
+    '鸭妈妈带着小鸭子游过来，小蝌蚪想起了自己的妈妈。',
+    ['tad', '鸭妈妈，鸭妈妈，您见过我们的妈妈吗？'],
+    ['duck', '见过呀！你们的妈妈头顶上有两只大眼睛，快去前面找吧！'],
+    ['tad', '谢谢鸭妈妈！'],
+  ],
+}, (sc) => {
+  const P = TP.pond(sc, { seed: 5, worldW: 1300, cam: [[0, 0], [end(sc, 2), 60], [end(sc, 3) + 1.4, 300]], weeds: [120, 300, 380, 700, 860, 1000, 1180],
+    lotus: [{ x: 330, r: 56 }, { x: 1160, r: 64, flower: true }], reeds: [{ x: 1250, h: 460, lean: -.6 }] });
+  const tAsk = sc.voAt(1), tAns = sc.voAt(2), tEyes = at(sc, 2, '两只大眼睛'), tBye = sc.voAt(3);
+  const duck = TP.duck(P.chars), kids = [0, 1, 2].map(() => TP.duckling(P.chars));
+  const dxK = [[0, 1080], [end(sc, 0) - .3, 600], [end(sc, 3), 560], [end(sc, 3) + 2, 520]];
+  sc.on(l => {
+    const x = ks(l, dxK), mv = Math.abs(ks(l + .05, dxK) - ks(l - .05, dxK)) > .8;
+    duck.set({ x, y: P.WL + 2, face: 1, bob: Math.sin(l * 2.2) * 1.4, paddle: l * (mv ? 7 : 2.5), nod: 22 * plat(l, tAsk + .5, tAsk + 1, end(sc, 2) + .4, end(sc, 2) + 1) - 6 * bump(l, tAns, tAns + .5),
+      talk: sc.speaking(l, 'duck'), look: l > tAsk ? [-.5, .9] : [-1, 0], blink: TP.blink(l, 5), happy: l > tAns + .1 && l < tAns + .9 ? 1 : 0, brow: l > tAns && l < end(sc, 2) ? 'up' : '' });
+    kids.forEach((k, i) => { const kx = ks(l - .35 * (i + 1), dxK) + 72 + i * 40; k.set({ x: kx, y: P.WL + 1, face: 1, scale: .95, bob: Math.sin(l * 3 + i * 1.3) * 1.6, rot: Math.sin(l * 2 + i) * 3 }); });
+  });
+  sc.sfx(.9, 'quack', .7, 280); sc.sfx(1.25, 'quack', .45, 420); sc.sfx(tAns + .05, 'quack', .6, 260);
+  TP.rings(sc, P, [{ t: 1.2, x: 900 }, { t: 3, x: 740 }]);
+  const S = TP.school(sc, P, {
+    n: 7, path: [[0, 260, 330], [end(sc, 0), 300, 320], [tAsk + 1.2, 470, 262], [end(sc, 2), 480, 262], [tBye + .3, 520, 280], [end(sc, 3) + 1.4, 820, 300]],
+    target: l => (l < end(sc, 3) ? [ks(l, dxK) - 30, P.WL - 40] : null), talk: l => sc.speaking(l, 'tad'),
+    happy: l => (l > tBye - .1 ? 1 : 0), excite: l => plat(l, tBye - .1, tBye + .3, end(sc, 3), end(sc, 3) + .5), face: () => 1,
+  });
+  TP.bubbles(sc, P, l => { const p = S.pos(l, 0); return [p[0] + 10, p[1] - 8]; }, { active: l => (l > tAsk && l < end(sc, 1)) || (l > tBye && l < end(sc, 3)), gap: .25 });
+  hintAt(sc, P, 'eyes', tEyes, end(sc, 2) + .7, l => { const x = ks(l, dxK); return { x: x - 150, y: 80, fx: x - 60, fy: P.WL - 60 }; });
+  sc.add(vk.chapter('一问鸭妈妈', { at: .9, out: end(sc, 3) }));
+});
+
+/* ============================================================ 3 · 大金鱼 */
+vk.scene('大金鱼', 'auto', {
+  transition: { type: 'ink', d: 1.2, x: .3, y: .6 },
+  vo: [
+    '游呀游，前面来了一条大金鱼，头顶上正好有两只大眼睛。',
+    ['tad', '妈妈！妈妈！'],
+    ['fish', '我不是你们的妈妈。你们的妈妈呀，肚皮是白白的。'],
+  ],
+}, (sc) => {
+  const P = TP.pond(sc, { seed: 7, worldW: 1300, cam: [[0, 0], [end(sc, 0), 40], [end(sc, 2) + 1.4, 280]], weeds: [100, 240, 520, 760, 900, 1120, 1250],
+    lotus: [{ x: 640, r: 60 }, { x: 1020, r: 72, flower: true, fh: 88 }] });
+  const tMa = sc.voAt(1), tNo = sc.voAt(2), tBelly = at(sc, 2, '肚皮是白白的');
+  const fish = TP.goldfish(P.chars);
+  const fxK = [[0, 1150, 300], [end(sc, 0) - .5, 640, 290], [end(sc, 2), 620, 292], [end(sc, 2) + 2.2, 1220, 250]].map(k => [k[0], [k[1], k[2]]]);
+  sc.on(l => {
+    const [x, y] = ks(l, fxK), leaving = l > end(sc, 2);
+    fish.set({ t: l, x, y: y + Math.sin(l * 1.6) * 5, scale: 1.2, face: leaving ? -1 : 1, rot: Math.sin(l * 1.6 + 1) * 3 + 10 * Math.sin((l - tNo) * 10) * plat(l, tNo, tNo + .15, tNo + .9, tNo + 1.2),
+      talk: sc.speaking(l, 'fish'), look: l > tMa ? [.2, .6] : [-1, 0], blink: TP.blink(l, 8), wide: 1 + .25 * plat(l, tMa, tMa + .2, tMa + .8, tMa + 1.1), brow: l > tNo && l < end(sc, 2) ? 'tilt' : '', happy: l > tBelly + .6 && l < end(sc, 2) ? 1 : 0 });
+  });
+  const S = TP.school(sc, P, {
+    n: 7, path: [[0, 120, 360], [end(sc, 0) - .4, 380, 340], [tMa + .7, 440, 325], [end(sc, 2), 425, 335], [end(sc, 2) + 1.6, 700, 330]],
+    target: l => { const [x, y] = ks(l, fxK); return [x - 20, y]; }, talk: l => sc.speaking(l, 'tad'),
+    happy: l => (l > tMa - .1 && l < end(sc, 1) + .3 ? 1 : 0), excite: l => plat(l, tMa - .1, tMa + .2, end(sc, 1), end(sc, 1) + .5), face: () => 1,
+  });
+  TP.bubbles(sc, P, l => { const [x, y] = ks(l, fxK); return [x - 48, y + 2]; }, { active: l => true, gap: .6, rise: 90 });
+  sc.sfx(tMa, 'bubbles', .6); sc.sfx(tNo - .1, 'bubbles', .45);
+  hintAt(sc, P, 'belly', tBelly, end(sc, 2) + .7, l => { const [x, y] = ks(l, fxK); return { x: x + 30, y: y - 150, fx: x - 10, fy: y - 50 }; });
+  sc.add(vk.chapter('二问大金鱼', { at: .9, out: end(sc, 2) }));
+});
+
+/* ============================================================ 4 · 大白鹅 */
+vk.scene('大白鹅', 'auto', {
+  transition: { type: 'ink', d: 1.2, x: .7, y: .35 },
+  vo: [
+    '游呀游，水面上来了一只大白鹅，肚皮白白的。',
+    ['tad', '妈妈！妈妈！'],
+    ['goose', '嘎嘎！我不是你们的妈妈。你们的妈妈，有四条腿。'],
+  ],
+}, (sc) => {
+  const P = TP.pond(sc, { seed: 11, worldW: 1300, cam: [[0, 0], [end(sc, 0), 40], [end(sc, 2) + 1.4, 280]], weeds: [150, 330, 560, 690, 930, 1080, 1230],
+    lotus: [{ x: 440, r: 58 }, { x: 1100, r: 60, flower: true, fh: 96 }], reeds: [{ x: 1270, h: 470, lean: -.5 }, { x: 1245, h: 380, lean: -.8, w: 5 }] });
+  const tMa = sc.voAt(1), tNo = sc.voAt(2), tLegs = at(sc, 2, '四条腿');
+  const goose = TP.goose(P.chars);
+  const gK = [[0, 1120], [end(sc, 0) - .2, 640], [end(sc, 2), 610], [end(sc, 2) + 2, 560]];
+  sc.on(l => {
+    const x = ks(l, gK), mv = Math.abs(ks(l + .05, gK) - ks(l - .05, gK)) > .8;
+    goose.set({ x, y: P.WL + 2, scale: 1.05, face: 1, bob: Math.sin(l * 2) * 1.3, paddle: l * (mv ? 6 : 2.2), nod: 26 * plat(l, tMa + .2, tMa + .7, end(sc, 2) + .3, end(sc, 2) + 1) - 10 * bump(l, tNo, tNo + .45),
+      talk: sc.speaking(l, 'goose'), look: l > tMa ? [-.4, .9] : [-1, 0], blink: TP.blink(l, 13), happy: l > tLegs + .5 && l < end(sc, 2) + .5 ? 1 : 0 });
+  });
+  sc.sfx(1, 'honk', .6, 360); sc.sfx(tNo + .02, 'honk', .6, 400); sc.sfx(tNo + .3, 'honk', .45, 440);
+  TP.rings(sc, P, [{ t: 1.4, x: 920, r: 44 }, { t: 3.2, x: 760, r: 44 }]);
+  const S = TP.school(sc, P, {
+    n: 7, path: [[0, 140, 330], [end(sc, 0) - .3, 400, 320], [tMa + .8, 560, 250], [end(sc, 2), 540, 262], [end(sc, 2) + 1.6, 820, 300]],
+    target: l => [ks(l, gK) + 10, P.WL + 10], talk: l => sc.speaking(l, 'tad'),
+    happy: l => (l > tMa - .1 && l < end(sc, 1) + .3 ? 1 : 0), excite: l => plat(l, tMa - .1, tMa + .2, end(sc, 1), end(sc, 1) + .5), face: () => 1,
+  });
+  hintAt(sc, P, 'legs', tLegs, end(sc, 2) + .7, l => { const x = ks(l, gK); return { x: x - 175, y: 80, fx: x - 75, fy: P.WL - 90 }; });
+  sc.add(vk.chapter('三问大白鹅', { at: .9, out: end(sc, 2) }));
+});
+
+/* ============================================================ 5 · 老乌龟 */
+vk.scene('老乌龟', 'auto', {
+  transition: { type: 'ink', d: 1.2, x: .3, y: .6 },
+  vo: [
+    '游呀游，游来了一只老乌龟，正好有四条腿。',
+    ['tad', '妈妈！妈妈！'],
+    ['turtle', '呵呵，我不是你们的妈妈。你们的妈妈穿着绿衣裳，嘴巴宽宽的，在荷叶上唱歌呢。'],
+  ],
+}, (sc) => {
+  const P = TP.pond(sc, { seed: 13, worldW: 1300, cam: [[0, 0], [end(sc, 0), 40], [end(sc, 2) + 1.4, 280]], weeds: [90, 260, 470, 820, 960, 1100],
+    lotus: [{ x: 720, r: 74, flower: true, fh: 100 }, { x: 1160, r: 58 }] });
+  const tMa = sc.voAt(1), tNo = sc.voAt(2), tGreen = at(sc, 2, '穿着绿衣裳'), tLeaf = at(sc, 2, '荷叶上');
+  const tu = TP.turtle(P.chars);
+  const tK = [[0, 1160, 350], [end(sc, 0) - .2, 660, 338], [end(sc, 2) + .4, 640, 340], [end(sc, 2) + 2.5, 1150, 360]].map(k => [k[0], [k[1], k[2]]]);
+  sc.on(l => {
+    const [x, y] = ks(l, tK), leaving = l > end(sc, 2) + .4;
+    tu.set({ x, y: y + Math.sin(l * 1.2) * 4, scale: 1.1, face: leaving ? -1 : 1, paddle: l * 2.6, rot: Math.sin(l * 1.2 + 1) * 2 - 8 * plat(l, tLeaf - .3, tLeaf + .2, end(sc, 2), end(sc, 2) + .4),
+      neck: plat(l, tNo - .3, tNo + .2, end(sc, 2), end(sc, 2) + .4), nod: Math.sin(l * 7) * 2.5 * plat(l, tNo, tNo + .1, tNo + .8, tNo + 1) - 5 * plat(l, tLeaf - .3, tLeaf, end(sc, 2), end(sc, 2) + .4),
+      talk: sc.speaking(l, 'turtle'), look: l > tLeaf - .3 ? [-.2, -1] : l > tMa ? [.3, .2] : [-1, 0], blink: TP.blink(l, 21), happy: l > tNo && l < tNo + .9 ? 1 : 0 });
+  });
+  const S = TP.school(sc, P, {
+    n: 7, path: [[0, 120, 300], [end(sc, 0) - .3, 380, 300], [tMa + .7, 430, 290], [end(sc, 2), 440, 286], [end(sc, 2) + 1.6, 760, 250]],
+    target: l => (l > tLeaf ? [720, P.WL - 10] : (() => { const [x, y] = ks(l, tK); return [x - 60, y - 12]; })()), talk: l => sc.speaking(l, 'tad'),
+    happy: l => (l > tMa - .1 && l < end(sc, 1) + .3) || l > tLeaf + .5 ? 1 : 0, excite: l => plat(l, tMa - .1, tMa + .2, end(sc, 1), end(sc, 1) + .5), face: () => 1,
+  });
+  sc.sfx(tNo, 'woodfish', .35, 360); sc.sfx(tNo + .3, 'woodfish', .3, 330);
+  hintAt(sc, P, 'green', tGreen, end(sc, 2) + .7, l => { const [x, y] = ks(l, tK); return { x: x - 40, y: y - 160, fx: x - 60, fy: y - 30 }; });
+  sc.add(vk.chapter('四问老乌龟', { at: .9, out: end(sc, 2) }));
+});
+
+/* ============================================================ 6 · 荷叶上的妈妈 */
+vk.scene('找到妈妈', 'auto', {
+  transition: { type: 'ink', d: 1.2, x: .65, y: .3 }, voLead: 1.5,
+  vo: [
+    '荷叶上，一只青蛙在唱歌：大眼睛，白肚皮，四条腿，宽嘴巴，穿着绿衣裳。',
+    ['tad', '妈妈！妈妈！'],
+    ['frog', '好孩子，我就是你们的妈妈！快快长大吧！', { gap: .6 }],
+  ],
+}, (sc) => {
+  const P = TP.pond(sc, { seed: 17, worldW: 1100, cam: [[0, 0], [end(sc, 0), 60], [end(sc, 2) + 1.4, 100]], weeds: [120, 290, 450, 860, 1000],
+    lotus: [{ x: 640, r: 96, tilt: .17 }, { x: 900, r: 60, flower: true, fh: 104 }, { x: 330, r: 50 }] });
+  const tMa = sc.voAt(1), tMom = sc.voAt(2);
+  const feats = [['大眼睛', [27, -52], 16], ['白肚皮', [26, -16], 18], ['四条腿', [-22, -8], 20], ['宽嘴巴', [28, -28], 16], ['绿衣裳', [0, -30], 44]].map(([p, off, r]) => ({ t: at(sc, 0, p), off, r }));
+  const fr = TP.frog(P.chars);
+  const jumpA = tMom - .7, jumpB = tMom - .05;                          // hop from the leaf into the water
+  const FX = l => (l < jumpA ? 640 : ks(l, [[jumpA, 640], [jumpB, 590], [tMom + 1, 560], [end(sc, 2) + 2, 560]]));
+  const FY = l => (l < jumpA ? P.WL : l < jumpB ? P.WL - 60 * Math.sin(Math.PI * (l - jumpA) / (jumpB - jumpA)) + (275 - P.WL) * sm((l - jumpA) / (jumpB - jumpA)) : 275 + Math.sin(l * 1.5) * 5);
+  const croakT = [.35, 1.05, end(sc, 0) + .1];
+  sc.on(l => {
+    const inWater = l > jumpB, jumping = l > jumpA && l < jumpB;
+    fr.set({ x: FX(l), y: FY(l), scale: 1.25, face: -1, jump: jumping ? .9 : inWater ? .35 + .15 * Math.sin(l * 3) : 0, rot: inWater ? -8 : 0,
+      croak: croakT.reduce((m, c) => Math.max(m, bump(l, c, c + .55)), 0), talk: sc.speaking(l, 'frog'), blink: TP.blink(l, 31),
+      happy: (l > tMa + .2 && l < jumpA) || (l > tMom + .1 && l < end(sc, 2) - .4) ? 1 : 0, look: l > tMa - .5 ? [.2, 1] : [0, 0], wave: inWater ? .5 + .5 * Math.sin(l * 4) : 0 });
+  });
+  croakT.forEach(c => sc.sfx(c, 'croak', .8, 480));
+  // feature highlights: red brush rings synced to the narration words
+  const rings = feats.map(() => { const g = document.createElementNS('http://www.w3.org/2000/svg', 'path'); g.setAttribute('fill', '#b5342a'); g.setAttribute('opacity', '0'); P.fx.appendChild(g); return g; });
+  sc.on(l => feats.forEach((f, i) => {
+    const p = clamp((l - f.t + .1) / .5, 0, 1), fade = 1 - clamp((l - f.t - 1.6) / .4, 0, 1), cx = FX(l) - f.off[0] * 1.25, cy = FY(l) + f.off[1] * 1.25;
+    if (p <= 0 || fade <= 0) { vk.attr(rings[i], { opacity: 0 }); return; }
+    vk.attr(rings[i], { opacity: (.8 * fade).toFixed(2), d: vk.brushPath(vk.sampleLine(u => { const a = -2.2 + u * 6.1 * p; return [cx + Math.cos(a) * f.r * 1.35, cy + Math.sin(a) * f.r]; }, 30), u => 1 + 3.2 * Math.sin(Math.PI * u)) });
+  }));
+  feats.forEach(f => sc.sfx(f.t, 'pluck', .35, 659.25));
+  const S = TP.school(sc, P, {
+    n: 7, path: [[0, 60, 330], [end(sc, 0) - 1, 420, 300], [tMa + .5, 560, 232], [jumpB, 560, 240], [tMom + 1, 560, 300], [end(sc, 2) + 2, 560, 300]],
+    pos: (l, i) => { if (l < tMom + .6) return null; const k = sm((l - tMom - .6) / 1.2), a = i / 7 * Math.PI * 2 + l * .9, fx = FX(l), fy = FY(l) - 10; const L = S0(l, i); return [L[0] + (fx + Math.cos(a) * 78 - L[0]) * k, L[1] + (fy + Math.sin(a) * 44 - L[1]) * k]; },
+    target: l => [FX(l), FY(l) - 30], talk: l => sc.speaking(l, 'tad'),
+    happy: l => (l > tMa - .1 ? 1 : 0), excite: l => Math.max(plat(l, tMa - .1, tMa + .2, end(sc, 1), end(sc, 1) + .5), .6 * plat(l, tMom + .5, tMom + 1, end(sc, 2) + 3, end(sc, 2) + 4)), face: () => 1,
+  });
+  function S0(l, i) { const L = S.lead(l - .14 * i), a = i * 2.39996 + .6, r = i ? 12 + Math.sqrt(i) * 17 : 0; return [L[0] + Math.cos(a) * r * 1.35, L[1] + Math.sin(a) * r * .8]; }
+  TP.rings(sc, P, [{ t: jumpB, x: 590, r: 56 }, { t: jumpB + .3, x: 600, r: 36 }]);
+  sc.sfx(jumpA, 'croak', .5, 560); sc.sfx(jumpB, 'splash', .9, 1400); sc.sfx(tMa, 'bubbles', .6);
+  sc.add(vk.chapter('荷叶上的妈妈', { at: .9, out: end(sc, 2) }));
+});
+
+/* ============================================================ 7 · 小青蛙 */
+vk.scene('小青蛙', 'auto', {
+  transition: { type: 'wash', d: 1.2 },
+  vo: [
+    '过了些日子，小蝌蚪长出了后腿，又长出了前腿，尾巴不见了。',
+    '它们变成了小青蛙，跟着妈妈跳上荷叶，呱呱唱起歌来！',
+    ['tad', '呱呱，呱呱！'],
+  ],
+}, (sc) => {
+  const P = TP.pond(sc, { seed: 19, worldW: 1000, cam: [[0, 20], [sc.voAt(1), 20], [end(sc, 2) + 1.4, 20]], weeds: [100, 250, 720, 880],
+    lotus: [{ x: 240, r: 62 }, { x: 470, r: 70 }, { x: 720, r: 92, tilt: .17 }, { x: 930, r: 58, flower: true }] });
+  const tLeg = at(sc, 0, '后腿'), tArm = at(sc, 0, '前腿'), tTail = at(sc, 0, '尾巴'), tUp = at(sc, 1, '跳上荷叶'), tSing = sc.voAt(2);
+  // four big tadpoles in a row (close-up), metamorphosis synced to the words; then they hop onto leaves as froglets
+  const n = 4, big = Array.from({ length: n }, () => TP.tadpole(P.chars)), little = Array.from({ length: n }, () => TP.frog(P.chars));
+  const leafSpot = [[222, P.WL], [262, P.WL], [452, P.WL], [492, P.WL]];
+  const mom = TP.frog(P.chars);
+  sc.on(l => {
+    mom.set({ x: 720, y: P.WL, scale: 1.15, face: -1, blink: TP.blink(l, 41), happy: l > tSing - .3 ? 1 : 0, croak: bump(l, tSing + .9, tSing + 1.4), look: l < tUp ? [-.3, .8] : [-.8, .1] });
+    for (let i = 0; i < n; i++) {
+      const legs = sm((l - tLeg - i * .12) / .8), arms = sm((l - tArm - i * .12) / .8), tail = 1 - sm((l - tTail - i * .12) / 1.2), green = sm((l - tLeg - i * .1) / 3.2);
+      const hopA = tUp - .3 + i * .22, hopB = hopA + .75, hopP = clamp((l - hopA) / (hopB - hopA), 0, 1);
+      const bx = 250 + i * 150 + Math.sin(l * .8 + i) * 8, by = 330 + Math.sin(l * 1.3 + i * 1.7) * 7 + (i % 2) * 18;
+      const [lx, ly] = leafSpot[i];
+      if (hopP <= 0) {
+        big[i].set({ x: bx, y: by, face: i % 2 ? -1 : 1, tilt: Math.sin(l * 1.7 + i) * 5, scale: 2.5, phase: l * 7 + i, amp: 2 + tail * 1.5, legs, arms, tail, green, blink: TP.blink(l, i * 5 + 3), look: [0, -.2], happy: tail < .2 ? 1 : 0 });
+        little[i].set({ opacity: 0 });
+      } else {
+        big[i].set({ opacity: 0 });
+        const x = bx + (lx - bx) * hopP, y = by + (ly - by) * hopP - Math.sin(Math.PI * hopP) * 70;
+        const croak = [0, 1, 2].reduce((m, k) => Math.max(m, bump(l, tSing + k * .55 + (i % 2) * .25, tSing + k * .55 + (i % 2) * .25 + .4)), 0);
+        little[i].set({ x, y, scale: .5, face: i % 2 ? -1 : 1, jump: hopP < 1 ? .9 : 0, blink: TP.blink(l, i * 7 + 2), happy: hopP >= 1 ? 1 : 0, croak, talk: sc.speaking(l, 'tad') * .6, look: [0, 0] });
+      }
+    }
+  });
+  TP.rings(sc, P, leafSpot.map((s, i) => ({ t: tUp - .3 + i * .22 + .1, x: 250 + i * 150, r: 34 })));
+  for (let i = 0; i < n; i++) sc.sfx(tUp - .3 + i * .22 + .1, 'drop', .45, 700 + i * 90);
+  [0, 1, 2, 3].forEach(k => sc.sfx(tSing + k * .5, 'croak', .55, 620 + (k % 2) * 90));
+  sc.sfx(tLeg, 'pluck', .4, 523.25); sc.sfx(tArm, 'pluck', .4, 587.33); sc.sfx(tTail, 'pluck', .45, 659.25);
+  sc.add(vk.chapter('小青蛙', { at: .9, out: end(sc, 2) }));
+});
+
+/* ============================================================ 8 · end card */
+vk.scene('终', 8, { transition: { type: 'ink', d: 1.4, x: .7, y: .6 } }, (sc) => {
+  const P = TP.pond(sc, { view: 'surface', horizon: 250, seed: 23, sky: 'dusk', sun: { x: 720, y: 170, r: 32, o: .7 }, worldW: 1000, cam: [[0, 30], [8, 0]],
+    lotus: [{ x: 640, y: 350, r: 96, tilt: .27 }, { x: 830, y: 318, r: 62, tilt: .25, flower: true, fh: 100 }, { x: 470, y: 420, r: 70, tilt: .28 }, { x: 860, y: 450, r: 76, tilt: .3 }],
+    reeds: [{ x: 985, h: 340, lean: -.6 }, { x: 1000, h: 280, lean: -.9, w: 5 }] });
+  const mom = TP.frog(P.chars), kids = [[590, 352], [700, 356], [470, 420], [850, 450]].map(() => TP.frog(P.chars));
+  const kp = [[585, 352, 1], [700, 356, -1], [470, 421, 1], [860, 450, -1]];
+  sc.on(l => {
+    mom.set({ x: 640, y: 346, scale: 1.1, face: 1, blink: TP.blink(l, 51), happy: l > 2 ? 1 : 0, croak: bump(l, 3.2, 3.8) + bump(l, 5.6, 6.2), look: [0, .2] });
+    kids.forEach((k, i) => { if (i === 0) return; const [x, y, f] = kp[i]; k.set({ x, y, scale: .5, face: f, blink: TP.blink(l, i * 9), croak: bump(l, 1.4 + i * .5, 1.8 + i * .5) + bump(l, 4.3 + i * .4, 4.7 + i * .4), happy: 1, look: [0, 0] }); });
+    kids[0].set({ opacity: 0 });
+  });
+  [1.4, 1.9, 2.4, 3.2, 4.7, 5.1, 5.6].forEach((t, i) => sc.sfx(t, 'croak', .4, 520 + (i % 3) * 80));
+  sc.sfx(1.2, 'woodfish', .5); sc.sfx(6.4, 'gong', .6, 98);
+  sc.add(vk.endcard({ big: '找到妈妈啦', small: '小蝌蚪找妈妈　终', seal: '水墨', at: .8, size: 64 }));
+  sc.add(vk.credits(['配音　edge-tts 神经网络语音（晓晓 · 云夏 · 晓北 · 云希 · 晓伊 · 云扬 · 曉臻）', '音乐与音效　程序合成（原创，CC0）', '字体　马善政 · 思源宋体（SIL OFL 1.1）　制作　vidkit'], { at: 2.4, size: 14, pos: { x: 84, y: 578 } }));
+});
+</script>
+</body>
+</html>
