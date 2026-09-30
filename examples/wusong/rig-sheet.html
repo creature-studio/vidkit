@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>武松打虎 · rig sheet</title>
+<style>#stage svg.sheet{position:absolute;left:0;top:0;width:1280px;height:720px;overflow:visible}</style>
+</head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="lib/papercut.js"></script>
+<script src="lib/wusong-rig.js"></script>
+<script src="lib/tiger-rig.js"></script>
+<script>
+// Pose sheet for the two rigs (development aid): every clip at a few clip times, skeleton-free, on paper.
+const v = vk.video({ format: '16:9', fps: 30, theme: 'ink', transition: 'none', texture: { rice: { amount: .4 } } });
+vk.gl.paperCut(v, { prefix: 'pc', seed: 4, shadow: [3, 5, 3, .35] });
+const NS = 'http://www.w3.org/2000/svg';
+function sheet(sc) { return sc.html(`<svg class="sheet" viewBox="0 0 1280 720"><line x1="0" y1="330" x2="1280" y2="330" stroke="#8a8" stroke-width="1"/><line x1="0" y1="680" x2="1280" y2="680" stroke="#8a8" stroke-width="1"/><g class="c"></g></svg>`).querySelector('.c'); }
+const label = (g, x, y, s) => g.insertAdjacentHTML('beforeend', `<text x="${x}" y="${y}" font-size="15" font-family="Noto Serif SC" text-anchor="middle" fill="#333">${s}</text>`);
+const WSP = [['idle', 0], ['walk', 0], ['walk', .26], ['drink', .2], ['drink', .8], ['guard', 0], ['startle', 0], ['dodge', 0],
+  ['duck', 0], ['jump', 0], ['swing', 0], ['swing', .45], ['swing', .8], ['punch', 0], ['punch', .23], ['ride', 0], ['read', 0], ['victory', 0], ['pant', 0], ['throw', 0]];
+for (let pg = 0; pg < 2; pg++) vk.scene('武松 ' + (pg + 1), 1, sc => {
+  const g = sheet(sc), items = WSP.slice(pg * 10, pg * 10 + 10);
+  items.forEach(([clip, ct], i) => {
+    const x = 130 + (i % 5) * 250, y = i < 5 ? 330 : 680, ws = WSR.wusong(g), act = ws.play([{ at: 0, clip, offset: ct }]);
+    label(g, x, y + 22 - (i < 5 ? 0 : 36), clip + ' ' + ct);
+    const st = { staff: 1, bowl: clip === 'drink' ? 1 : 0, face: clip === 'startle' ? 'shout' : null };
+    sc.on(l => ws.render(0, act, { x, y: y - WSR.SOLE * .6, scale: .6 }, st));
+  });
+});
+if (window.TGR) for (let pg = 0; pg < 2; pg++) vk.scene('老虎 ' + (pg + 1), 1, sc => {
+  const g = sheet(sc), P = [['stand', 0], ['prowl', 0], ['prowl', .5], ['crouch', 0], ['pounce', 0], ['pounce', .3], ['lift', .5], ['sweep', 0], ['sweep', .5], ['sweep', 1], ['roar', 0], ['struggle', 0], ['struggle', .2], ['pinned', 0], ['defeated', 0], ['land', 0]];
+  P.slice(pg * 8, pg * 8 + 8).forEach(([clip, ct], i) => {
+    const x = 170 + (i % 4) * 310, y = i < 4 ? 330 : 680, tg = TGR.tiger(g), act = tg.play([{ at: 0, clip, offset: ct }]);
+    label(g, x, y + 22 - (i < 4 ? 0 : 36), clip + ' ' + ct);
+    sc.on(l => tg.render(0, act, { x, y: y - TGR.SOLE * .55, scale: .55 }, {}));
+  });
+});
+</script>
+</body>
+</html>

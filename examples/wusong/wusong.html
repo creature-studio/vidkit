@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>武松打虎 · 剪纸动画短片（vidkit · 骨骼版）</title>
+</head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="lib/papercut.js"></script>
+<script src="lib/wusong-rig.js"></script>
+<script src="lib/tiger-rig.js"></script>
+<script src="lib/jingyang.js"></script>
+<script>
+// 《武松打虎》— after 《水浒传》第二十三回. Shanghai Animation Film Studio style: paper-cut (剪纸) characters with cut
+// edges, grain and drop shadows on ink-wash landscapes; 锣鼓 percussion synthesized in code; edge-tts storyteller.
+// Everything is a pure function of the scene time t (rigs: examples/wusong/lib/*-rig.js; world: lib/jingyang.js).
+const v = vk.video({
+  format: '16:9', fps: 30, theme: 'ink', title: '武松打虎', transition: 'ink:1.0',
+  texture: { rice: { amount: .5, seed: 23, vignette: .26 } },
+  voice: { manifest: 'wusong.vo.json', voice: 'zh-CN-YunjianNeural', rate: '+4%', pitch: '-2Hz', lead: .4, tail: .6, gap: .25, maxChars: 18 },
+  karaoke: 'sweep',
+  mix: { lufs: -14, duck: -8 },
+  scoreOptions: { pad: [73.42, 110, 146.83], padGain: .012 },
+});
+WJ.defs(v);
+
+const { sm, clamp } = WJ;
+const R = n => Math.round(n * 10) / 10;
+const lerp = (a, b, u) => a + (b - a) * u;
+// eased keyframes [[t, v], …] (smoothstep between keys)
+const K = (t, keys) => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) { const [t1, v1] = keys[i]; if (t <= t1) { const [t0, v0] = keys[i - 1]; return v0 + (v1 - v0) * sm((t - t0) / (t1 - t0 || 1)); } } return keys[keys.length - 1][1]; };
+const Kl = (t, keys) => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) { const [t1, v1] = keys[i]; if (t <= t1) { const [t0, v0] = keys[i - 1]; return v0 + (v1 - v0) * clamp((t - t0) / (t1 - t0 || 1)); } } return keys[keys.length - 1][1]; };
+// parabolic hop height between t0..t1
+const hop = (t, t0, t1, h) => { const u = (t - t0) / (t1 - t0); return u <= 0 || u >= 1 ? 0 : 4 * h * u * (1 - u); };
+const bump = (t, a, b, e = .25) => sm((t - a) / e) * (1 - sm((t - b) / e));
+// word time inside VO line i (from edge-tts word boundaries when present)
+function at(sc, i, phrase) {
+  const s = sc.voSegs && sc.voSegs[i]; if (!s) return 0; if (!phrase) return s.at;
+  const clean = phrase.replace(/[，。！？、：；“”《》\s—]/g, '');
+  if (!s.words) { const idx = s.text.replace(/[，。！？、：；“”《》\s—]/g, '').indexOf(clean); return s.at + Math.max(0, idx) / s.text.length * s.dur; }
+  const chars = s.words.map(w => w.w).join(''), idx = chars.indexOf(clean); if (idx < 0) return s.at;
+  let c = 0; for (const w of s.words) { if (c + w.w.length > idx) return s.at + w.t; c += w.w.length; } return s.at;
+}
+const WS_S = .5, TG_S = .72, GY = 590;
+const wsY = (gy, s = WS_S) => gy - WSR.SOLE * s;
+const tgY = (gy, s = TG_S) => gy - TGR.SOLE * s;
+const grassRow = (xs, gy, o = {}) => xs.map((x, i) => ({ x, y: (typeof gy === 'function' ? gy(x) : gy) + 6, n: o.n || 5, h: (o.h || 30) + (i % 3) * 8 }));
+// flying broken-staff half (paper-cut) — ballistic, spinning; returns update(l)
+function flyingStaff(W, o) {
+  const g = WJ.add(W.fx, `<g filter="url(#pc-shadow)"><g>${WS.P('M-6 -70 L6 -70 L7 70 L-7 70 Z', '#8a5a30', { step: 7 })}${WS.P('M-7 -40 L7 -40 L7 -30 L-7 -30 Z M-7 30 L7 30 L7 40 L-7 40 Z', '#b5342a', { amp: .3 })}${WS.P('M-6 -70 L-2 -80 L2 -71 L6 -79 L6 -70 Z', '#d9b27a', { amp: .5 })}</g></g>`);
+  const inner = g.firstElementChild;
+  return l => {
+    const a = l - o.t; if (a < 0) { WS.setOp(g, 0); return; }
+    const land = o.land, tt = Math.min(a, land);
+    const x = o.x + o.vx * tt, y = Math.min(o.floor, o.y + o.vy * tt + .5 * 1400 * tt * tt), rot = o.rot0 + (a < land ? o.spin * tt : o.spin * land);
+    WS.setOp(g, 1 - clamp((a - land - .8) / .6));
+    inner.setAttribute('transform', `translate(${R(x)} ${R(y)}) rotate(${R(rot)}) scale(${o.s || .5})`);
+  };
+}
+
+/* ═══════════════ 0 片头 ═══════════════ */
+vk.scene('片头', 7.0, { transition: 'wash:1', vo: [{ text: '话说《水浒传》里，有一段武松打虎的故事。', at: 2.1 }] }, sc => {
+  sc.el.classList.add('ws-title');
+  const gy = x => 612 - 118 * Math.exp(-Math.pow((x - 430) / 360, 2));
+  const W = WJ.world(sc, { mood: 'dusk', sun: { x: 770, y: 230, r: 60 }, ground: gy, farTop: 330, midTop: 470, midAmp: 70, seed: 2.2,
+    mist: [{ y: 470, h: 60, op: .55 }, { y: 560, h: 50, op: .4 }],
+    pines: [{ x: 250, y: gy(250) + 8, h: 170, layer: 'near', seed: 7, lean: -.08 }, { x: 610, y: gy(610) + 8, h: 210, layer: 'near', seed: 3, lean: .12 }, { x: 900, y: 560, h: 120, seed: 2 }, { x: 60, y: 600, h: 150, seed: 5 }],
+    grass: grassRow([140, 330, 520, 700, 820], gy, { h: 22 }) });
+  const ws = WSR.wusong(W.actors), act = ws.play([{ at: 0, clip: 'walk', speed: .9 }]);
+  sc.on(l => { const x = 80 + l * 88; ws.render(l, act, { x, y: gy(x) - WSR.SOLE * .34, scale: .34 }, { staff: 1, wind: .3 }); });
+  sc.add(vk.vtitle('武松打虎', { sub: '水浒传·景阳冈　剪纸动画', seal: '水浒', size: 116, at: .4, sealAt: 3.3, pos: { x: 950, y: 64 }, out: 5.7, outD: .8 }));
+  const mainEl = () => sc.el.querySelector('.vk-vt-main');
+  const mask = vk.gl.draw(g => {
+    const m = mainEl(); if (!m) return;
+    let x = 0, y = 0; for (let e = m; e && e !== sc.el; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; }
+    const cs = getComputedStyle(m), size = parseFloat(cs.fontSize);
+    g.font = `${size}px ${cs.fontFamily}`; g.fillStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'top';
+    [...m.textContent].forEach((ch, i) => g.fillText(ch, x + m.offsetWidth / 2, y + i * size * 1.04));
+  }, { static: true });
+  sc.gl([vk.gl.inkBleed({ src: mask, at: .4, draw: .9, dur: 2.8, spread: 7, haloEnd: .24, density: .96, halo: .3, rim: .22, wipe: { dir: 'down', dur: 1.7 }, fade: [5.6, 6.3], seed: 7 })], { rect: [900, 0, 380, 720] });
+  WS.luogu(sc, .15, 'sijitou', { gain: .9 });
+  WS.stroke(sc, 3.3, 'tai', .7);
+});
+
+/* ═══════════════ 1 酒家 · 三碗不过冈 ═══════════════ */
+vk.scene('酒家', 9.8, { vo: [{ text: '武松路过冈下酒家，酒旗上写着：三碗不过冈。', at: .6 }, { text: '他偏不信，一连喝了十八碗！', at: 5.1 }] }, sc => {
+  const W = WJ.world(sc, { mood: 'dusk', ground: 600, farTop: 300, midTop: 440, midAmp: 90, seed: 4.1, mist: [{ y: 450, h: 60, op: .5 }],
+    pines: [{ x: 690, y: 470, h: 130, seed: 4 }, { x: 760, y: 470, h: 100, seed: 8 }],
+    grass: grassRow([60, 250, 330, 1180, 1250], 600, { h: 26 }) });
+  WJ.tavern(W.props, 830, 600);
+  const flag = WJ.flag(sc, W.props, 150, 96, { pole: 504, wind: l => .55 + .25 * Math.sin(l * .9) });
+  WJ.table(W.props, 640, 600);
+  // staff leaning on the table (hidden when Wu Song picks it up)
+  const leanStaff = WJ.add(W.props, `<g filter="url(#pc-shadow)"><g transform="translate(548 452) rotate(-14)">${WS.P('M-5 -150 L5 -150 L6 150 L-6 150 Z', '#8a5a30', { step: 8 })}${WS.P('M-6 -120 L6 -120 L6 -110 L-6 -110 Z M-6 110 L6 110 L6 120 L-6 120 Z', '#b5342a', { amp: .3 })}</g></g>`);
+  const keeper = WJ.keeper(W.props, 0, 0);
+  const bowls = WJ.add(W.props, `<g filter="url(#pc-shadow)"></g>`);
+  const bowlEls = Array.from({ length: 18 }, (_, i) => { const pile = Math.floor(i / 6), k = i % 6; return WJ.add(bowls, `<g opacity="0">${WJ.bowl(578 + pile * 46, 494 - k * 8, .8)}</g>`); });
+  const ws = WSR.wusong(W.actors);
+  const TD = 1.0, SPD = 1.45, PER = 1.6 / SPD, NDR = 6, TEND = TD + NDR * PER;   // six cycles, 三碗 each
+  const act = ws.play([{ at: 0, clip: 'idle' }, { at: TD, clip: 'drink', speed: SPD, local: true, blend: .35 }, { at: TEND, clip: 'idle', blend: .4 }, { at: TEND + .9, clip: 'walk', blend: .3, speed: .9 }]);
+  const count = sc.html(`<div class="jy-count" style="left:392px;top:70px;font-size:50px">已饮 <b>三</b> 碗</div>`);
+  const NUM = ['三', '六', '九', '十二', '十五', '十八'];
+  const drunk = l => clamp(Math.floor((l - TD) / PER + .2), 0, NDR);
+  sc.on(l => {
+    const x = l < TEND + .9 ? 470 : 470 + (l - TEND - .9) * 92;
+    const d = drunk(l), sway = d * .8 * Math.sin(l * 2.2);
+    ws.render(l, act, { x, y: wsY(600, .58), scale: .58, rot: l > TEND ? 0 : sway * .5 }, { staff: l > TEND + .3 ? 1 : 0, bowl: l > TD - .1 && l < TEND ? 1 : 0, wind: .3 });
+    WS.setOp(leanStaff, l > TEND + .3 ? 0 : 1);
+    bowlEls.forEach((e, i) => WS.setOp(e, i < d * 3 ? 1 : 0));
+    keeper.set({ x: 820, y: 600, scale: 1.02, nod: l > 1.8 && l < 4.6 ? Math.sin(l * 9) * .8 : 0, pour: .25 + .25 * Math.sin(l * 2.4) });
+    const shown = l > TD + PER * .8 && l < 9.4;
+    count.style.opacity = shown ? String(Math.min(1, (l - TD - PER * .8) / .3, (9.4 - l) / .3)) : '0';
+    const b = count.querySelector('b'), txt = NUM[Math.max(0, d - 1)]; if (b.textContent !== txt) b.textContent = txt;
+  });
+  for (let i = 0; i < NDR; i++) { const t = TD + (i + .8) * PER; WS.stroke(sc, t, i === NDR - 1 ? 'cang' : 'tai', i === NDR - 1 ? .8 : .5); }
+  WS.luogu(sc, TEND + .1, 'hit', { gain: .8 });
+});
+
+/* ═══════════════ 2 上冈 · 榜文 ═══════════════ */
+vk.scene('上冈', 7.8, { vo: [{ text: '日落时分，武松提着哨棒上冈，只见树上贴着榜文：冈上有虎！', at: .7 }] }, sc => {
+  const gy = x => 640 - .1 * x;
+  const W = WJ.world(sc, { mood: 'dusky', sun: { x: 300, y: 250, r: 52, color: '#c23b2b' }, ground: gy, farTop: 320, midTop: 450, midAmp: 110, seed: 6.4,
+    mist: [{ y: 460, h: 70, op: .5 }], gust: l => .55 * sm((l - 4.6) / 1.4), windLines: 5,
+    pines: [{ x: 120, y: 470, h: 150, seed: 9 }, { x: 1180, y: 470, h: 170, seed: 11 }],
+    grass: grassRow([80, 200, 330, 470, 610, 1000, 1110, 1230], gy, { h: 28 }) });
+  W.props.insertAdjacentHTML('beforeend', WJ.tree(880, gy(880) + 6, 470, { seed: 3, lean: -.05, boughs: [{ at: .62, dx: -210, dy: -40, bend: 26, twigs: [[.5, -30, -40], [.8, -40, 20]] }, { at: .72, dx: 190, dy: -70, bend: 20, twigs: [[.6, 30, -40]] }, { at: .9, dx: -90, dy: -80, bend: 12 }],
+    leaves: [[700, 190, 70], [790, 130, 80], [960, 140, 80], [1060, 200, 70], [880, 90, 60]] }));
+  W.props.insertAdjacentHTML('beforeend', WJ.notice(878, 330, 1));
+  vk.bake(W.props);
+  const ws = WSR.wusong(W.actors);
+  const TSTOP = 4.4, x0 = 110, x1 = 690;
+  const act = ws.play([{ at: 0, clip: 'walk', speed: .8 }, { at: TSTOP, clip: 'read', blend: .5 }]);
+  sc.on(l => { const x = lerp(x0, x1, Math.min(1, l / TSTOP)) - (l > TSTOP - .6 ? 0 : 0); ws.render(l, act, { x, y: wsY(gy(x)), scale: WS_S }, { staff: 1, wind: .3 + .6 * sm((l - 4.6) / 1.4) }); });
+  const card = sc.html(`<div class="jy-card" style="left:944px;top:84px"><div class="t">榜文</div><div class="b">景阳冈上<br>有大虫伤人<br>客商须结伙过冈</div><div class="s">阳谷县</div></div>`);
+  const T0 = at(sc, 0, '榜文') - .2;
+  sc.on(l => { const a = sm((l - T0) / .4); card.style.opacity = String(Math.round(a * 1000) / 1000); card.style.transform = `translateY(${R((1 - a) * 20)}px) scale(${(.94 + .06 * a).toFixed(3)})`; });
+  sc.gl([WJ.leaves(sc, { from: 4.6, to: 8, rate: 7, seed: 5 })], { zIndex: 8 });
+  sc.sfx(4.4, 'wind', .6, 3.5);
+  WS.stroke(sc, T0, 'cai', .6);
+});
+
+/* ═══════════════ 3 猛虎出林 ═══════════════ */
+vk.scene('猛虎出林', 7.4, { vo: [{ text: '忽然一阵狂风，乱树背后，跳出一只吊睛白额大虫！', at: .6 }] }, sc => {
+  const gust = l => Math.max(bump(l, .3, 3.2, .5), .3 * sm((l - 3.2) / 1));
+  const W = WJ.world(sc, { mood: 'night', moon: { x: 1010, y: 140, r: 38 }, ground: GY, farTop: 330, midTop: 450, midAmp: 100, seed: 8.3,
+    mist: [{ y: 470, h: 60, op: .45 }], gust, windLines: 7,
+    pines: [{ x: 160, y: 480, h: 150, seed: 12, op: .45 }, { x: 330, y: 470, h: 110, seed: 13, op: .4 }],
+    grass: grassRow([60, 180, 260, 520, 640, 720], GY, { h: 30 }) });
+  W.props.insertAdjacentHTML('beforeend', WJ.rock(250, GY + 6, 170, 90, {}));
+  vk.bake(W.props);
+  // dense thicket on the right; it shakes before the tiger bursts out
+  const bush = WJ.add(W.front, `<g>${WJ.bush(1120, GY + 30, 360, 260, { seed: 3 })}${WJ.bush(1210, GY + 40, 220, 180, { seed: 8, color: '#1d2622' })}</g>`);
+  vk.bake(bush.firstElementChild); vk.bake(bush.lastElementChild);
+  const TJ = at(sc, 0, '跳出') - .1, TL = TJ + .7;
+  const ws = WSR.wusong(W.actors), tg = TGR.tiger(W.actors);
+  const wsAct = ws.play([{ at: 0, clip: 'idle' }, { at: .6, clip: 'read', blend: .5 }, { at: TJ + .15, clip: 'startle', blend: .15 }, { at: TL + 1.2, clip: 'guard', blend: .45 }]);
+  const tgAct = tg.play([{ at: 0, clip: 'pounce' }, { at: TL, clip: 'land', blend: .12 }, { at: TL + .4, clip: 'roar', blend: .3 }, { at: TL + 2.0, clip: 'crouch', blend: .6 }]);
+  sc.on(l => {
+    const wx = K(l, [[TJ + .1, 390], [TJ + .45, 330]]);
+    ws.render(l, wsAct, { x: wx, y: wsY(GY) - hop(l, TJ + .1, TJ + .45, 30), scale: WS_S }, { staff: 1, wind: gust(l), face: l > TJ + .1 && l < TL + 1.4 ? 'shout' : null });
+    const u = clamp((l - TJ) / (TL - TJ));
+    const tx = lerp(1180, 820, u), ty = tgY(GY) + (l < TJ ? 80 : 0) - hop(l, TJ, TL, 210) + (1 - sm(u / .3)) * 60 * (l >= TJ ? 1 : 0);
+    tg.render(l, tgAct, { x: tx, y: ty, scale: TG_S, flip: -1 }, { opacity: l < TJ ? 0 : 1 });
+    const sh = bump(l, TJ - 1.3, TJ + .2, .3) * Math.sin(l * 40) * 4;
+    vk.attr(bush, { transform: `translate(${R(sh)} 0) rotate(${R(sh * .3)} 1150 ${GY})` });
+  });
+  sc.gl([WJ.leaves(sc, { from: .2, to: 3.6, rate: 16, seed: 9 })], { zIndex: 8 });
+  sc.sfx(.2, 'wind', .9, 3.5);
+  sc.sfx(TJ - 1.2, 'growl', .7);
+  sc.sfx(TJ + .02, 'swish', .8);
+  sc.sfx(TL + .45, 'roarLong', 1);
+  WS.luogu(sc, TL, 'chongtou', { gain: 1 });
+  sc.shake(TL + .05, 12, .5).shake(TL + .5, 8, 1.4);
+});
+
+/* ═══════════════ 4 一扑 · 一掀 · 一剪 ═══════════════ */
+vk.scene('一扑一掀一剪', 12.5, { vo: [{ text: '大虫一扑，', at: .8 }, { text: '一掀，', at: 3.3 }, { text: '一剪，', at: 5.6 }, { text: '三般都捉不着，那大虫的气性，先没了一半！', at: 6.9 }] }, sc => {
+  const W = WJ.world(sc, { mood: 'night', moon: { x: 250, y: 130, r: 34 }, ground: GY, farTop: 340, midTop: 460, midAmp: 90, seed: 3.7,
+    mist: [{ y: 470, h: 60, op: .45 }], pines: [{ x: 1150, y: 480, h: 170, seed: 14, op: .45 }, { x: 90, y: 480, h: 140, seed: 15, op: .4 }],
+    grass: grassRow([40, 150, 1120, 1230], GY, { h: 30 }) });
+  const ws = WSR.wusong(W.actors), tg = TGR.tiger(W.actors);
+  const P0 = 1.0, P1 = 1.75, L0 = 3.3, S0 = 5.6, T0 = 7.1, T1 = 7.6;
+  const tgAct = tg.play([{ at: 0, clip: 'crouch' }, { at: P0, clip: 'pounce', blend: .12 }, { at: P1, clip: 'land', blend: .1 }, { at: P1 + .5, clip: 'stand', blend: .4 },
+    { at: L0, clip: 'lift', local: true, blend: .15 }, { at: L0 + 1.3, clip: 'stand', blend: .3 }, { at: S0, clip: 'sweep', local: true, blend: .2 }, { at: S0 + 1.3, clip: 'stand', blend: .3 },
+    { at: T1 + .2, clip: 'roar', blend: .3 }, { at: T1 + 1.8, clip: 'prowl', blend: .5, speed: .6 }]);
+  const wsAct = ws.play([{ at: 0, clip: 'guard' }, { at: P0 - .1, clip: 'duck', blend: .18 }, { at: P1 - .15, clip: 'guard', blend: .3 },
+    { at: L0 + .15, clip: 'dodge', blend: .15 }, { at: L0 + 1.1, clip: 'guard', blend: .35 }, { at: S0 + .35, clip: 'jump', blend: .12 }, { at: S0 + .95, clip: 'guard', blend: .2 }]);
+  const tx = l => K(l, [[P0, 900], [P1, 330]]);
+  const tflip = l => l < T0 ? -1 : l < T1 ? Math.cos(Math.PI * sm((l - T0) / (T1 - T0))) * -1 : 1;
+  const wx = l => K(l, [[P0 + .35, 470], [P1 + .15, 720], [P1 + .7, 720], [L0 - .2, 600], [L0 + .15, 600], [L0 + .6, 660], [S0 - 1, 660], [S0 - .2, 610], [S0 + .95, 620], [S0 + 1.6, 690]]);
+  const wflip = l => l < P1 + .05 ? 1 : l < P1 + .35 ? Math.cos(Math.PI * sm((l - P1 - .05) / .3)) : -1;
+  sc.on(l => {
+    const y = tgY(GY) - hop(l, P0, P1, 250) + (l < P0 ? 0 : 0);
+    tg.render(l, tgAct, { x: tx(l), y, scale: TG_S, flip: tflip(l) }, {});
+    ws.render(l, wsAct, { x: wx(l), y: wsY(GY) - hop(l, S0 + .35, S0 + .95, 120), scale: WS_S, flip: wflip(l) }, { staff: 1, wind: .4, face: bump(l, P0, P1 + .3, .1) + bump(l, L0, L0 + .9, .1) + bump(l, S0 + .3, S0 + 1, .1) > .5 ? 'shout' : null });
+  });
+  WJ.bigChar(sc, '扑', P0 + .15, { x: 1030, y: 80, size: 140 });
+  WJ.bigChar(sc, '掀', L0 + .25, { x: 1030, y: 80, size: 140 });
+  WJ.bigChar(sc, '剪', S0 + .45, { x: 1030, y: 80, size: 140 });
+  sc.sfx(P0 - .5, 'growl', .6); sc.sfx(P0 + .05, 'swish', .9); sc.sfx(P1, 'thud', .8);
+  WS.luogu(sc, P0 + .1, 'hit', { gain: .9 }); sc.shake(P1 + .02, 10, .45);
+  sc.sfx(L0 + .2, 'swish', .8); WS.luogu(sc, L0 + .3, 'hit', { gain: .9 }); sc.shake(L0 + .45, 7, .4);
+  sc.sfx(S0 + .5, 'swish', 1); WS.luogu(sc, S0 + .55, 'hit', { gain: .9 }); sc.sfx(S0 + .75, 'thud', .5);
+  sc.sfx(T1 + .3, 'roarLong', .6); sc.shake(T1 + .4, 6, 1.2);
+  WS.luogu(sc, 9.4, 'tai', { gain: .6 });
+});
+
+/* ═══════════════ 5 哨棒折断 ═══════════════ */
+vk.scene('哨棒折断', 10.1, { vo: [{ text: '武松抡起哨棒，使尽平生气力，一棒劈下——', at: .2 }, { text: '咔嚓！正打在枯树上，哨棒折做两截！', at: 4.2 }] }, sc => {
+  const W = WJ.world(sc, { mood: 'night', moon: { x: 1080, y: 120, r: 36 }, ground: GY, farTop: 340, midTop: 460, midAmp: 90, seed: 5.9,
+    mist: [{ y: 480, h: 60, op: .45 }], pines: [{ x: 110, y: 480, h: 150, seed: 16, op: .45 }],
+    grass: grassRow([60, 170, 300, 1060, 1180], GY, { h: 30 }) });
+  const ws = WSR.wusong(W.actors), tg = TGR.tiger(W.actors);
+  const TI = Math.max(2.4, at(sc, 0, '劈') + .15), SW = TI - .45, STOP = .12;   // impact, hit-stop
+  const tt = l => l < TI ? l : l < TI + STOP ? TI : l - STOP;
+  const wsAct = ws.play([{ at: 0, clip: 'guard' }, { at: SW - .7, clip: () => WSR.CLIPS.swing(0), blend: .5 }, { at: SW, clip: 'swing', local: true, blend: .05 },
+    { at: TI + .8, clip: 'startle', blend: .35 }, { at: TI + 2.2, clip: 'guard', blend: .5 }]);
+  const tgAct = tg.play([{ at: 0, clip: 'crouch' }, { at: SW + .1, clip: 'land', blend: .2 }, { at: TI + 1.0, clip: 'roar', blend: .3 }, { at: TI + 2.4, clip: 'crouch', blend: .5 }]);
+  const wx = l => K(l, [[.4, 380], [SW, 440]]), wy = l => wsY(GY) - hop(l, SW - .15, TI + .25, 55);
+  const WR = l => ({ x: wx(l), y: wy(l), scale: WS_S });
+  // the staff tip at the impact frame decides where the dead bough is
+  const tip = ws.point('staffBody', 0, 214, TI, wsAct, WR(TI), { staff: 1 });
+  const tipB = ws.point('staffBody', 0, 150, TI, wsAct, WR(TI), { staff: 1 });   // break point on the staff
+  const trunkX = 690;
+  W.props.insertAdjacentHTML('beforeend', WJ.tree(trunkX, GY + 6, 380, { seed: 5, lean: .06, color: '#2d2723', boughs: [
+    { at: (GY + 6 - tip[1] - 30) / 380, to: [tip[0] - 50, tip[1] + 10], bend: 6, w: 20, twigs: [[.55, -16, -40], [.92, -34, -22]] },
+    { at: .82, dx: 120, dy: -80, bend: 16, twigs: [[.6, 26, -36]] }, { at: .95, dx: -60, dy: -70, bend: 10 }] }));
+  vk.bake(W.props);
+  const fly = flyingStaff(W, { t: TI + STOP, x: tipB[0] + 30, y: tipB[1] - 10, vx: -260, vy: -620, rot0: -80, spin: -540, land: .78, floor: GY - 6, s: .5 });
+  const splinter = vk.gl.particles({ seed: 21, burst: [{ t: TI, n: 26 }], x: tipB[0] + 10, y: tipB[1], angle: -90, spread: 200, speed: [200, 560], gravity: 1300, drag: .5, life: [.5, 1.0], size: [3, 7], shape: 'petal', color: '#6b4527', color2: '#c99a5a' });
+  sc.gl([splinter], { zIndex: 8 });
+  sc.on(l => {
+    const lt = tt(l);
+    ws.render(lt, wsAct, WR(lt), { staff: 1, stub: l >= TI, wind: .4, face: l > SW - .2 && l < TI + 2 ? 'shout' : null });
+    const tgx = K(l, [[SW, 930], [TI + .2, 965], [TI + 2.6, 930]]);
+    tg.render(lt, tgAct, { x: tgx, y: tgY(GY), scale: TG_S, flip: -1 }, {});
+    fly(l);
+  });
+  sc.sfx(SW - .6, 'swish', .5); sc.sfx(SW + .15, 'swish', 1);
+  sc.sfx(TI, 'crack', 1.1); WS.stroke(sc, TI, 'cang', 1); sc.shake(TI, 16, .6);
+  WS.luogu(sc, TI + .45, 'hit', { gain: .8 });
+  sc.sfx(TI + STOP + .8, 'thud', .35);
+  sc.sfx(TI + 1.1, 'roarLong', .75); sc.shake(TI + 1.2, 5, 1.2);
+});
+
+/* ═══════════════ 6 骑虎挥拳 ═══════════════ */
+vk.scene('骑虎挥拳', 12.8, { vo: [{ text: '大虫又扑将过来，', at: .3 }, { text: '武松揪住它的顶花皮，使劲按将下去，', at: 2.0 }, { text: '抡起铁拳只顾打，打了五七十拳，', at: 5.4 }, { text: '那大虫再也动弹不得。', at: 9.0 }] }, sc => {
+  const W = WJ.world(sc, { mood: 'night', moon: { x: 220, y: 120, r: 36 }, ground: GY, farTop: 340, midTop: 460, midAmp: 90, seed: 9.1,
+    mist: [{ y: 480, h: 60, op: .45 }], pines: [{ x: 1180, y: 480, h: 160, seed: 18, op: .45 }],
+    grass: grassRow([40, 130, 1140, 1240], GY, { h: 30 }) });
+  const tg = TGR.tiger(W.actors), ws = WSR.wusong(W.actors);   // Wu Song in front (he rides it)
+  const TH = .3, P0 = .9, P1 = 1.7, J0 = 2.3, J1 = 2.9, PU0 = 3.4, PU1 = 9.3, DF = 9.6, NP = Math.round((PU1 - PU0) / .42);
+  // throw the stub away, pounce (Wu Song dodges under to the right), leap onto its back from behind
+  const tgAct = tg.play([{ at: 0, clip: 'crouch' }, { at: P0, clip: 'pounce', blend: .12 }, { at: P1, clip: 'land', blend: .1 }, { at: P1 + .4, clip: 'stand', blend: .3 },
+    { at: J1 - .05, clip: 'pinned', blend: .2 }, { at: J1 + .35, clip: 'struggle', blend: .3 }, { at: 7.2, clip: 'pinned', blend: 1.2 }, { at: DF, clip: 'defeated', blend: 1.4 }]);
+  const tx = l => K(l, [[P0, 870], [P1, 430]]);
+  const TR = l => ({ x: tx(l), y: tgY(GY) - hop(l, P0, P1, 240), scale: TG_S, flip: -1 });
+  const tst = l => ({ eyes: l > DF + .9 ? 'shut' : null });
+  const TGP = l => tg.pose(l, tgAct, TR(l), tst(l));
+  const tpt = (bone, x, y, l) => tg.rig.point(bone, x, y, TGP(l), TR(l));
+  const headTop = l => tpt('head', 26, -40, l);     // where the far hand grips (顶花皮)
+  const brow = l => tpt('head', 30, -18, l);        // where the fist lands
+  const seat = l => tpt('chest', -6, -64, l);       // tiger's back just behind the shoulders
+  // punching: fist target alternates raised ↔ brow, with a sharp hit at the middle of each .42 s beat
+  const beat = l => clamp((l - PU0) / .42, 0, NP), hitW = l => { if (l < PU0 || l > PU1) return 0; const ph = beat(l) % 1; return Math.exp(-Math.pow((ph - .55) / .13, 2)); };
+  const ride = l => l >= J1 - .02;
+  const wsAct = ws.play([{ at: 0, clip: 'guard' }, { at: TH, clip: 'throw', blend: .15 }, { at: TH + .45, clip: 'guard', blend: .25 }, { at: P0 - .05, clip: 'duck', blend: .15 }, { at: P1 - .1, clip: 'guard', blend: .25 },
+    { at: J0, clip: 'jump', blend: .15 }, { at: J1 - .1, clip: 'ride', blend: .15 }, { at: PU0, clip: 'punch', blend: .25 }, { at: PU1 + .1, clip: 'ride', blend: .3 }, { at: DF + 1.2, clip: 'ride', blend: .3 }],
+    { ik: {
+        armF: l => (l >= J1 - .1 ? headTop(l) : null),
+        armN: l => { if (l < PU0 - .2 || l > PU1 + .3) return null; const b = brow(l), s = seat(l), raised = [s[0] - 40, s[1] - 170]; const w = hitW(l); return [lerp(raised[0], b[0] + 8, w), lerp(raised[1], b[1] - 6, w)]; } },
+      ikWeight: { armF: l => sm((l - J1 + .15) / .2), armN: l => sm((l - PU0 + .2) / .25) * (1 - sm((l - PU1) / .3)) } });
+  const wx = l => K(l, [[P0 + .3, 430], [P1 + .1, 720], [J0, 700]]);
+  const wflip = l => l < P1 ? 1 : l < P1 + .3 ? Math.cos(Math.PI * sm((l - P1) / .3)) : -1;
+  const WRt = l => {
+    if (!ride(l)) {
+      if (l >= J0) { const u = sm((l - J0) / (J1 - J0)), s = seat(J1); return { x: lerp(wx(l), s[0] + 4, u), y: lerp(wsY(GY), s[1] - 20, u) - hop(l, J0, J1, 90), scale: WS_S, flip: -1 }; }
+      return { x: wx(l), y: wsY(GY), scale: WS_S, flip: wflip(l) };
+    }
+    const s = seat(l); return { x: s[0] + 4, y: s[1] - 20 + 4 * hitW(l), scale: WS_S, flip: -1 };
+  };
+  const stubFly = flyingStaff(W, { t: TH + .25, x: 470, y: 380, vx: -520, vy: -520, rot0: 30, spin: -620, land: .8, floor: GY - 6, s: .42 });
+  sc.on(l => {
+    tg.render(l, tgAct, TR(l), tst(l));
+    ws.render(l, wsAct, WRt(l), { staff: l < TH + .25 ? 1 : 0, stub: true, wind: .4, farLeg: ride(l) ? 0 : 1, face: (l > P0 && l < P1 + .3) || (l > PU0 && l < PU1) ? 'shout' : null });
+    stubFly(l);
+  });
+  // sound: 急急风 under the punches, a thud on every hit
+  sc.sfx(TH + .1, 'swish', .6); sc.sfx(P0 - .4, 'growl', .7); sc.sfx(P0 + .05, 'swish', .9); sc.sfx(P1, 'thud', .8); sc.shake(P1 + .02, 9, .4);
+  sc.sfx(J0 + .05, 'swish', .7); WS.luogu(sc, J1 - .1, 'hit', { gain: 1 }); sc.shake(J1, 10, .5); sc.sfx(J1 + .3, 'roarLong', .7);
+  WS.jijifeng(sc, PU0 - .1, Math.round((PU1 - PU0) / (60 / 200)), { bpm: 200, gain: .55 });
+  for (let i = 0; i < NP; i++) { const t = PU0 + (i + .55) * .42; sc.sfx(t, 'thud', .55 + .1 * (i % 2)); if (i % 3 === 0) sc.shake(t, 4 + (i === 0 ? 6 : 0), .22); }
+  sc.shake(PU1 - .2, 12, .5);
+  WS.luogu(sc, PU1 + .1, 'hit', { gain: 1 });
+  sc.sfx(DF + .2, 'growl', .4);
+});
+
+/* ═══════════════ 7 打虎英雄 ═══════════════ */
+vk.scene('打虎英雄', 8.6, { vo: [{ text: '从此，景阳冈打虎的武松，名扬天下。', at: 1.8 }] }, sc => {
+  const W = WJ.world(sc, { mood: 'night', moon: { x: 640, y: 150, r: 46 }, ground: GY, farTop: 330, midTop: 450, midAmp: 100, seed: 1.9,
+    mist: [{ y: 470, h: 60, op: .5 }, { y: 560, h: 40, op: .3 }], pines: [{ x: 90, y: 480, h: 180, seed: 19, op: .5 }, { x: 250, y: 470, h: 120, seed: 20, op: .4 }],
+    grass: grassRow([60, 180, 300, 1230], GY, { h: 28 }) });
+  const ws = WSR.wusong(W.actors), tg = TGR.tiger(W.actors);
+  const TP = .9;
+  const wsAct = ws.play([{ at: 0, clip: 'pant' }, { at: TP, clip: 'victory', blend: .35 }]);
+  const tgAct = tg.play([{ at: 0, clip: 'defeated' }]);
+  sc.on(l => {
+    tg.render(l, tgAct, { x: 700, y: tgY(GY), scale: TG_S, flip: -1 }, { eyes: 'shut' });
+    ws.render(l, wsAct, { x: 400, y: wsY(GY, .54), scale: .54 }, { staff: 0, wind: .35 });
+  });
+  WS.luogu(sc, TP - .75, 'sijitou', { gain: 1 });
+  sc.add(vk.endcard({ big: '打虎英雄', small: '武松打虎　终', seal: '景阳冈', size: 72, at: 3.0, out: 8.4, pos: { x: 1030, y: 70 } }));
+  sc.add(vk.credits(['故事：施耐庵《水浒传》', '剪纸动画：vidkit 生成', '旁白 edge-tts · 锣鼓合成'], { at: 5.5, pos: { x: 930, y: 566 }, size: 16 }));
+});
+</script>
+</body>
+</html>
