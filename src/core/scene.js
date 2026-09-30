@@ -59,6 +59,8 @@ export class Scene {
   // ---- layers ----
   canvas(draw, o = {}) { return this.video.addLayer('canvas', draw, { ...o, scene: this }); }
   webgl(o = {}) { return this.video.addLayer('webgl', null, { ...o, scene: this }); }
+  // vk.gl effects layer (fx/gl): sc.gl([effects], {z, rect, scale, blend}) or sc.gl({…opts}, [effects])
+  gl(effects, o = {}) { if (effects && !Array.isArray(effects) && !effects.render) { const t = effects; effects = o; o = t; } return this.video.addLayer('gl', null, { ...o, scene: this, effects: [].concat(effects || []) }); }
   // ---- authoring ----
   add(...nodes) { this.video.buildNodes(this, nodes.flat(), this.content); return this; }
   // raw HTML string into the scene (fixed layer) or the content flow; returns the created root element

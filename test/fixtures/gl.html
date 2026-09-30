@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script src="../../dist/vidkit.js"></script>
+<script>
+// vk.gl determinism fixture (test/gl.test.mjs): every GL effect kind in two short scenes. ?bad=1 adds a deliberately
+// impure layer (its cache key only changes once a second, so its pixels depend on which frame was rendered before) — the negative control.
+const bad = new URLSearchParams(location.search).get('bad') === '1';
+const v = vk.video({ format: '16:9', fps: 30, theme: 'ink', transition: 'none', localFonts: false });
+vk.scene('a', 2, sc => {
+  sc.gl([vk.gl.paper()], { z: 'back' });
+  sc.gl([
+    vk.gl.inkBleed({ src: vk.gl.draw(g => { g.beginPath(); g.arc(300, 300, 60, 0, 7); g.fill(); }, { static: true }), at: .1, draw: .4, dur: 1.2, spread: 18, wipe: { dir: 'right', dur: .4 } }),
+    vk.gl.particles({ preset: 'splatter', seed: 3, burst: [{ t: .3, n: 40 }], x: 300, y: 300 }),
+    vk.gl.particles({ preset: 'petals', seed: 2, rate: 3, from: 0, to: 2, line: [100, 0, 1000, 0] }),
+    vk.gl.mist({ y: 500, height: 60, speed: 20 }),
+  ], { rect: [0, 0, 1280, 720], scale: .5 });
+  // wipe + fade in its own layer (so its cache key alone decides redraws): the fade window is in scene time
+  sc.gl([vk.gl.inkBleed({ src: vk.gl.text('墨', { x: 900, y: 200, size: 120 }), at: .2, draw: .3, dur: 1, spread: 10, wipe: { dir: 'down', dur: .5 }, fade: [1.7, 1.99] })], { rect: [860, 60, 200, 200], scale: .5 });
+  if (bad) sc.gl([vk.gl.shader({ frag: 'void main(){ gl_FragColor = vec4(fract(uTime * 3.), 0., 0., 1.); }', key: l => String(Math.floor(l)) })], { rect: [0, 0, 64, 64] });
+});
+vk.scene('b', 2, sc => {
+  const s = sc.html(`<svg style="position:absolute;left:0;top:0" width="1280" height="720" viewBox="0 0 1280 720"><g class="src"><circle class="c" cx="400" cy="300" r="80" fill="#c65a52"/><rect x="600" y="250" width="200" height="120" fill="#4a6a4f"/></g></svg>`);
+  const c = s.querySelector('.c');
+  sc.on(l => vk.attr(c, { cx: 400 + l * 100 }));
+  sc.gl([vk.gl.inkWash({ src: vk.gl.svg(s.querySelector('.src')), boil: 12 }), vk.gl.particles({ preset: 'spray', seed: 5, burst: [{ t: .5, n: 60 }], x: 700, y: 400 })], { scale: .5 });
+});
+</script></body></html>

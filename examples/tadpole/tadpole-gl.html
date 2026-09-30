@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>小蝌蚪找妈妈 · 片头（vk.gl 水墨版）</title>
+<style>
+  /* the brush title is re-drawn by the GL ink-bleed layer; the DOM glyphs keep the layout (sub-title + seal) */
+  .vk-vt-main { color: transparent !important; }
+</style>
+</head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="lib/pond.js"></script>
+<script src="lib/rigs.js"></script>
+<script src="lib/school.js"></script>
+<script>
+// 小蝌蚪找妈妈 · 片头 — the title scene of tadpole.html (unchanged original: tadpole.html) with the Phase-3 WebGL layer:
+//   · the brush title is written top → bottom by vk.gl.inkBleed (wet edge spreading into the paper, tide-line rim)
+//   · the three drops that make the rings: a falling drop + a water-spray burst (vk.gl.particles, deterministic)
+//   · the lotus / reeds / willow / tadpoles (the live SVG layer) go through the vk.gl.inkWash post filter
+//   · a shader rice-paper fibre overlay over the whole frame
+const v = vk.video({
+  format: '16:9', fps: 30, theme: 'ink', title: '小蝌蚪找妈妈 · 片头（vk.gl）',
+  texture: { rice: { amount: .5 } },
+  music: 'tadpole.music.m4a', musicGain: 1, mix: { lufs: -14, fadeOut: 1.2 },
+});
+TP.defs(v);
+
+vk.scene('片头', 6.5, { transition: 'none' }, (sc) => {
+  const P = TP.pond(sc, { view: 'surface', horizon: 250, seed: 2, sun: { x: 800, y: 118, r: 34 }, worldW: 1000, cam: [[0, 0], [6.5, 30]],
+    lotus: [{ x: 560, y: 330, r: 64, tilt: .26 }, { x: 760, y: 392, r: 86, tilt: .28, flower: true, fh: 110, fs: 1.25 }, { x: 900, y: 300, r: 48, tilt: .25 }, { x: 420, y: 452, r: 70, tilt: .3, front: true }],
+    reeds: [{ x: 940, h: 330, lean: -.6 }, { x: 958, h: 260, lean: -.9, w: 5 }, { x: 975, h: 380, lean: -.4 }] });
+  TP.willow(sc, P, { x: 980, n: 7 });
+  TP.school(sc, P, { n: 6, scale: .9, spread: 12, path: [[0, 1040, 450], [3, 820, 470], [5, 680, 440], [7, 600, 470]], face: () => -1 });
+  const RINGS = [{ t: .8, x: 640, y: 360 }, { t: 2.6, x: 860, y: 430 }, { t: 4.4, x: 700, y: 480 }];
+  TP.rings(sc, P, RINGS, {});
+  sc.sfx(.3, 'gong', .8, 98); sc.sfx(.8, 'drop', .5, 760); sc.sfx(2.6, 'drop', .4, 640); sc.sfx(4.4, 'drop', .35, 820);
+  sc.add(vk.vtitle('小蝌蚪找妈妈', { sub: '一则童话　水墨动画短片', seal: '水墨', size: 100, at: .5, sealAt: 1.9, out: 5.7, outD: .7 }));
+
+  // (1) ink-wash post filter on the live SVG layer (lotus, reeds, willow, tadpoles, rings); the DOM copy is hidden.
+  //     The canvas goes inside the pond root, right above the live layer, so the title stays on top.
+  //     The tadpoles (P.chars) keep their crisp DOM look (eyes!): excluded from the wash and left visible in the hidden SVG.
+  P.chars.style.visibility = 'visible';
+  const wash = sc.gl([vk.gl.inkWash({ src: vk.gl.svg(P.live, { exclude: P.chars }), boil: 12, wobble: .9, dark: .5, edge: .7, bleed: .8, grain: .5, mottle: .5, tide: .45 })], { scale: .75 });
+  P.root.appendChild(wash.el);
+
+  // (2) drops + spray at the ring times (screen coords = (world x − camera) · k)
+  const k = P.k, S = r => [(r.x - P.camAt(r.t)) * k, r.y * k];
+  const fx = [];
+  RINGS.forEach((r, i) => {
+    const [x, y] = S(r), h = 300, g = 2 * h / (.42 * .42);
+    fx.push(vk.gl.particles({ system: vk.particles({ seed: 20 + i, burst: [{ t: r.t - .42, n: 1 }], x, y: y - h, angle: 90, spread: 0, speed: 0, gravity: g,
+      life: .42, size: 5, fadeIn: .05, fadeOut: .01, shape: 'drop' }), color: '#f6f8f2' }));
+    fx.push(vk.gl.particles({ preset: 'spray', seed: 30 + i, burst: [{ t: r.t, n: 46 - i * 8 }], x, y, box: [14, 3], speed: [120, 420], spread: 70, gravity: 1300,
+      life: [.35, .8], size: [2, 5], floor: y + 6, splatLife: .06, splatFade: 1, color: '#f7f8f1' }));
+  });
+  sc.gl(fx, { rect: [560, 60, 700, 620] });
+
+  // (3) the title, written with a wet brush: measure the (transparent) DOM glyph column after fonts load
+  const mainEl = () => sc.el.querySelector('.vk-vt-main');
+  const titleMask = vk.gl.draw((g) => {
+    const m = mainEl(); if (!m) return;
+    let x = 0, y = 0; for (let e = m; e && e !== sc.el; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; }
+    const cs = getComputedStyle(m), size = parseFloat(cs.fontSize);
+    g.font = `${size}px ${cs.fontFamily}`; g.fillStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'top';
+    [...m.textContent].forEach((ch, i) => g.fillText(ch, x + m.offsetWidth / 2, y + i * size * 1.04));
+  }, { static: true });
+  sc.gl([vk.gl.inkBleed({ src: titleMask, at: .5, draw: .9, dur: 3.2, spread: 7, haloEnd: .24, density: .96, halo: .3, rim: .22, wipe: { dir: 'down', dur: 1.8 }, fade: [5.7, 6.4], seed: 7 })],
+    { rect: [0, 0, 460, 720] });
+
+  // (4) paper fibres over everything (multiply, subtle — the DOM rice texture stays underneath)
+  sc.gl([vk.gl.paper({ seed: 4, amount: .7, vignette: .25, mode: 'overlay' })], { blend: 'multiply', opacity: .55 });
+});
+
+</script>
+</body>
+</html>

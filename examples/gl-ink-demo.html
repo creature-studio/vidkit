@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>vk.gl 水墨 WebGL 演示</title>
+<style>
+#stage .gl-cap{position:absolute;left:84px;bottom:64px;font:500 19px/1.5 var(--vk-serif);letter-spacing:.14em;color:#4c565b;white-space:nowrap;z-index:20;text-shadow:0 0 3px #ebe9dd,0 0 8px #ebe9dd,0 0 14px #ebe9dd}
+#stage .gl-cap b{color:#b5342a;font-weight:500;margin-right:.6em}
+#stage svg.gl-svg{position:absolute;left:0;top:0;width:1280px;height:720px;overflow:visible}
+</style>
+</head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script>
+// vk.gl demo (Phase 3 WebGL effects): shader rice paper, ink drop + splatter + bleeding blot, a vertical title written
+// and bleeding into the paper, a mountain wash forming, drifting mist, a boat with hand-drawn line boil on twos,
+// a lotus pond run through the ink-wash post filter with falling petals and water spray, and a paper-cut (剪纸) teaser.
+// Every frame is render(t): all GL state is derived from scene time (seek in any order → identical frame).
+const v = vk.video({ format: '16:9', fps: 30, theme: 'ink', title: 'vk.gl 水墨演示', transition: { type: 'ink', d: 1.0 } });
+const { noise1: N, hash: H, clamp, kf } = vk;
+const INKC = '#1f2529';
+const cap = (sc, a, b) => sc.html(`<div class="gl-cap"><b>${a}</b>${b}</div>`);
+// irregular blot outline (polar value noise), scene px
+function blob(cx, cy, r, seed, n = 72, amp = .22) {
+  let d = '';
+  for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, k = 1 + amp * (N(i / n * 7 + seed) - .5) * 2 + amp * .5 * (N(i / n * 19 + seed * 3) - .5) * 2; d += (i ? 'L' : 'M') + (cx + Math.cos(a) * r * k).toFixed(1) + ',' + (cy + Math.sin(a) * r * k * .92).toFixed(1); }
+  return d + 'Z';
+}
+// mountain ridge: top line points (tapering into the ground at both ends), scene px
+function ridgePts(x0, x1, top, amp, seed, freq = .006, base = 700) {
+  const P = [];
+  for (let x = x0; x <= x1; x += 6) { const u = (x - x0) / (x1 - x0), taper = Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, u))), .6);
+    const y = top - amp * (.6 * N(x * freq + seed) + .3 * N(x * freq * 2.7 + seed * 3) + .1 * N(x * freq * 7 + seed * 5));
+    P.push([x, base + (y - base) * taper]); }
+  return P;
+}
+const toD = (P, base) => `M${P[0][0]},${base} ` + P.map(p => `L${p[0]},${p[1].toFixed(1)}`).join(' ') + ` L${P[P.length - 1][0]},${base} Z`;
+const lineD = P => 'M' + P.map(p => `${p[0]},${p[1].toFixed(1)}`).join(' L');
+// a mountain mask: gradient wash under the ridge (fading into mist), a darker brush line on the ridge and a few
+// texture strokes (皴) hanging from it — drawn once into the GL mask canvas
+function mountain(P, o) {
+  return vk.gl.draw(g => {
+    const top = Math.min(...P.map(p => p[1]));
+    const gr = g.createLinearGradient(0, top, 0, top + o.depth); gr.addColorStop(0, `rgba(0,0,0,${o.a})`); gr.addColorStop(.35, `rgba(0,0,0,${o.a * .55})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fill(new Path2D(toD(P, top + o.depth + 40)));
+    if (o.line) { g.strokeStyle = `rgba(0,0,0,${o.line})`; g.lineJoin = g.lineCap = 'round'; for (let i = 1; i < P.length; i++) { const w = o.lw * (.45 + .9 * N(i * .09 + o.seed)); if (N(i * .05 + o.seed * 2) < .3 || P[i][1] > top + o.depth * .5) continue; g.lineWidth = w; g.beginPath(); g.moveTo(P[i - 1][0], P[i - 1][1] + 1); g.lineTo(P[i][0], P[i][1] + 1); g.stroke(); } }
+    if (o.cun) for (let i = 4; i < P.length - 4; i += 5) { if (H(i * 1.7 + o.seed) > o.cun) continue; const [x, y] = P[i], len = 18 + 50 * H(i + o.seed * 3), sl = (H(i * 2.3) - .5) * 30;
+      g.strokeStyle = `rgba(0,0,0,${(.25 + .35 * H(i * 5.1)) * o.a})`; g.lineWidth = 2 + 4 * H(i * .7); g.beginPath(); g.moveTo(x, y + 4); g.quadraticCurveTo(x + sl * .3, y + len * .5, x + sl, y + len); g.stroke(); }
+  }, { static: true });
+}
+const fade = (g, y0, y1, a0 = 1, a1 = 0) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, `rgba(0,0,0,${a0})`); gr.addColorStop(.45, `rgba(0,0,0,${(a0 * .7 + a1 * .3)})`); gr.addColorStop(1, `rgba(0,0,0,${a1})`); return gr; };
+
+/* ============================================================ 1 · 墨韵: a drop, a blot, a written title */
+vk.scene('墨韵', 6.5, { transition: 'none' }, sc => {
+  sc.gl([vk.gl.paper()], { z: 'back' });
+  const X = 470, Y = 380, land = .3 + .52;                       // drop released at .3 s, hits the paper at `land`
+  sc.gl([
+    vk.gl.inkBleed({ src: vk.gl.path([blob(X, Y, 92, 3.1), blob(X + 118, Y + 46, 26, 7.7), blob(X - 104, Y - 60, 15, 2.2)]), at: land, draw: .35, dur: 3.2, spread: 26, density: .93, halo: .34, seed: 2 }),
+    vk.gl.particles({ preset: 'splatter', seed: 11, burst: [{ t: land, n: 70 }], x: X, y: Y, radius: 60, speed: [200, 1300] }),
+    // the falling drop (side-on it would be a streak; from above it just grows as it approaches)
+    vk.gl.particles({ system: vk.particles({ seed: 5, burst: [{ t: .3, n: 1 }], x: X, y: Y, speed: 0, life: land - .3, size: (i, r) => 4, grow: 3.2, fadeIn: .15, fadeOut: .01, shape: 'drop' }), color: INKC }),
+  ], { rect: [150, 60, 640, 640] });
+  sc.sfx(land, 'drop', .8, 520);
+  // vertical title written top → bottom, each stroke condensing then bleeding a little
+  sc.gl([vk.gl.inkBleed({ src: vk.gl.text('水墨丹青', { x: 1010, y: 104, size: 118, vertical: true }), at: 1.5, draw: .9, dur: 3, spread: 8, haloEnd: .22, wipe: { dir: 'down', dur: 1.7 }, seed: 5 })], { rect: [920, 80, 180, 540] });
+  sc.add(vk.seal('墨', { at: 3.9, size: 26, pos: { x: 1116, y: 560 } }));
+  sc.sfx(3.9, 'woodfish', .5);
+  cap(sc, '墨晕', '一滴墨落在宣纸上 · ink bleed on rice paper');
+  sc.fx('.gl-cap', 'fade', { t: 2.4, d: .8 });
+});
+
+/* ============================================================ 2 · 山水: mountain wash forming, mist, boat with line boil */
+vk.scene('山水', 6.5, {}, sc => {
+  sc.gl([vk.gl.paper({ seed: 1 })], { z: 'back' });
+  const far = ridgePts(-60, 1340, 330, 150, 1.3, .0045), mid = ridgePts(-40, 1100, 420, 150, 4.2, .006), near = ridgePts(-80, 700, 510, 190, 8.8, .008), near2 = ridgePts(840, 1360, 560, 150, 12.1, .009);
+  sc.gl([
+    vk.gl.inkBleed({ src: mountain(far, { a: .7, depth: 260, seed: 1 }), at: .15, draw: 1.4, dur: 3, spread: 20, soft: 1, color: '#66716f', density: .4, halo: .2, rim: .1, wipe: { dir: 'right', dur: 2.2 }, seed: 1 }),
+    vk.gl.mist({ y: 470, height: 55, speed: 10, density: .9, seed: 1 }),
+    vk.gl.inkBleed({ src: mountain(mid, { a: .8, depth: 220, line: .5, lw: 4, cun: .45, seed: 2 }), at: 1.0, draw: 1.2, dur: 2.8, spread: 14, soft: 1, color: '#434e4f', density: .58, halo: .24, rim: .14, wipe: { dir: 'right', dur: 1.8 }, seed: 2 }),
+    vk.gl.mist({ y: 560, height: 50, speed: -7, density: .95, scale: 80, seed: 2 }),
+    vk.gl.inkBleed({ src: mountain([...near], { a: .95, depth: 200, line: .9, lw: 6, cun: .6, seed: 3 }), at: 2.0, draw: 1, dur: 2.5, spread: 10, soft: .8, color: INKC, density: .82, halo: .3, rim: .2, wipe: { dir: 'down', dur: .9 }, seed: 3 }),
+    vk.gl.inkBleed({ src: mountain([...near2], { a: .9, depth: 160, line: .85, lw: 5, cun: .6, seed: 4 }), at: 2.5, draw: 1, dur: 2.5, spread: 10, soft: .8, color: '#2c3437', density: .78, halo: .3, rim: .2, wipe: { dir: 'down', dur: .9 }, seed: 4 }),
+    vk.gl.mist({ y: 690, height: 45, speed: 14, density: 1, scale: 70, seed: 3 }),
+  ], { rect: [0, 150, 1280, 570], scale: .75 });
+  // boat + fisherman: brush strokes whose outline is re-drawn 12×/s (jitterPath, "on twos"), water lines boil via an SVG filter
+  const s = sc.html(`<svg class="gl-svg" viewBox="0 0 1280 720"><g class="water" fill="none" stroke="${INKC}" stroke-linecap="round" opacity=".55">
+      <path d="M560,650 q60,-6 120,0 t120,0" stroke-width="2.4"/><path d="M620,668 q50,-5 100,0 t100,0" stroke-width="1.8"/><path d="M880,655 q40,-4 80,0" stroke-width="1.6"/></g>
+    <g class="boat"><path class="hull" fill="${INKC}"/><path class="man" fill="none" stroke="${INKC}" stroke-width="3" stroke-linecap="round"/><path class="hat" fill="${INKC}"/><path class="rod" fill="none" stroke="${INKC}" stroke-width="1.6" stroke-linecap="round"/></g></svg>`);
+  vk.gl.boil(sc, s.querySelector('.water'), { fps: 12, amp: 1.6, freq: .04 });
+  const hull = s.querySelector('.hull'), man = s.querySelector('.man'), hat = s.querySelector('.hat'), rod = s.querySelector('.rod'), boat = s.querySelector('.boat');
+  const HULL = 'M-70,0 Q-40,14 0,15 Q40,14 78,-6 Q40,4 0,5 Q-40,4 -70,0 Z', MAN = 'M4,-2 L2,-30 M2,-24 L18,-14 M2,-30 L10,-22', HAT = 'M-10,-30 L4,-42 L18,-30 Q4,-33 -10,-30 Z', ROD = 'M18,-14 Q70,-60 120,-40';
+  sc.on(l => {
+    const x = 690 + l * 12, y = 648 + Math.sin(l * 1.6) * 2.5;
+    vk.attr(boat, { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(Math.sin(l * 1.6 + .5) * 1.5).toFixed(2)}) scale(1.5)`, opacity: clamp((l - 2.8) / .8).toFixed(2) });
+    hull.setAttribute('d', vk.gl.jitter(HULL, l, { fps: 12, amp: 1.2, seed: 1 }));
+    man.setAttribute('d', vk.gl.jitter(MAN, l, { fps: 12, amp: .9, seed: 2 }));
+    hat.setAttribute('d', vk.gl.jitter(HAT, l, { fps: 12, amp: .8, seed: 3 }));
+    rod.setAttribute('d', vk.gl.jitter(ROD, l, { fps: 12, amp: 1.2, seed: 4 }));
+  });
+  sc.add(vk.chapter('山水', { no: '二', at: .6 }));
+  cap(sc, '积墨', '远山淡墨、近山浓墨 · 线条抖动 12 fps（一拍二）');
+  sc.fx('.gl-cap', 'fade', { t: 1.2, d: .8 });
+});
+
+/* ============================================================ 3 · 荷塘: SVG shapes through the ink-wash post filter */
+vk.scene('荷塘', 6.5, { transition: { type: 'ink', d: 1.0, x: .3, y: .6 } }, sc => {
+  sc.gl([vk.gl.paper({ seed: 2 })], { z: 'back' });
+  const petal = (a, len, w) => { const r = a * Math.PI / 180, c = Math.cos(r), s2 = Math.sin(r); const tip = [s2 * len, -c * len], l = [s2 * len * .5 - c * w, -(c * len * .5 + s2 * w)], rr = [s2 * len * .5 + c * w, -(c * len * .5 - s2 * w)]; return `<path d="M0,0 Q${l[0].toFixed(1)},${l[1].toFixed(1)} ${tip[0].toFixed(1)},${tip[1].toFixed(1)} Q${rr[0].toFixed(1)},${rr[1].toFixed(1)} 0,0Z" fill="url(#gl-petal)" stroke="${INKC}" stroke-width="1.6" stroke-opacity=".7"/>`; };
+  const flower = (x, y, s3, cls) => `<g class="${cls}" transform="translate(${x} ${y}) scale(${s3})">${[-62, 62, -34, 34, 0].map((a, i) => petal(a, [70, 70, 84, 84, 92][i], [28, 28, 30, 30, 30][i])).join('')}<ellipse cx="0" cy="-8" rx="14" ry="7" fill="#c9a24c"/></g>`;
+  const leaf = (x, y, rx, ry, rot) => `<g transform="translate(${x} ${y}) rotate(${rot})"><ellipse rx="${rx}" ry="${ry}" fill="url(#gl-leaf)"/><path d="M0,0 L${-rx * .9},0 M0,0 L${rx * .6},${-ry * .8} M0,0 L${rx * .6},${ry * .8} M0,0 L${-rx * .5},${-ry * .85} M0,0 L${-rx * .5},${ry * .85}" stroke="#2b3b33" stroke-width="2.2" stroke-linecap="round" opacity=".6"/></g>`;
+  const s = sc.html(`<svg class="gl-svg pond" viewBox="0 0 1280 720"><defs>
+      <linearGradient id="gl-petal" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#f3e3da"/><stop offset=".6" stop-color="#e8a9a0"/><stop offset="1" stop-color="#c65a52"/></linearGradient>
+      <radialGradient id="gl-leaf" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#6f8f6a"/><stop offset=".7" stop-color="#4a6a4f"/><stop offset="1" stop-color="#34503f"/></radialGradient></defs>
+    <g class="src">
+      <g fill="none" stroke="${INKC}" stroke-linecap="round"><path d="M700,520 C690,420 720,330 705,250" stroke-width="7"/><path d="M430,560 C440,470 410,420 420,380" stroke-width="5"/><path d="M930,560 C925,480 950,440 945,400" stroke-width="5"/></g>
+      ${leaf(420, 560, 170, 46, -4)}${leaf(960, 575, 150, 40, 5)}${leaf(250, 610, 110, 30, 8)}${leaf(1110, 630, 120, 28, -6)}
+      <g class="stemF">${flower(0, 0, 1.25, 'fl')}</g>
+      ${flower(420, 380, .6, 'bud')}${flower(945, 400, .7, 'bud2')}
+      <g class="rip" fill="none" stroke="${INKC}" stroke-width="2"><ellipse class="r1" cx="820" cy="640" rx="10" ry="3"/><ellipse class="r2" cx="820" cy="640" rx="10" ry="3"/></g>
+    </g></svg>`);
+  const src = s.querySelector('.src'), fl = s.querySelector('.stemF'), r1 = s.querySelector('.r1'), r2 = s.querySelector('.r2');
+  sc.on(l => {
+    vk.attr(fl, { transform: `translate(705 250) rotate(${(Math.sin(l * 1.3) * 3).toFixed(2)})` });
+    [r1, r2].forEach((r, i) => { const a = l - 2.6 - i * .35, p = clamp(a / 1.8); vk.attr(r, { rx: 10 + p * 110, ry: 3 + p * 22, opacity: a < 0 ? 0 : (1 - p) * .8, 'stroke-width': 2.4 - p * 1.4 }); });
+  });
+  sc.gl([
+    vk.gl.inkWash({ src: vk.gl.svg(src), boil: 12, wobble: 1.4, dark: .6, bleed: .7, grain: .5 }),
+    vk.gl.particles({ preset: 'spray', seed: 9, burst: [{ t: 2.6, n: 110 }], x: 820, y: 636, box: [40, 6], color: '#f7f7ef' }),
+    vk.gl.particles({ preset: 'petals', seed: 4, rate: 1.6, from: -3, to: 7, line: [300, -30, 1150, -30], color: '#c65a52', color2: '#f3e3da' }),
+  ]);
+  sc.sfx(2.6, 'splash', .6, 1300);
+  sc.add(vk.chapter('荷塘', { no: '三', at: .6 }));
+  cap(sc, '水墨化', 'SVG 图形 → 湿墨边缘、晕染、纸纹 · 粒子：花瓣、水花');
+  sc.fx('.gl-cap', 'fade', { t: 1.2, d: .8 });
+});
+
+/* ============================================================ 4 · 剪纸 teaser: paper-cut filters */
+vk.scene('剪纸', 3.8, { transition: { type: 'ink', d: 1.0, x: .5, y: .5 } }, sc => {
+  sc.gl([vk.gl.paper({ seed: 3 })], { z: 'back' });
+  vk.gl.paperCut(v, { prefix: 'pc', seed: 4 });
+  // window flower (窗花): a disc with an evenodd cut-out pattern
+  const cx = 640, cy = 340, R = 200; let d = '';
+  const circ = (x, y, r) => `M${x + r},${y} A${r},${r} 0 1 0 ${x - r},${y} A${r},${r} 0 1 0 ${x + r},${y} Z`;
+  d += circ(cx, cy, R);
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, x = cx + Math.cos(a) * R * .72, y = cy + Math.sin(a) * R * .72; const a2 = a + Math.PI / 12, b = [cx + Math.cos(a2) * R * .9, cy + Math.sin(a2) * R * .9];
+    d += `M${(cx + Math.cos(a) * R * .45).toFixed(1)},${(cy + Math.sin(a) * R * .45).toFixed(1)} Q${(x + Math.cos(a + 1.3) * 34).toFixed(1)},${(y + Math.sin(a + 1.3) * 34).toFixed(1)} ${(cx + Math.cos(a) * R * .88).toFixed(1)},${(cy + Math.sin(a) * R * .88).toFixed(1)} Q${(x + Math.cos(a - 1.3) * 34).toFixed(1)},${(y + Math.sin(a - 1.3) * 34).toFixed(1)} ${(cx + Math.cos(a) * R * .45).toFixed(1)},${(cy + Math.sin(a) * R * .45).toFixed(1)} Z`;
+    d += circ(b[0], b[1], 9); }
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + .26; d += `M${cx},${cy} Q${(cx + Math.cos(a - .5) * 70).toFixed(1)},${(cy + Math.sin(a - .5) * 70).toFixed(1)} ${(cx + Math.cos(a) * 80).toFixed(1)},${(cy + Math.sin(a) * 80).toFixed(1)} Q${(cx + Math.cos(a + .5) * 70).toFixed(1)},${(cy + Math.sin(a + .5) * 70).toFixed(1)} ${cx},${cy} Z`; }
+  d += circ(cx, cy, 14);
+  sc.html(`<svg class="gl-svg" viewBox="0 0 1280 720"><g filter="url(#pc)"><path class="cut" d="${d}" fill="#b5342a" fill-rule="evenodd"/></g></svg>`);
+  sc.fx('.cut', 'stamp', { t: .9, d: .7 });
+  cap(sc, '剪纸', '纸边、纸纹、投影（SVG 滤镜）· 下一站：上美厂剪纸风');
+  sc.fx('.gl-cap', 'fade', { t: 1.2, d: .8 });
+});
+</script>
+</body>
+</html>

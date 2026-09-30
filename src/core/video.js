@@ -195,6 +195,7 @@ export class Video {
   tween(target, o) { this.tl.tween(typeof target === 'string' ? [...this.stage.querySelectorAll(target)] : [].concat(target), o, null); return this; }
   onRender(fn) { this.globalFns.push(fn); return this; }
   canvas(draw, o = {}) { return this.addLayer('canvas', draw, { z: 'front', zIndex: 30, ...o }); }
+  gl(effects, o = {}) { if (effects && !Array.isArray(effects) && !effects.render) { const t = effects; effects = o; o = t; } return this.addLayer('gl', null, { z: 'front', zIndex: 30, ...o, effects: [].concat(effects || []) }); }
   sfx(t, name, gain = 1, freq) { t = typeof t === 'string' ? parseTime(t, this.beats) + this.beats.leadT : t; this.events.push([+t.toFixed(3), name, gain, freq]); return this; }
   // ---- voice-over ----
   voiceEntry(text) { const M = this.voManifest; return M && M.items ? M.items[text] || null : null; }

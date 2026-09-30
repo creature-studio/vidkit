@@ -73,6 +73,11 @@ function stateSnapshot() {
   walk(root, e => {
     i++; const a = {}; for (const x of e.attributes) a[x.name] = x.value;
     if (e.childNodes.length === 1 && e.firstChild.nodeType === 3) a['#text'] = e.firstChild.data;
+    // vk.gl layers: their pixels are state too (a GL layer that kept pixels from the previous frame would pass the
+    // attribute comparison) → FNV-1a hash of the canvas contents
+    if (e.tagName === 'CANVAS' && e.classList.contains('vk-gl')) {
+      try { const d = new Uint32Array(e.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, e.width, e.height).data.buffer); let h = 2166136261; for (let k = 0; k < d.length; k++) h = Math.imul(h ^ d[k], 16777619) >>> 0; a['#pixels'] = h.toString(16); } catch (err) { a['#pixels'] = 'err'; }
+    }
     out.push([i, name(e), a]);
   });
   return out;

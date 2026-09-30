@@ -28,6 +28,7 @@ import { MusicInfo } from './audio/music.js';
 import { alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt } from './audio/words.js';
 import * as synth from './audio/synth.js';
 import { bakeStats, collectRefs, filterRegion } from './runtime/bake.js';
+import { gl, particleSystem } from './fx/gl/index.js';
 
 export const version = '0.2.0';
 let current = null;
@@ -76,6 +77,8 @@ export const vk = {
   inkDefs, brushPath, sampleLine, attr, INK, installInk: o => installInk(current, o),
   // skeletal rigs (fx/rig.js): vk.rig(def) → rig; helpers on vk.rig.*
   rig: Object.assign(def => createRig(def), { create: createRig, solve2BoneIK, blink: rigBlink, blend: blendPose, valueAt, mat, rootMatrix }),
+  // WebGL effects (fx/gl): vk.gl.layer / paper / inkBleed / inkWash / particles / shader / boil / paperCut …; vk.particles = pure particle system
+  gl: Object.assign({}, gl, { stats: () => current && gl.core(current).stats }), particles: Object.assign(o => particleSystem(o), { presets: gl.presets }),
   MusicInfo, alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt, synth,
   Video, Scene,
   _setEnv(e) { Object.assign(env, e); },
