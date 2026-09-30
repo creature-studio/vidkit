@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>哪吒闹海 · 水墨神话短片（vidkit · 骨骼版）</title>
+<style>
+/* 原创矢量美术：宣纸 + 青绿海色 + 朱砂红，适合直接 vk preview / vk render。 */
+#stage .nz-root{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;background:#e4e5d8;color:#1f2529}
+#stage .nz-root svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#stage .nz-root .paper{fill:#e4e5d8}
+#stage .nz-root .sun{fill:#cf6f45;opacity:.5}
+#stage .nz-root .mist{fill:#f3f1e5;opacity:.58}
+#stage .nz-root .mount{fill:#82958c;opacity:.22;filter:url(#nz-far)}
+#stage .nz-root .shore{fill:#7c735c;opacity:.28;filter:url(#nz-wash)}
+#stage .nz-root .city{opacity:.56;fill:#9a8d70;stroke:#4c565b;stroke-width:2;stroke-linejoin:round;filter:url(#nz-line)}
+#stage .nz-root .sea-fill{fill:#94b9b0;opacity:.72;filter:url(#nz-wash)}
+#stage .nz-root .sea-shadow{fill:#587875;opacity:.12}
+#stage .nz-root .wave{fill:none;stroke:#274049;stroke-width:4;stroke-linecap:round;opacity:.28;filter:url(#nz-line)}
+#stage .nz-root .front-wave{fill:none;stroke:#f6f4e8;stroke-width:16;stroke-linecap:round;opacity:.58;filter:url(#nz-wash)}
+#stage .nz-root .foam{fill:none;stroke:#f6f4e8;stroke-width:8;stroke-linecap:round;opacity:.7}
+#stage .nz-root .cloud{fill:#f6f4e8;opacity:.58;filter:url(#nz-wash)}
+#stage .nz-root .storm-cloud{fill:#445257;opacity:0;filter:url(#nz-wash)}
+#stage .nz-root .rain{stroke:#4d6659;stroke-width:3;stroke-linecap:round;opacity:0}
+#stage .nz-root.storm .paper{fill:#cfd4c8}
+#stage .nz-root.storm .sea-fill{fill:#668e91;opacity:.84}
+#stage .nz-root.storm .wave{stroke:#172c33;opacity:.42;stroke-width:5}
+#stage .nz-root.storm .storm-cloud{opacity:.78}
+#stage .nz-root.storm .rain{opacity:.42}
+#stage .nz-root.under .paper{fill:#bdd2cc}
+#stage .nz-root.under .sun,#stage .nz-root.under .mount,#stage .nz-root.under .city{opacity:0}
+#stage .nz-root.under .sea-fill{fill:#8fb8b6;opacity:.95}
+#stage .nz-root.under .wave{stroke:#315f66;opacity:.22}
+#stage .nz-root.under .front-wave{opacity:.25}
+#stage .nz-root.under .bubble{opacity:.72}
+#stage .bubble{fill:none;stroke:#f7f4e8;stroke-width:3;opacity:.36}
+#stage .palace{opacity:.0;filter:url(#nz-line)}
+#stage .palace .roof{fill:#b54536;opacity:.72}
+#stage .palace .wall{fill:#e6e0c8;opacity:.58;stroke:#38535a;stroke-width:3}
+#stage .palace .pearl{fill:#f8f1cf;opacity:.75}
+#stage .nz-actor{filter:url(#nz-wob)}
+#stage .nezha .skin{fill:#efc6a1;stroke:#1f2529;stroke-width:3}
+#stage .nezha .hair{fill:#1f2529}
+#stage .nezha .red{fill:#b5342a;stroke:#1f2529;stroke-width:3}
+#stage .nezha .gold{fill:#c9a24c;stroke:#1f2529;stroke-width:3}
+#stage .nezha .ink{fill:#1f2529}
+#stage .nezha .line{fill:none;stroke:#1f2529;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+#stage .nezha .spear{stroke:#1f2529;stroke-width:5;stroke-linecap:round}
+#stage .nezha .silk{fill:none;stroke:#b5342a;stroke-width:18;stroke-linecap:round;stroke-linejoin:round;opacity:.88;filter:url(#nz-wash)}
+#stage .nezha .wheel{fill:#d05a32;stroke:#c9a24c;stroke-width:5;opacity:.92}
+#stage .dragon .body{fill:none;stroke:#396c6a;stroke-width:34;stroke-linecap:round;stroke-linejoin:round;opacity:.9;filter:url(#nz-line)}
+#stage .dragon .belly{fill:none;stroke:#e0d7b8;stroke-width:13;stroke-linecap:round;stroke-linejoin:round;opacity:.8}
+#stage .dragon .scale{fill:#24484a;opacity:.62}
+#stage .dragon .head-fill{fill:#3f7772;stroke:#1f2529;stroke-width:4}
+#stage .dragon .horn{fill:none;stroke:#1f2529;stroke-width:7;stroke-linecap:round}
+#stage .dragon .whisker{fill:none;stroke:#1f2529;stroke-width:3;stroke-linecap:round;opacity:.72}
+#stage .dragon .eye{fill:#f7f0d5;stroke:#1f2529;stroke-width:2}
+#stage .dragon.king .body{stroke:#2d5f66;stroke-width:48;opacity:.86}
+#stage .dragon.king .belly{stroke:#d7c59f;stroke-width:18}
+#stage .dragon.king .head-fill{fill:#2f6972}
+#stage .dragon.king .crown{fill:#c9a24c;stroke:#1f2529;stroke-width:4}
+#stage .boat .hull{fill:#7b5a39;stroke:#1f2529;stroke-width:4;stroke-linejoin:round;filter:url(#nz-line)}
+#stage .boat .sail{fill:#efe9d2;stroke:#1f2529;stroke-width:3;opacity:.88}
+#stage .boat .person{fill:#263336;stroke:#1f2529;stroke-width:2}
+#stage .yaksha .body{fill:#496f70;stroke:#1f2529;stroke-width:4;filter:url(#nz-wob)}
+#stage .yaksha .eye{fill:#f5ead0;stroke:#1f2529;stroke-width:2}
+#stage .yaksha .trident{fill:none;stroke:#1f2529;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+#stage .ring{fill:none;stroke:#c9a24c;stroke-width:10;filter:url(#nz-wash);opacity:0}
+#stage .spark{fill:#c9a24c;opacity:.0;filter:url(#nz-wash)}
+#stage .nz-note{position:absolute;right:72px;top:70px;max-width:360px;text-align:left;font:500 24px/1.65 var(--vk-serif);letter-spacing:.08em;color:#334044;background:rgba(238,238,228,.72);border-left:6px solid #b5342a;padding:16px 20px;box-shadow:0 14px 38px -30px rgba(31,37,41,.4)}
+#stage .nz-root.under .nz-note{background:rgba(238,238,228,.45)}
+#stage .vk-content{z-index:10}
+</style>
+</head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="lib/nezha-rig.js"></script>
+<script>
+// 《哪吒闹海》— 基于中国神话/民间传说的家庭友好改编：强调护民、担当与止息风浪。
+const v = vk.video({
+  format: '16:9', fps: 30, theme: 'ink', title: '哪吒闹海', transition: 'ink:1.0',
+  texture: { rice: { amount: .54, seed: 12, vignette: .24 } },
+  bpm: 84, autoSfx: true,
+  scoreOptions: { pad: [98, 146.83, 220], padGain: .018, beatKick: 4 },
+});
+vk.installInk({ prefix: 'nz', boil: 6, scale: 1.1 });
+
+const { clamp, kf, kfSpline: ks, bump, plat } = vk;
+const sm = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+const R = n => Math.round(n * 10) / 10;
+function svg(parent, markup) { parent.insertAdjacentHTML('beforeend', markup.trim()); return parent.lastElementChild; }
+function tr(el, x, y, s = 1, r = 0, flip = 1) { el.setAttribute('transform', `translate(${R(x)} ${R(y)}) rotate(${R(r)}) scale(${R(s * flip)} ${R(s)})`); }
+function op(el, v) { el.style.opacity = String(clamp(v, 0, 1)); }
+function sinePath(y, amp, phase, step = 34) {
+  let d = `M -50 ${R(y)}`;
+  for (let x = -50; x <= 1330; x += step) {
+    const yy = y + Math.sin(x * .016 + phase) * amp + Math.sin(x * .037 + phase * .63) * amp * .28;
+    d += ` L ${R(x)} ${R(yy)}`;
+  }
+  return d;
+}
+function seaFillPath(y, amp, phase) { return sinePath(y, amp, phase, 30) + ' L 1330 760 L -50 760 Z'; }
+function dragonPath(t, amp = 36, len = 580) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const u = i / 9, x = -len / 2 + u * len;
+    const y = Math.sin(u * Math.PI * 2.25 + t) * amp * (0.65 + u * .45);
+    pts.push([x, y]);
+  }
+  return 'M ' + pts.map(p => `${R(p[0])} ${R(p[1])}`).join(' L ');
+}
+function makeWorld(sc, o = {}) {
+  const cls = ['nz-root', o.mood || '', o.under ? 'under' : ''].join(' ');
+  const seaY = o.seaY == null ? (o.under ? 92 : 314) : o.seaY;
+  const root = sc.html(`<div class="${cls}">
+    <svg viewBox="0 0 1280 720" aria-hidden="true">
+      <rect class="paper" x="0" y="0" width="1280" height="720"/>
+      <circle class="sun" cx="1010" cy="116" r="52"/>
+      <g class="clouds">
+        <path class="cloud c1" d="M80 145 C165 104 226 119 274 144 C342 101 422 120 460 158 C370 169 216 177 80 145Z"/>
+        <path class="cloud c2" d="M800 100 C874 72 957 80 1010 116 C1077 91 1150 111 1198 145 C1070 156 924 159 800 100Z"/>
+      </g>
+      <path class="mount" d="M-30 297 C100 220 164 254 220 214 C312 150 405 245 492 188 C610 111 704 226 790 176 C894 116 1000 243 1130 180 C1210 142 1290 208 1340 176 L1340 382 L-30 382Z"/>
+      <path class="shore" d="M-20 430 C120 395 240 417 366 393 C530 361 715 383 858 356 C1048 321 1195 353 1310 330 L1310 505 L-20 524Z"/>
+      <g class="city">
+        <path d="M56 356 L122 304 L190 356 Z"/><rect x="84" y="354" width="82" height="70"/>
+        <path d="M202 344 L270 290 L340 344 Z"/><rect x="226" y="342" width="92" height="82"/>
+        <path d="M344 368 L420 314 L498 368 Z"/><rect x="370" y="366" width="98" height="62"/>
+      </g>
+      <g class="palace">
+        <path class="roof" d="M406 494 C482 430 616 420 704 494 L382 494 C456 458 616 456 726 494"/>
+        <rect class="wall" x="438" y="494" width="236" height="118" rx="12"/>
+        <path class="roof" d="M498 424 C560 370 650 383 696 430 L472 430 C530 400 620 398 718 430"/>
+        <rect class="wall" x="526" y="430" width="140" height="70" rx="10"/>
+        <circle class="pearl" cx="606" cy="403" r="15"/>
+        <path class="wall" d="M460 612 L446 668 M520 612 L508 670 M590 612 L590 674 M660 612 L678 668"/>
+      </g>
+      <path class="sea-fill" d="M0 310 L1280 310 L1280 720 L0 720Z"/>
+      <path class="sea-shadow" d="M0 450 C220 420 420 470 650 432 C860 397 1030 472 1280 420 L1280 720 L0 720Z"/>
+      <g class="waves">
+        <path class="wave w0"/><path class="wave w1"/><path class="wave w2"/><path class="wave w3"/>
+        <path class="front-wave fw0"/><path class="front-wave fw1"/>
+      </g>
+      <g class="rain">
+        ${Array.from({ length: 34 }, (_, i) => `<path d="M${40 + i * 38} ${88 + (i % 5) * 28} l-22 48"/>`).join('')}
+      </g>
+      <g class="storm-clouds">
+        <path class="storm-cloud sc1" d="M520 96 C644 42 775 54 866 102 C948 68 1070 96 1142 162 C928 170 690 175 476 158 C490 134 504 112 520 96Z"/>
+        <path class="storm-cloud sc2" d="M-20 122 C96 58 210 72 292 132 C370 94 486 116 548 172 C368 184 162 186 -20 170Z"/>
+      </g>
+      <g class="bubbles">
+        ${Array.from({ length: 18 }, (_, i) => `<circle class="bubble b${i}" cx="${80 + (i * 67) % 1140}" cy="${170 + (i * 83) % 500}" r="${6 + (i % 4) * 4}"/>`).join('')}
+      </g>
+      <g class="actors"></g>
+      <g class="front"><path class="foam f0"/><path class="foam f1"/></g>
+      <g class="sparks"></g>
+    </svg>
+    ${o.note ? `<div class="nz-note">${o.note}</div>` : ''}
+  </div>`);
+  if (sc.cam) sc.cam.insertBefore(root, sc.content);
+  sc.content.style.zIndex = 10;
+  const $ = s => root.querySelector(s), $$ = s => [...root.querySelectorAll(s)];
+  const sea = $('.sea-fill'), waves = $$('.wave'), fronts = $$('.front-wave'), foam = $$('.foam'), clouds = $$('.cloud'), palace = $('.palace'), note = root.querySelector('.nz-note');
+  op(palace, o.palace ? 1 : 0);
+  sc.on(l => {
+    const storm = o.storm ? o.storm(l) : (o.mood === 'storm' ? .9 : 0);
+    sea.setAttribute('d', seaFillPath(seaY + storm * 18, (o.amp || 18) + storm * 15, l * (.52 + storm * .32) + (o.phase || 0)));
+    waves.forEach((w, i) => w.setAttribute('d', sinePath(seaY + 40 + i * 64, (8 + i * 2) * (1 + storm * 1.35), l * (.9 + i * .17) + i * 1.8, 32)));
+    fronts.forEach((w, i) => w.setAttribute('d', sinePath(seaY + 76 + i * 110, 7 + storm * 9, l * (1.4 + i * .25) + i, 42)));
+    foam.forEach((w, i) => w.setAttribute('d', sinePath(seaY + 92 + i * 126, 5 + storm * 7, l * (1.6 + i * .22), 52)));
+    clouds.forEach((c, i) => c.setAttribute('transform', `translate(${R(Math.sin(l * .12 + i) * 12 + l * (i ? -2 : 1.2))} ${R(Math.sin(l * .17 + i) * 5)})`));
+    if (palace) op(palace, (o.palace ? .78 : 0) * (o.under ? 1 : .55));
+    if (note) note.style.transform = `translateY(${R(Math.sin(l * .8) * 3)}px)`;
+    $$('.bubble').forEach((b, i) => {
+      const yy = 720 - ((l * (22 + i % 5 * 8) + i * 67) % 660);
+      b.setAttribute('cy', R(yy)); b.setAttribute('cx', R(80 + (i * 67) % 1140 + Math.sin(l + i) * 9));
+    });
+  });
+  return { root, svg: root.querySelector('svg'), actors: $('.actors'), sparks: $('.sparks'), $ };
+}
+function makeDragon(parent, opts = {}) {
+  return svg(parent, `<g class="nz-actor dragon ${opts.king ? 'king' : ''}">
+    <path class="body"/><path class="belly"/>
+    <g class="head">
+      <path class="head-fill" d="M-10 -44 C42 -76 112 -52 128 3 C142 52 83 83 32 64 C-14 47 -42 -10 -10 -44Z"/>
+      <path class="horn" d="M38 -52 C28 -88 46 -112 70 -128 M78 -48 C92 -86 120 -100 146 -108"/>
+      ${opts.king ? '<path class="crown" d="M34 -75 L52 -116 L72 -78 L96 -118 L108 -72 Z"/>' : ''}
+      <circle class="eye" cx="72" cy="-17" r="10"/><circle class="eye" cx="105" cy="0" r="8"/>
+      <circle class="scale" cx="75" cy="-17" r="3"/><circle class="scale" cx="108" cy="0" r="3"/>
+      <path class="whisker" d="M106 28 C156 30 178 56 208 74 M83 42 C126 70 132 96 156 128"/>
+      <path class="whisker" d="M18 24 C-34 34 -60 58 -84 84"/>
+    </g>
+  </g>`);
+}
+function updateDragon(g, t, amp = 34, len = 590) {
+  const d = dragonPath(t, amp, len);
+  g.querySelector('.body').setAttribute('d', d);
+  g.querySelector('.belly').setAttribute('d', d);
+  const hx = len / 2, hy = Math.sin(Math.PI * 2.25 + t) * amp * 1.1;
+  const py = Math.sin((8 / 9) * Math.PI * 2.25 + t) * amp * (0.65 + 8 / 9 * .45);
+  const ang = Math.atan2(hy - py, len / 9) * 180 / Math.PI;
+  g.querySelector('.head').setAttribute('transform', `translate(${R(hx)} ${R(hy)}) rotate(${R(ang)})`);
+}
+function makeBoat(parent) {
+  return svg(parent, `<g class="nz-actor boat">
+    <path class="hull" d="M-112 0 C-76 48 76 52 116 0 C54 16 -46 16 -112 0Z"/>
+    <path class="sail" d="M-8 -122 L-8 -12 L76 -20 C52 -72 26 -102 -8 -122Z"/>
+    <path class="sail" d="M-16 -102 L-16 -12 L-72 -18 C-56 -58 -38 -84 -16 -102Z"/>
+    <line x1="-10" y1="-128" x2="-10" y2="6" stroke="#1f2529" stroke-width="5"/>
+    <circle class="person" cx="-50" cy="-14" r="12"/><circle class="person" cx="32" cy="-13" r="12"/>
+  </g>`);
+}
+function makeYaksha(parent) {
+  return svg(parent, `<g class="nz-actor yaksha">
+    <path class="body" d="M-46 -12 C-58 -66 -12 -103 35 -78 C80 -54 70 10 30 35 C-9 59 -38 28 -46 -12Z"/>
+    <path class="body" d="M-28 -66 L-58 -116 L-4 -84 L18 -132 L38 -78 L86 -96 L56 -50"/>
+    <circle class="eye" cx="2" cy="-35" r="9"/><circle class="eye" cx="36" cy="-28" r="8"/>
+    <path class="trident" d="M76 -110 L24 58 M62 -100 L91 -124 M66 -86 L102 -92"/>
+  </g>`);
+}
+function makeRing(parent) { return svg(parent, '<g class="ring"><circle cx="0" cy="0" r="34"/><circle cx="0" cy="0" r="19" stroke-width="5" opacity=".72"/></g>'); }
+function spark(parent, x, y, r = 58) { return svg(parent, `<path class="spark" d="M${x} ${y-r} L${x+12} ${y-12} L${x+r} ${y} L${x+12} ${y+12} L${x} ${y+r} L${x-12} ${y+12} L${x-r} ${y} L${x-12} ${y-12}Z"/>`); }
+
+/* ---------------- rigged 哪吒 + dragon geometry (pure) ---------------- */
+const M = vk.rig.mat, NZS = .55;                       // rig scale: ≈ 250 px tall, like the old figure at .9
+const RT = (x, y, rot = 0, flip = 1, s = NZS) => ({ x, y, rot, flip, scale: s });
+const lerp = vk.lerp;
+// dragon placement = the old tr()+updateDragon() as data, so the head point is computable (IK target, ring hits)
+function dragonHeadLocal(ph, amp, len) {
+  const hx = len / 2, hy = Math.sin(Math.PI * 2.25 + ph) * amp * 1.1;
+  const py = Math.sin((8 / 9) * Math.PI * 2.25 + ph) * amp * (0.65 + 8 / 9 * .45);
+  return { hx, hy, ang: Math.atan2(hy - py, len / 9) * 180 / Math.PI };
+}
+function placeDragon(g, d) { tr(g, d.x, d.y, d.s, d.r, d.flip || 1); updateDragon(g, d.ph, d.amp, d.len); }
+function dragonHead(d, px = 72, py = -8) {       // world point on the head (default: between the eyes)
+  const h = dragonHeadLocal(d.ph, d.amp, d.len);
+  const m = M.mul(vk.rig.rootMatrix({ x: d.x, y: d.y, rot: d.r, scale: d.s, flip: d.flip || 1 }), M.trs(h.hx, h.hy, h.ang));
+  return M.apply(m, px, py);
+}
+
+/* ============================================================ 0 · title */
+vk.scene('片头', 6.6, { transition: 'none', cap: '东海边，陈塘关外，潮声连着人间。' }, (sc) => {
+  const W = makeWorld(sc, { seaY: 332, amp: 12, note: '中国神话新编<br>护民 · 问海 · 担当' });
+  const nz = NZR.nezha(W.actors);
+  const dr = makeDragon(W.actors);
+  const act = nz.play([{ at: 0, clip: 'idle' }]);
+  sc.on(l => {
+    nz.render(l, act, RT(954 + Math.sin(l * .7) * 4, 372 + Math.sin(l * 1.1) * 3, Math.sin(l) * 2, -1));
+    tr(dr, 510, 470 + Math.sin(l * .5) * 8, .56, -4); updateDragon(dr, l * .9, 28, 650); op(dr, .26 + .06 * Math.sin(l));
+  });
+  sc.sfx(.2, 'gong', .9, 92); sc.sfx(1.8, 'pluck', .5, 392); sc.sfx(4.5, 'ripple', .45);
+  sc.add(vk.vtitle('哪吒闹海', { sub: '少年护民　水墨神话短片', seal: '闹海', size: 116, at: .55, sealAt: 2.1, out: 5.8, outD: .6 }));
+});
+
+/* ============================================================ 1 · seaside */
+vk.scene('海边惊涛', 8.2, {
+  transition: { type: 'ink', d: 1.0, x: .62, y: .46 },
+  cap: ['近来东海妖风作浪，渔船常常回不了港。', '哪吒听见哭声，提枪奔向海边。'],
+}, (sc) => {
+  const W = makeWorld(sc, { mood: 'storm', seaY: 286, amp: 20, note: '第一折<br>海边惊涛' });
+  const boat = makeBoat(W.actors), yk = makeYaksha(W.actors), nz = NZR.nezha(W.actors);
+  const ykPos = l => { const yp = plat(l, .8, 1.7, 5.4, 6.2); return [704 + Math.sin(l * 2) * 18, 395 + Math.sin(l * 2.6) * 24 - yp * 40, yp]; };
+  // float in from the right; on arrival level the spear at the 夜叉 until it sinks away, then hover
+  const act = nz.play([{ at: 0, clip: 'float' }, { at: 4.5, clip: 'attack', blend: .5 }, { at: 6.3, clip: 'float', blend: .8 }],
+    { ik: { armR: l => { const p = ykPos(l); return [p[0] + 10, p[1] - 40]; } }, ikMix: { armR: l => plat(l, 4.5, 5.0, 5.7, 6.3) } });
+  sc.on(l => {
+    tr(boat, 420 + Math.sin(l * 1.5) * 12, 396 + Math.sin(l * 2.1) * 18, .92, Math.sin(l * 2.4) * 7);
+    const [yx, yy, yp] = ykPos(l);
+    tr(yk, yx, yy, .82, Math.sin(l * 2.2) * 8); op(yk, yp);
+    const p = sm((l - 2.3) / 2.2), fly = Math.sin(p * Math.PI);
+    nz.render(l, act, RT(1330 - 380 * p, 380 - 34 * fly + Math.sin(l * 6) * 2, -8 * fly, -1),
+      { opacity: sm((l - 1.9) / .7), energy: l < 4.5 ? .65 + .35 * fly : undefined });
+  });
+  sc.sfx(.6, 'riser', .45); sc.sfx(1.2, 'splash', .75, 1200); sc.sfx(3.0, 'woodfish', .5, 520); sc.sfx(5.4, 'splash', .85, 1500);
+  sc.add(vk.chapter('海边惊涛', { no: '一', at: .7, out: 7.3 }));
+}).shake(1.0, 9, 1.1).shake(5.6, 12, .8);
+
+/* ============================================================ 2 · dive */
+vk.scene('投圈入海', 8.0, {
+  transition: { type: 'wash', d: 1.0 },
+  cap: ['哪吒把乾坤圈一抛，海面炸开银白的浪花。', '混天绫随浪展开，他要到龙宫问个明白。'],
+}, (sc) => {
+  const W = makeWorld(sc, { under: true, seaY: 82, amp: 12, palace: true, note: '第二折<br>投圈入海' });
+  const nz = NZR.nezha(W.actors), ring = makeRing(W.actors), yk = makeYaksha(W.actors);
+  const burst = spark(W.sparks, 640, 300, 92);
+  const REL = 1.05, HIT = 2.35;                      // ring leaves the left hand · ring hits the water (splash sfx)
+  const act = nz.play([{ at: 0, clip: 'float' }, { at: .35, clip: 'throw', blend: .45 }, { at: 1.35, clip: 'dive', blend: .9 }]);
+  // left-arm wind-up → over-arm throw → follow-through (upper, lower), layered over the clip
+  const armKeys = [[.3, [150, -20]], [.8, [205, -60]], [REL, [275, -8]], [1.4, [320, 0]]];
+  const edit = l => (p => { const w = plat(l, .3, .6, 1.4, 2.0), k = kf(l, armKeys); p.upperArmL = lerp(p.upperArmL, k[0], w); p.lowerArmL = lerp(p.lowerArmL, k[1], w); });
+  const root = l => { const dive = sm((l - .6) / 3.2); return RT(290 + 455 * dive, 150 + 250 * dive + Math.sin(l * 5) * 5, 18 + 32 * dive, 1, NZS * (1 - .09 * dive)); };
+  const rel = nz.ringWorld(REL, act, root(REL), { edit: edit(REL) });   // pure: the hand position at release
+  sc.on(l => {
+    nz.render(l, act, root(l), { edit: edit(l), ring: l < REL ? 1 : sm((l - 5.6) / .6) });
+    const rp = sm((l - REL) / (HIT - REL)), after = sm((l - HIT) / 1.2);
+    const rx = lerp(rel[0], 640, rp) + 90 * after, ry = lerp(rel[1], 300, rp) - 55 * Math.sin(rp * Math.PI) + 72 * after;
+    tr(ring, rx, ry, .32 + 1.38 * rp, l * 260); op(ring, l < REL ? 0 : plat(l, REL - .01, REL, 3.0, 3.5));
+    tr(yk, 840 - 85 * sm((l - 2.0) / 3), 432 + Math.sin(l * 2.8) * 16, .72, -12); op(yk, plat(l, 1.6, 2.3, 5.4, 6.3));
+    op(burst, bump(l, 2.35, 3.1) * .9); burst.setAttribute('transform', `rotate(${R(l * 90)} 640 300) scale(${R(1 + bump(l, 2.35, 3.2) * .5)} 1)`);
+  });
+  sc.sfx(1.05, 'chime', .6, 880); sc.sfx(2.35, 'splash', 1, 1800); sc.sfx(3.0, 'bubbles', .7); sc.sfx(5.8, 'pluck', .5, 330);
+  sc.add(vk.chapter('投圈入海', { no: '二', at: .7, out: 7.1 }));
+}).shake(2.35, 10, .7);
+
+/* ============================================================ 3 · dragon prince */
+vk.scene('龙子现身', 8.8, {
+  transition: { type: 'ink', d: 1.0, x: .34, y: .56 },
+  cap: ['龙子敖丙卷浪而来，青鳞照得水底发寒。', '哪吒不退，只问：为何纵妖伤人？'],
+}, (sc) => {
+  const W = makeWorld(sc, { under: true, seaY: 104, amp: 14, palace: true, note: '第三折<br>龙子现身' });
+  const nz = NZR.nezha(W.actors), dr = makeDragon(W.actors), ring = makeRing(W.actors);
+  // 敖丙 swims in from the right head-first (mirrored), head stays in frame, facing 哪吒
+  const D = l => { const enter = sm((l - .6) / 2.0); return { x: 1400 - 350 * enter + Math.sin(l) * 12, y: 392 + Math.sin(l * 1.4) * 18, s: .78, r: 2, flip: -1, ph: l * 1.4, amp: 40, len: 650, enter }; };
+  const T0 = 4.0, T1 = 5.55;                           // ring thrown (chime) · ring strikes (woodfish + shake)
+  const act = nz.play([{ at: 0, clip: 'idle' }, { at: 2.4, clip: 'attack', blend: .6 }],
+    { ik: { armR: l => dragonHead(D(l)) }, ikMix: { armR: l => sm((l - 2.4) / .8) } });
+  const edit = l => (p => { p['root.x'] = (p['root.x'] || 0) + 38 * bump(l, T1 - .3, T1 + .45); });
+  const root = l => RT(326 + 24 * Math.sin(l * .7), 360 + Math.sin(l * 2.8) * 9);
+  const rel = nz.ringWorld(T0, act, root(T0), { edit: edit(T0) });
+  sc.on(l => {
+    const d = D(l); placeDragon(dr, d); op(dr, d.enter);
+    nz.render(l, act, root(l), { edit: edit(l), ring: l < T0 ? 1 : sm((l - 6.9) / .6) });
+    const p = sm((l - T0) / (T1 - T0)), hit = dragonHead(D(T1)), back = sm((l - T1) / 1.2);
+    const rx = lerp(rel[0], hit[0], p) - 60 * back, ry = lerp(rel[1], hit[1], p) - 90 * Math.sin(p * Math.PI) + 40 * back;
+    tr(ring, rx, ry, .32 + .78 * p, l * 360); op(ring, l < T0 ? 0 : plat(l, T0 - .01, T0, 6.0, 6.8));
+  });
+  sc.sfx(.9, 'gong', .5, 118); sc.sfx(2.0, 'riser', .35); sc.sfx(4.05, 'chime', .65, 740); sc.sfx(5.55, 'woodfish', .6, 260);
+  sc.add(vk.chapter('龙子现身', { no: '三', at: .7, out: 8.0 }));
+}).shake(5.55, 9, .7);
+
+/* ============================================================ 4 · storm battle */
+vk.scene('浪山一战', 10.0, {
+  transition: { type: 'flash', d: .35 }, mode: 'light',
+  cap: ['浪如山起，枪似流星。', '混天绫缠住狂涛，乾坤圈敲散乌云。'],
+}, (sc) => {
+  const W = makeWorld(sc, { mood: 'storm', seaY: 248, amp: 28, storm: l => plat(l, .4, 1.4, 8.4, 9.6), note: '第四折<br>浪山一战' });
+  const nz = NZR.nezha(W.actors), dr = makeDragon(W.actors), ring = makeRing(W.actors), burst = spark(W.sparks, 754, 306, 108);
+  const HITS = [1.6, 3.85, 6.25];                      // thrusts on the shake / splash / gong beats
+  // 哪吒 darts in on each thrust and falls back; the dragon (mirrored, head-first) meets him near the burst point
+  const NP = [[0, [230, 400]], [1.6, [455, 352]], [2.7, [330, 270]], [3.85, [505, 372]], [5.0, [360, 262]], [6.25, [505, 368]], [7.5, [380, 280]], [8.8, [470, 300]], [10, [560, 330]]];
+  const DP = [[0, [1250, 385]], [1.6, [1120, 360]], [2.7, [1150, 330]], [3.85, [1060, 318]], [5.0, [1130, 350]], [6.25, [1060, 318]], [7.5, [1120, 380]], [10, [1330, 440]]];
+  const D = l => { const p = ks(l, DP); return { x: p[0], y: p[1], s: .86, r: -5 + Math.sin(l * 1.7) * 8, flip: -1, ph: l * 2.0, amp: 56, len: 710 }; };
+  const act = nz.play([
+    { at: 0, clip: 'float' }, { at: 1.15, clip: 'attack', blend: .3 }, { at: 2.2, clip: 'float', blend: .5 },
+    { at: 3.35, clip: 'attack', blend: .35 }, { at: 4.5, clip: 'float', blend: .5 }, { at: 5.75, clip: 'attack', blend: .35 },
+    { at: 7.0, clip: 'float', blend: .6 }, { at: 8.2, clip: 'attack', blend: .5 }, { at: 9.2, clip: 'float', blend: .6 }],
+    { ik: { armR: l => dragonHead(D(l)) }, ikMix: { armR: l => Math.max(...HITS.map(h => plat(l, h - .6, h - .25, h + .3, h + .8)), plat(l, 8.2, 8.7, 9.2, 9.8)) } });
+  const lunge = l => Math.max(...HITS.map(h => bump(l, h - .28, h + .4)));
+  const edit = l => (p => { p['root.x'] = (p['root.x'] || 0) + 46 * lunge(l); p['root.rot'] = (p['root.rot'] || 0) - 8 * lunge(l); });
+  sc.on(l => {
+    const np = ks(l, NP), show = plat(l, 1.2, 1.5, 8.1, 8.8);
+    nz.render(l, act, RT(np[0], np[1] + Math.sin(l * 6) * 4, Math.sin(l * 2.6) * 7), { edit: edit(l), ring: 1 - show, energy: undefined });
+    const d = D(l); placeDragon(dr, d); op(dr, plat(l, .1, .8, 8.8, 9.8));
+    const orbit = (l * 1.7) % 1;
+    tr(ring, np[0] + Math.cos(l * 4.2) * 210, np[1] + Math.sin(l * 4.2) * 94, 1.05, l * 520); op(ring, show);
+    op(burst, Math.max(bump(l, 3.8, 4.5), bump(l, 6.2, 7.0)) * .95); burst.setAttribute('transform', `rotate(${R(l * 120)} 754 306) scale(${R(1 + .45 * Math.sin(orbit * Math.PI))})`);
+  });
+  sc.sfx(.35, 'riser', .65); sc.sfx(1.6, 'splash', 1, 1200); sc.sfx(3.8, 'gong', .65, 132); sc.sfx(4.6, 'chime', .7, 988); sc.sfx(6.25, 'splash', 1, 1800); sc.sfx(8.4, 'woodfish', .65, 220);
+  sc.add(vk.chapter('浪山一战', { no: '四', at: .7, out: 9.2 }));
+}).shake(1.6, 13, .8).shake(3.85, 16, .7).shake(6.25, 15, .8).beatZoom(.012);
+
+/* ============================================================ 5 · dragon king */
+vk.scene('龙王问罪', 9.2, {
+  transition: { type: 'ink', d: 1.0, x: .72, y: .28 },
+  cap: ['东海龙王兴风问罪，乌云压向陈塘关。', '哪吒站上堤岸，把风雨挡在身前。'],
+}, (sc) => {
+  const W = makeWorld(sc, { mood: 'storm', seaY: 292, amp: 24, note: '第五折<br>龙王问罪' });
+  const king = makeDragon(W.actors, { king: true }), nz = NZR.nezha(W.actors), boat = makeBoat(W.actors);
+  // the king descends head-first from the upper right and stays in frame (mirrored, facing 哪吒)
+  const K = l => { const kp = sm((l - .4) / 2.4); return { x: 1440 - 230 * kp, y: 250 + Math.sin(l * .9) * 18, s: .95, r: -8, flip: -1, ph: l * 1.2, amp: 50, len: 760, kp }; };
+  // bracing stance: spear levelled at the king, ring arm raised against the storm; braced harder on the two gusts
+  const act = nz.play([{ at: 0, clip: 'idle' }, { at: 1.5, clip: 'brace', blend: .8 }],
+    { ik: { armR: l => dragonHead(K(l)) }, ikMix: { armR: l => sm((l - 1.6) / 1.2) * .85 } });
+  const gust = l => Math.max(bump(l, 3.1, 4.1), bump(l, 5.6, 6.3) * .7);
+  const edit = l => (p => { p['root.x'] = (p['root.x'] || 0) - 16 * gust(l); p['root.y'] = (p['root.y'] || 0) + 8 * gust(l); p.head = (p.head || 0) - 5 * gust(l); p.energy = Math.min(1, (p.energy || 0) + .3 * gust(l)); });
+  sc.on(l => {
+    const k = K(l); placeDragon(king, k); op(king, k.kp);
+    nz.render(l, act, RT(488, 374 + Math.sin(l * 2.4) * 3, -2), { opacity: plat(l, 1.0, 1.8, 9, 9.2), edit: edit(l) });
+    tr(boat, 236 + Math.sin(l * 1.8) * 6, 442 + Math.sin(l * 2.2) * 8, .72, Math.sin(l * 2.2) * 4); op(boat, .8);
+  });
+  sc.sfx(.55, 'gong', .7, 82); sc.sfx(1.6, 'riser', .5); sc.sfx(3.3, 'splash', .9, 1100); sc.sfx(5.7, 'woodfish', .7, 180);
+  sc.add(vk.chapter('龙王问罪', { no: '五', at: .7, out: 8.3 }));
+}).shake(3.2, 12, 1.0).shake(5.7, 8, .6);
+
+/* ============================================================ 6 · calm */
+vk.scene('海天重明', 8.6, {
+  transition: { type: 'wash', d: 1.1 },
+  cap: ['哪吒收起法宝，向海天拱手。', '他不为逞强，只为护住无辜；潮水退去，海天重明。'],
+}, (sc) => {
+  const W = makeWorld(sc, { seaY: 330, amp: 10, note: '尾声<br>海天重明' });
+  const nz = NZR.nezha(W.actors), dr = makeDragon(W.actors), boat = makeBoat(W.actors);
+  // calm idle; put the treasures away (spear + ring fade), 拱手 bow, then rest
+  const act = nz.play([{ at: 0, clip: 'idle' }, { at: 1.2, clip: 'bow', blend: .7 }, { at: 3.4, clip: 'idle', blend: .9 }]);
+  sc.on(l => {
+    const put = 1 - sm((l - .3) / .8);
+    nz.render(l, act, RT(642, 368 + Math.sin(l * 1.2) * 2, -4 * bump(l, 1.2, 3.4)), { spear: put, ring: put });
+    tr(dr, 980 + 260 * sm((l - 1.0) / 5.2), 420 + Math.sin(l * .8) * 8, .58, -6); updateDragon(dr, l * .8, 25, 640); op(dr, 1 - sm((l - 1.3) / 5.0));
+    tr(boat, 264 + 82 * sm((l - .8) / 5), 440 + Math.sin(l * 1.4) * 4, .76, Math.sin(l * 1.6) * 2); op(boat, .88);
+  });
+  sc.sfx(.4, 'pluck', .65, 392); sc.sfx(1.4, 'chime', .55, 659); sc.sfx(5.4, 'ripple', .45); sc.sfx(7.2, 'woodfish', .45, 420);
+  sc.add(vk.chapter('海天重明', { no: '终', at: .7, out: 5.8 }));
+  sc.add(vk.endcard({ big: '海天重明', small: '哪吒闹海　终', seal: '护民', size: 64, at: 5.2, out: 8.1 }));
+  sc.add(vk.credits(['改编：中国神话《哪吒闹海》', '美术/动画：vidkit 矢量生成', '主题：护民、勇气与担当'], { at: 6.2, pos: { x: 790, y: 500 }, size: 17 }));
+});
+</script>
+</body>
+</html>

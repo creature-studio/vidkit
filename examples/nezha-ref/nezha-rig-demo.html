@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>哪吒 · 精细 SVG 骨骼动画 Demo</title>
+<style>
+:root{
+  --paper:#ece8dc; --ink:#202528; --ink2:#394347;
+  --red:#b63b30; --red2:#d05a3d; --gold:#c7a34c;
+  --skin:#efc5a0; --skin2:#e5ae85; --sea:#8fb8b3;
+  --jade:#527b78; --bone:#6b58d1;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  display:grid;place-items:center;overflow:hidden;
+  background:#181d20;
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+.app{
+  width:min(1220px,100vw);height:min(790px,100vh);
+  position:relative;overflow:hidden;border-radius:22px;
+  background:var(--paper);box-shadow:0 34px 100px rgba(0,0,0,.38);
+}
+svg{display:block;width:100%;height:100%}
+.paper{fill:var(--paper)}
+.sun{fill:#d7835b;opacity:.42}
+.far{fill:#70857e;opacity:.17}
+.mid{fill:#637b76;opacity:.14}
+.cloud{fill:#faf7ec;opacity:.7}
+.sea{fill:var(--sea);opacity:.82}
+.wave{fill:none;stroke:#31545a;stroke-linecap:round}
+.foam{fill:none;stroke:#f7f4e8;stroke-linecap:round;opacity:.7}
+.inkstroke{stroke:var(--ink);stroke-linejoin:round;stroke-linecap:round}
+.skin{fill:var(--skin);stroke:var(--ink);stroke-width:3}
+.red{fill:var(--red);stroke:var(--ink);stroke-width:3}
+.red2{fill:var(--red2);stroke:var(--ink);stroke-width:3}
+.gold{fill:var(--gold);stroke:var(--ink);stroke-width:3}
+.ink{fill:var(--ink)}
+.jade{fill:var(--jade);stroke:var(--ink);stroke-width:3}
+.ribbon{fill:none;stroke:var(--red);stroke-linecap:round;stroke-linejoin:round;filter:url(#softInk)}
+.weapon{stroke:var(--ink);stroke-linecap:round}
+.actor{filter:url(#paperEdge)}
+.shadow{fill:#263236;opacity:.1;filter:url(#blur)}
+.bone-line{stroke:var(--bone);stroke-width:3.5;stroke-linecap:round;opacity:.92}
+.joint{fill:#fff;stroke:var(--bone);stroke-width:3}
+.target{fill:none;stroke:#ce4c42;stroke-width:3;stroke-dasharray:7 7}
+.bone-label{font:700 13px/1 monospace;fill:#5b4bc0;paint-order:stroke;stroke:#f8f5e9;stroke-width:4px}
+.hud{
+  position:absolute;left:22px;top:22px;width:330px;padding:16px 17px;
+  background:rgba(249,247,239,.86);backdrop-filter:blur(14px);
+  border:1px solid rgba(31,37,41,.12);border-radius:15px;
+  box-shadow:0 20px 55px rgba(31,37,41,.12)
+}
+.hud h1{margin:0 0 6px;font-size:17px}
+.hud p{margin:0 0 12px;font-size:13px;line-height:1.55;color:#536064}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button{
+  border:1px solid rgba(31,37,41,.15);background:#fffdf7;color:#242a2c;
+  border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer
+}
+button.active{background:#242a2c;color:#faf7ed}
+label{display:flex;gap:8px;align-items:center;margin-top:11px;font-size:13px;color:#536064}
+.badge{
+  position:absolute;right:22px;bottom:22px;padding:10px 13px;border-radius:12px;
+  background:rgba(249,247,239,.76);backdrop-filter:blur(12px);
+  border:1px solid rgba(31,37,41,.1);font-size:12px;line-height:1.55;color:#465357
+}
+.badge b{color:#5b4bc0}
+</style>
+</head>
+<body>
+<div class="app">
+<svg viewBox="0 0 1220 790">
+<defs>
+  <filter id="paperEdge">
+    <feTurbulence type="fractalNoise" baseFrequency=".008" numOctaves="2" seed="14" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="1.2"/>
+  </filter>
+  <filter id="softInk">
+    <feGaussianBlur stdDeviation=".32"/>
+  </filter>
+  <filter id="blur"><feGaussianBlur stdDeviation="10"/></filter>
+  <linearGradient id="skinShade" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f5d2b1"/><stop offset="1" stop-color="#e7af87"/>
+  </linearGradient>
+  <linearGradient id="redShade" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#cf5140"/><stop offset="1" stop-color="#9e2c27"/>
+  </linearGradient>
+</defs>
+
+<!-- 环境 -->
+<rect class="paper" width="1220" height="790"/>
+<circle class="sun" cx="1002" cy="128" r="60"/>
+<path class="far" d="M0 355 C95 282 176 316 248 257 C334 187 420 305 505 239 C610 156 690 282 781 214 C886 136 974 260 1075 205 C1138 170 1180 187 1220 174 L1220 448 L0 448Z"/>
+<path class="mid" d="M0 399 C150 339 285 389 398 337 C531 276 684 361 817 309 C958 254 1100 335 1220 295 L1220 466 L0 466Z"/>
+<path class="cloud" d="M80 153 C153 112 232 117 283 151 C339 117 412 128 456 163 C332 176 196 179 80 153Z"/>
+<path class="cloud" d="M750 126 C821 88 905 95 955 132 C1017 102 1093 116 1144 157 C1010 168 874 167 750 126Z"/>
+<path id="sea" class="sea" d="M0 432 L1220 432 L1220 790 L0 790Z"/>
+<path id="wave1" class="wave" stroke-width="5" opacity=".29"/>
+<path id="wave2" class="wave" stroke-width="4" opacity=".22"/>
+<path id="wave3" class="wave" stroke-width="4" opacity=".19"/>
+<path id="foam1" class="foam" stroke-width="13"/>
+<ellipse id="actorShadow" class="shadow" cx="705" cy="660" rx="150" ry="27"/>
+
+<!-- 角色 -->
+<g id="characterRoot" class="actor" transform="translate(705 470)">
+
+  <!-- 后层混天绫 -->
+  <g id="backRibbon">
+    <path id="ribbonBack1" class="ribbon" stroke-width="18"/>
+    <path id="ribbonBack2" class="ribbon" stroke-width="13" opacity=".8"/>
+  </g>
+
+  <!-- torso bone -->
+  <g id="boneTorso">
+
+    <!-- 后裙摆 / 衣片 -->
+    <path d="M-49 -18 C-61 18 -72 57 -62 98 C-35 111 34 110 63 94 C69 48 61 13 48 -18Z"
+          fill="url(#redShade)" stroke="#202528" stroke-width="3"/>
+    <path d="M-59 39 C-34 49 33 50 61 37" fill="none" stroke="#c7a34c" stroke-width="6" stroke-linecap="round"/>
+    <path d="M-35 92 C-24 61 -17 37 -10 12 M35 91 C24 62 18 38 11 13"
+          fill="none" stroke="#842922" stroke-width="3" opacity=".55"/>
+
+    <!-- 左腿 FK -->
+    <g id="boneHipL" transform="translate(-25 79)">
+      <g id="boneUpperLegL">
+        <path d="M-15 -5 C-19 22 -18 50 -10 78 C-3 87 11 87 17 77 C20 48 18 21 14 -5Z"
+              fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+        <path d="M-18 0 C-18 20 17 20 17 0" class="red2"/>
+        <g id="boneLowerLegL" transform="translate(1 79)">
+          <path d="M-11 -3 C-15 24 -14 49 -7 69 C-1 77 11 76 15 67 C17 43 15 18 11 -3Z"
+                fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+          <path d="M-13 55 C-8 70 10 75 20 64 L25 75 C7 91 -19 83 -22 63Z" class="gold"/>
+          <g id="wheelL" transform="translate(3 73)">
+            <circle r="26" fill="#d85f3a" stroke="#202528" stroke-width="3"/>
+            <circle r="18" fill="none" stroke="#c7a34c" stroke-width="5"/>
+            <circle r="5" class="gold"/>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- 右腿 FK -->
+    <g id="boneHipR" transform="translate(25 79)">
+      <g id="boneUpperLegR">
+        <path d="M-14 -5 C-18 22 -18 50 -10 78 C-3 87 11 87 17 77 C20 48 18 21 14 -5Z"
+              fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+        <path d="M-17 0 C-17 20 18 20 18 0" class="red2"/>
+        <g id="boneLowerLegR" transform="translate(1 79)">
+          <path d="M-11 -3 C-15 24 -14 49 -7 69 C-1 77 11 76 15 67 C17 43 15 18 11 -3Z"
+                fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+          <path d="M-13 55 C-8 70 10 75 20 64 L25 75 C7 91 -19 83 -22 63Z" class="gold"/>
+          <g id="wheelR" transform="translate(3 73)">
+            <circle r="26" fill="#d85f3a" stroke="#202528" stroke-width="3"/>
+            <circle r="18" fill="none" stroke="#c7a34c" stroke-width="5"/>
+            <circle r="5" class="gold"/>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- 身体 -->
+    <path d="M-48 -85 C-38 -111 38 -111 49 -84 L56 -16 C36 4 19 12 0 13 C-23 12 -41 4 -57 -18Z"
+          fill="url(#redShade)" stroke="#202528" stroke-width="3"/>
+    <path d="M-42 -79 C-20 -62 19 -61 43 -79 L33 -104 C10 -112 -13 -112 -34 -102Z"
+          fill="#f0d8ad" stroke="#202528" stroke-width="3"/>
+    <path d="M-42 -40 C-12 -28 15 -28 46 -42" fill="none" stroke="#c7a34c" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="0" cy="-39" r="7" class="gold"/>
+    <path d="M-4 -103 L-16 -72 L0 -61 L16 -72 L5 -103Z" fill="#f3eee0" stroke="#202528" stroke-width="2.6"/>
+
+    <!-- 左臂：有真实体积的 FK limb -->
+    <g id="boneShoulderL" transform="translate(-48 -77)">
+      <g id="boneUpperArmL">
+        <path d="M-4 -13 C18 -18 51 -15 73 -7 C81 -1 80 12 70 17 C46 21 18 18 -5 13Z"
+              fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+        <path d="M-3 -14 C9 -15 16 15 0 16 C-10 10 -12 -7 -3 -14Z" class="red2"/>
+        <g id="boneLowerArmL" transform="translate(72 4)">
+          <path d="M-3 -11 C17 -15 43 -12 65 -4 C73 3 70 14 61 18 C39 20 15 16 -5 11Z"
+                fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+          <path d="M43 -12 C55 -13 66 -8 70 1 L66 14 C57 20 45 17 40 9Z" class="gold"/>
+          <g id="handL" transform="translate(65 5)">
+            <path d="M-2 -10 C11 -13 22 -8 26 1 C25 12 14 18 3 15 C-6 10 -9 -3 -2 -10Z"
+                  fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+            <circle id="ringSlot" cx="26" cy="2" r="20" fill="none" stroke="#c7a34c" stroke-width="7"/>
+            <circle cx="26" cy="2" r="11" fill="none" stroke="#202528" stroke-width="2.5" opacity=".55"/>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- 右臂：有真实体积的 2-bone IK -->
+    <g id="boneShoulderR" transform="translate(48 -77)">
+      <g id="boneUpperArmR">
+        <path d="M-4 -13 C18 -18 51 -15 75 -7 C82 -1 82 12 71 17 C46 21 18 18 -5 13Z"
+              fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+        <path d="M-3 -14 C10 -15 16 15 0 16 C-10 10 -12 -7 -3 -14Z" class="red2"/>
+        <g id="boneLowerArmR" transform="translate(74 4)">
+          <path d="M-3 -11 C18 -15 46 -12 68 -4 C76 3 73 14 64 18 C41 20 16 16 -5 11Z"
+                fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+          <path d="M46 -12 C59 -13 69 -8 73 1 L69 14 C59 20 47 17 43 9Z" class="gold"/>
+          <g id="handR" transform="translate(68 5)">
+            <path d="M-2 -10 C11 -13 23 -8 27 2 C25 13 13 18 3 15 C-7 10 -9 -3 -2 -10Z"
+                  fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+            <g id="spearSlot" transform="translate(18 2) rotate(-7)">
+              <line class="weapon" x1="-16" y1="0" x2="186" y2="0" stroke-width="7"/>
+              <path d="M186 0 L217 -12 L208 0 L217 12Z" class="gold"/>
+              <path d="M118 -1 C138 -20 153 -18 168 -8 C150 -4 138 4 124 14Z" fill="#b63b30" stroke="#202528" stroke-width="2"/>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- 头 -->
+    <g id="boneHead" transform="translate(0 -145)">
+      <!-- 发髻后层 -->
+      <circle cx="-34" cy="-34" r="19" class="ink"/>
+      <circle cx="35" cy="-34" r="19" class="ink"/>
+      <path d="M-50 -32 Q-35 -61 -12 -39 M14 -39 Q37 -61 52 -31" fill="none" stroke="#b63b30" stroke-width="8" stroke-linecap="round"/>
+      <!-- 脸 -->
+      <path d="M-38 -11 C-37 -42 -18 -58 1 -58 C24 -58 40 -40 40 -9 C40 24 21 42 1 43 C-21 42 -40 24 -38 -11Z"
+            fill="url(#skinShade)" stroke="#202528" stroke-width="3"/>
+      <!-- 刘海 -->
+      <path d="M-34 -25 C-26 -51 -9 -58 2 -55 C-7 -44 -7 -32 -1 -23 C7 -43 23 -50 34 -35 C26 -59 6 -69 -13 -61 C-29 -55 -38 -42 -34 -25Z"
+            fill="#202528"/>
+      <!-- 眉眼 -->
+      <path d="M-24 -10 Q-14 -16 -5 -11 M8 -11 Q18 -16 27 -9" fill="none" stroke="#202528" stroke-width="3" stroke-linecap="round"/>
+      <g id="eyes">
+        <ellipse cx="-14" cy="-2" rx="5" ry="6" fill="#202528"/>
+        <ellipse cx="17" cy="-2" rx="5" ry="6" fill="#202528"/>
+      </g>
+      <g id="blink" opacity="0">
+        <path d="M-20 -1 Q-14 3 -8 -1 M11 -1 Q17 3 23 -1" fill="none" stroke="#202528" stroke-width="3.2" stroke-linecap="round"/>
+      </g>
+      <path d="M-5 19 Q3 25 13 18" fill="none" stroke="#9c3a31" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="-28" cy="9" r="5" fill="#d98e79" opacity=".34"/>
+      <circle cx="30" cy="9" r="5" fill="#d98e79" opacity=".34"/>
+      <!-- 耳环 -->
+      <circle cx="-39" cy="4" r="6" fill="none" stroke="#c7a34c" stroke-width="3"/>
+      <circle cx="41" cy="4" r="6" fill="none" stroke="#c7a34c" stroke-width="3"/>
+    </g>
+  </g>
+
+  <!-- 前层飘带 -->
+  <g id="frontRibbon">
+    <path id="ribbonFront" class="ribbon" stroke-width="11" opacity=".9"/>
+  </g>
+
+  <!-- 骨骼可视化 -->
+  <g id="skeletonOverlay" pointer-events="none" display="none">
+    <line id="bTorso" class="bone-line" x1="0" y1="0" x2="0" y2="-145"/>
+    <line id="bArmL1" class="bone-line"/><line id="bArmL2" class="bone-line"/>
+    <line id="bArmR1" class="bone-line"/><line id="bArmR2" class="bone-line"/>
+    <line id="bLegL1" class="bone-line"/><line id="bLegL2" class="bone-line"/>
+    <line id="bLegR1" class="bone-line"/><line id="bLegR2" class="bone-line"/>
+    <g id="jointDots"></g>
+    <text class="bone-label" x="10" y="-128">head</text>
+    <text class="bone-label" x="12" y="-42">torso</text>
+  </g>
+</g>
+
+<!-- IK target -->
+<g id="targetG" display="none">
+  <circle id="target" class="target" cx="930" cy="300" r="21"/>
+  <line id="targetH" class="target"/>
+  <line id="targetV" class="target"/>
+</g>
+</svg>
+
+<div class="hud">
+  <h1>精细版 SVG Skeleton</h1>
+  <p>骨骼只负责运动，真正显示的是独立 SVG path / slot。右臂是 2-bone IK，头、腿、左臂走 FK。</p>
+  <div class="row">
+    <button data-action="idle" class="active">Idle</button>
+    <button data-action="float">Float</button>
+    <button data-action="attack">Attack</button>
+  </div>
+  <label><input id="showBones" type="checkbox"> 显示骨骼层</label>
+  <label><input id="mouseIK" type="checkbox" checked> 鼠标控制右手 IK</label>
+</div>
+
+<div class="badge">
+  <b>紫色</b>只是调试骨骼，不是角色美术<br>
+  美术 = SVG slots · 运动 = Skeleton
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const svg = document.querySelector('svg');
+
+const root = $('#characterRoot');
+const head = $('#boneHead');
+const shoulderL = $('#boneShoulderL');
+const upperArmL = $('#boneUpperArmL');
+const lowerArmL = $('#boneLowerArmL');
+const shoulderR = $('#boneShoulderR');
+const upperArmR = $('#boneUpperArmR');
+const lowerArmR = $('#boneLowerArmR');
+const hipL = $('#boneHipL'), upperLegL = $('#boneUpperLegL'), lowerLegL = $('#boneLowerLegL');
+const hipR = $('#boneHipR'), upperLegR = $('#boneUpperLegR'), lowerLegR = $('#boneLowerLegR');
+const overlay = $('#skeletonOverlay'), targetG = $('#targetG');
+const showBones = $('#showBones'), mouseIK = $('#mouseIK');
+const blink = $('#blink'), eyes = $('#eyes');
+const shadow = $('#actorShadow');
+
+let action='idle', targetWorld={x:930,y:300}, start=performance.now();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const deg=r=>r*180/Math.PI;
+
+function setTr(el,tx,ty,rot=0,sx=1,sy=1){
+  el.setAttribute('transform',`translate(${tx} ${ty}) rotate(${rot}) scale(${sx} ${sy})`);
+}
+function wavePath(y,amp,phase,step=34){
+  let d=`M -30 ${y}`;
+  for(let x=-30;x<=1250;x+=step){
+    const yy=y+Math.sin(x*.017+phase)*amp+Math.sin(x*.039+phase*.61)*amp*.25;
+    d+=` L ${x.toFixed(1)} ${yy.toFixed(1)}`;
+  }
+  return d;
+}
+function solve2BoneIK(tx,ty,l1,l2,bend=1){
+  const d=Math.max(1,Math.hypot(tx,ty));
+  const cd=clamp(d,Math.abs(l1-l2)+.001,l1+l2-.001);
+  const base=Math.atan2(ty,tx);
+  const a=Math.acos(clamp((l1*l1+cd*cd-l2*l2)/(2*l1*cd),-1,1));
+  const sh=base-bend*a;
+  const ex=Math.cos(sh)*l1, ey=Math.sin(sh)*l1;
+  const fore=Math.atan2(ty-ey,tx-ex);
+  return {shoulder:deg(sh), elbow:deg(fore-sh)};
+}
+function svgPoint(evt){
+  const p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+svg.addEventListener('pointermove',e=>{
+  if(!mouseIK.checked)return;
+  const p=svgPoint(e);targetWorld={x:p.x,y:p.y};
+});
+
+document.querySelectorAll('[data-action]').forEach(btn=>{
+  btn.onclick=()=>{
+    action=btn.dataset.action;
+    document.querySelectorAll('[data-action]').forEach(b=>b.classList.toggle('active',b===btn));
+  };
+});
+showBones.onchange=()=>{
+  overlay.setAttribute('display',showBones.checked?'':'none');
+  targetG.setAttribute('display',showBones.checked?'':'none');
+};
+
+function localPoint(el,x,y){
+  const p=svg.createSVGPoint();p.x=x;p.y=y;
+  return p.matrixTransform(el.getCTM());
+}
+function toRootPoint(el,x,y){
+  const p=svg.createSVGPoint();p.x=x;p.y=y;
+  const world=p.matrixTransform(el.getCTM());
+  return world.matrixTransform(root.getCTM().inverse());
+}
+function setLine(sel,a,b){
+  const el=$(sel);el.setAttribute('x1',a.x);el.setAttribute('y1',a.y);el.setAttribute('x2',b.x);el.setAttribute('y2',b.y);
+}
+function drawSkeleton(){
+  const sL=toRootPoint(shoulderL,0,0), eL=toRootPoint(lowerArmL,0,0), hL=toRootPoint($('#handL'),0,0);
+  const sR=toRootPoint(shoulderR,0,0), eR=toRootPoint(lowerArmR,0,0), hR=toRootPoint($('#handR'),0,0);
+  const hl=toRootPoint(hipL,0,0), kl=toRootPoint(lowerLegL,0,0), fl=toRootPoint($('#wheelL'),0,0);
+  const hr=toRootPoint(hipR,0,0), kr=toRootPoint(lowerLegR,0,0), fr=toRootPoint($('#wheelR'),0,0);
+  setLine('#bArmL1',sL,eL);setLine('#bArmL2',eL,hL);
+  setLine('#bArmR1',sR,eR);setLine('#bArmR2',eR,hR);
+  setLine('#bLegL1',hl,kl);setLine('#bLegL2',kl,fl);
+  setLine('#bLegR1',hr,kr);setLine('#bLegR2',kr,fr);
+  const pts=[sL,eL,hL,sR,eR,hR,hl,kl,fl,hr,kr,fr,{x:0,y:-145},{x:0,y:0}];
+  $('#jointDots').innerHTML=pts.map(p=>`<circle class="joint" cx="${p.x}" cy="${p.y}" r="5.5"/>`).join('');
+}
+
+function updateRibbons(t,energy,dir=1){
+  const w=Math.sin(t*1.35)*10, fast=Math.sin(t*3.1)*9*energy;
+  $('#ribbonBack1').setAttribute('d',
+    `M -38 -70 C ${-135-dir*fast} ${-154+w}, ${-245-dir*fast} ${-118-w}, ${-282-dir*22} ${-26+fast}
+     C ${-310-dir*18} ${45+w}, ${-220+fast} ${92-w}, ${-145} ${36+fast}`);
+  $('#ribbonBack2').setAttribute('d',
+    `M 34 -78 C ${130+fast} ${-150-w}, ${222+dir*fast} ${-89+w}, ${207+dir*30} ${3-fast}
+     C ${194} ${69+w}, ${130-fast} ${92}, ${87} ${40-w}`);
+  $('#ribbonFront').setAttribute('d',
+    `M -5 -45 C ${65+fast} ${-12-w}, ${120+dir*fast} ${35+w}, ${183+dir*45} ${10-fast}`);
+}
+
+function updateTarget(){
+  $('#target').setAttribute('cx',targetWorld.x);$('#target').setAttribute('cy',targetWorld.y);
+  $('#targetH').setAttribute('x1',targetWorld.x-25);$('#targetH').setAttribute('x2',targetWorld.x+25);
+  $('#targetH').setAttribute('y1',targetWorld.y);$('#targetH').setAttribute('y2',targetWorld.y);
+  $('#targetV').setAttribute('x1',targetWorld.x);$('#targetV').setAttribute('x2',targetWorld.x);
+  $('#targetV').setAttribute('y1',targetWorld.y-25);$('#targetV').setAttribute('y2',targetWorld.y+25);
+}
+
+function animate(now){
+  const t=(now-start)/1000;
+  let x=705,y=470,r=0,bob=0,headR=0;
+  let la1=145,la2=-18,ll1=4,ll2=-6,rl1=-4,rl2=6,energy=.25;
+
+  if(action==='idle'){
+    bob=Math.sin(t*2)*4;
+    headR=Math.sin(t*1.3)*3;
+    la1=145+Math.sin(t*1.7)*5;
+    la2=-20+Math.sin(t*1.9+1)*5;
+    ll1=5+Math.sin(t*1.4)*2.5; rl1=-5-Math.sin(t*1.4)*2.5;
+    energy=.25;
+    if(!mouseIK.checked){
+      targetWorld.x=910+Math.cos(t*.9)*28;targetWorld.y=325+Math.sin(t*1.2)*32;
+    }
+  }
+  if(action==='float'){
+    bob=Math.sin(t*2.7)*10;
+    r=Math.sin(t*1.1)*3.5;
+    headR=-2+Math.sin(t*1.8)*4;
+    la1=160+Math.sin(t*2.1)*10;
+    la2=-28+Math.sin(t*2.2+1)*8;
+    ll1=17+Math.sin(t*2.5)*8;rl1=-15-Math.sin(t*2.5)*7;
+    ll2=-22+Math.sin(t*2.5+1)*8;rl2=20+Math.sin(t*2.5+1.2)*8;
+    energy=.65;
+    if(!mouseIK.checked){
+      targetWorld.x=950+Math.cos(t*1.1)*60;targetWorld.y=286+Math.sin(t*1.6)*54;
+    }
+  }
+  if(action==='attack'){
+    bob=Math.sin(t*4)*4;r=-5;headR=-6+Math.sin(t*2)*2;
+    la1=205+Math.sin(t*3)*7;la2=-32;
+    ll1=19;rl1=-22;ll2=-16;rl2=18;energy=1;
+    if(!mouseIK.checked){
+      const p=(Math.sin(t*2.1)+1)/2;
+      targetWorld.x=935+p*140;targetWorld.y=245+Math.sin(t*4.2)*75;
+    }
+  }
+
+  root.setAttribute('transform',`translate(${x} ${y+bob}) rotate(${r})`);
+  setTr(head,0,-145,headR);
+  setTr(upperArmL,0,0,la1);
+  setTr(lowerArmL,72,4,la2);
+  setTr(upperLegL,0,0,ll1);setTr(lowerLegL,1,79,ll2);
+  setTr(upperLegR,0,0,rl1);setTr(lowerLegR,1,79,rl2);
+
+  // 右臂 IK：使用 shoulder 的 world position 计算目标
+  const sw=localPoint(shoulderR,0,0);
+  const ik=solve2BoneIK(targetWorld.x-sw.x,targetWorld.y-sw.y,74,68,1);
+  setTr(upperArmR,0,0,ik.shoulder);
+  setTr(lowerArmR,74,4,ik.elbow);
+
+  // 火尖枪轻微灵动
+  $('#spearSlot').setAttribute('transform',`translate(18 2) rotate(${-7+Math.sin(t*5)*1.5})`);
+  $('#ringSlot').setAttribute('transform',`rotate(${t*90} 26 2)`);
+  $('#wheelL').setAttribute('transform',`translate(3 73) rotate(${t*120})`);
+  $('#wheelR').setAttribute('transform',`translate(3 73) rotate(${-t*120})`);
+
+  // 眨眼
+  const blinkPhase=t%4.4;
+  const isBlink=blinkPhase>4.16;
+  blink.setAttribute('opacity',isBlink?'1':'0');
+  eyes.setAttribute('opacity',isBlink?'0':'1');
+
+  updateRibbons(t,energy,action==='attack'?1:-1);
+  updateTarget();
+
+  $('#wave1').setAttribute('d',wavePath(466,10,t*.82));
+  $('#wave2').setAttribute('d',wavePath(555,13,t*.65+1.3));
+  $('#wave3').setAttribute('d',wavePath(652,8,t*.95+2.1));
+  $('#foam1').setAttribute('d',wavePath(706,6,t*1.2,48));
+  shadow.setAttribute('cy',660+bob*.25);
+  shadow.setAttribute('rx',145-bob*.45);
+
+  if(showBones.checked) drawSkeleton();
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

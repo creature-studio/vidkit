@@ -21,6 +21,7 @@ import './fx/textures.js';
 import './fx/backgrounds.js';
 import './fx/lyrics.js';
 import { inkDefs, installInk, brushPath, sampleLine, attr, INK } from './fx/ink.js';
+import { createRig, solve2BoneIK, blink as rigBlink, blendPose, valueAt, mat, rootMatrix } from './fx/rig.js';
 import './audio/score.js';
 import { lyricVideo } from './fx/lyrics.js';
 import { MusicInfo } from './audio/music.js';
@@ -73,6 +74,8 @@ export const vk = {
   // static layer cache: vk.bake(svgOrGroup, {scale}) → rasterised once (see runtime/bake.js)
   bake: (el, o) => current.bake(el, o), bakeStats, collectRefs, filterRegion,
   inkDefs, brushPath, sampleLine, attr, INK, installInk: o => installInk(current, o),
+  // skeletal rigs (fx/rig.js): vk.rig(def) → rig; helpers on vk.rig.*
+  rig: Object.assign(def => createRig(def), { create: createRig, solve2BoneIK, blink: rigBlink, blend: blendPose, valueAt, mat, rootMatrix }),
   MusicInfo, alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt, synth,
   Video, Scene,
   _setEnv(e) { Object.assign(env, e); },
