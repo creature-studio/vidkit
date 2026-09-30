@@ -8,6 +8,8 @@ export default async function preview(argv) {
   const clients = new Set();
   const inject = html => html.replace(/<\/body>/i, `<script>(()=>{const es=new EventSource('/__vk/events');es.onmessage=()=>location.reload();})();</script></body>`);
   const extra = (req, res, p) => {
+    // "/" → the page (handy when the preview is opened through a proxy that only knows the origin)
+    if (p === '/' || p === '/index.html') { res.writeHead(302, { location: abs.split(path.sep).map(encodeURIComponent).join('/') }); res.end(); return true; }
     if (p !== '/__vk/events') return false;
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' }); res.write(': hi\n\n');
     clients.add(res); req.on('close', () => clients.delete(res)); return true;

@@ -45,7 +45,9 @@ export default async function render(argv) {
     if (info.voMissing && info.voMissing.length) alog.push(`  [warn] ${info.voMissing.length} vo: line(s) have no TTS audio yet (timing estimated) — run: vk tts ${path.basename(abs)}`);
     const wantScore = info.hasScore && !opt.noScore, mixing = !!(music || voices.length);
     let score = null;
-    if (wantScore) { score = await renderScore(url, t0, t1, mixing ? 1 : +(opt.scoreGainMax || 2), !mixing, tmp); alog.push('  audio: window.SCORE rendered offline (OfflineAudioContext → WAV)'); }
+    // the score only needs the timeline, so load the page with the static-layer bakes off (they can take tens of
+    // seconds on a busy machine while the frame workers hog the CPU — and they do not affect a single sample)
+    if (wantScore) { score = await renderScore(pageUrl(port, abs, { ...params, cache: '0' }), t0, t1, mixing ? 1 : +(opt.scoreGainMax || 2), !mixing, tmp); alog.push('  audio: window.SCORE rendered offline (OfflineAudioContext → WAV)'); }
     let audio = null;
     if (mixing) {
       const lufs = opt.lufs === 'off' ? null : +(opt.lufs || mixCfg.lufs || -14);
