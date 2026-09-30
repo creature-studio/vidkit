@@ -81,11 +81,19 @@ export async function openWorker(mode, url, info, { scale = 1, type = 'jpeg', qu
 async function forceFrame(page, shot) {
   // invalidate the root (a transparent 1px outline paints nothing but always produces damage) and draw again;
   // a few attempts, since the compositor may still be settling after load / pumped frames
-  for (let i = 0; i < 8; i++) {
-    await page.evaluate(`(() => { const s = document.documentElement.style; s.outline = s.outline ? '' : '${i % 2 ? '1px solid transparent' : '0 solid transparent'}'; return 1; })()`, { pumpAfter: null });
+  for (let i = 0; i < 12; i++) {
+    // repaint a 1px fixed probe whose colour alternates at alpha 0.001 (rounds to 0 → no visible pixel change,
+    // but it is real paint invalidation, so the compositor reports damage); also toggle the root outline as before
+    await page.evaluate(`(() => {
+      let p = document.getElementById('__vk_dmg');
+      if (!p) { p = document.createElement('div'); p.id = '__vk_dmg';
+        p.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;pointer-events:none;z-index:2147483647';
+        document.documentElement.appendChild(p); }
+      p.style.background = '${i % 2 ? 'rgba(255,255,255,0.001)' : 'rgba(0,0,0,0.001)'}';
+      const s = document.documentElement.style; s.outline = s.outline ? '' : '0 solid transparent'; return 1; })()`, { pumpAfter: null });
     const r = await page.beginFrame(shot);
     if (r.data) return r;
-    await new Promise(res => setTimeout(res, 10 * (i + 1)));
+    await new Promise(res => setTimeout(res, 15 * (i + 1)));
   }
   throw new Error('beginFrame returned no screenshot');
 }
