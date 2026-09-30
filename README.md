@@ -77,6 +77,7 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 | `nezha/nezha.html` | **水墨神话短片《哪吒闹海》**（骨骼版）：作者手绘哪吒 SVG 接入 `vk.rig`（idle / float / attack 片段 + IK 出手），程序化混天绫、龙与海浪；`nezha.html` 为早期非骨骼版，`nezha-ref/` 为原始 rig 演示 | `out/nezha-rig.mp4` |
 | `wusong/wusong.html` | **上美厂风格剪纸动画短片《武松打虎》**（~69 s）：剪纸角色 rig（武松、吊睛白额虎，`lib/*-rig.js`）+ 水墨景阳冈（`lib/jingyang.js`），`vk.gl` 墨晕片名/落叶/木屑，edge-tts 说书旁白（YunjianNeural），代码合成京剧锣鼓（四击头 / 冲头 / 急急风，`lib/papercut.js`） | `out/wusong.mp4` |
 | `luzhishen/luzhishen.html` | **剪纸动画短片《鲁智深倒拔垂杨柳》**（~87 s，水浒传第七回）：花和尚与泼皮的剪纸 rig（`lib/luzhishen-rig.js` / `lib/poxi-rig.js`），菜园与**垂杨柳**（`lib/garden.js`：逐帧柳条、连根拔起的根球 + 树身矩阵，双手 IK 一直咬在树干上），复用《武松打虎》的剪纸/锣鼓套件与水墨世界；旁白为离线录音 + `make-vo.mjs` 生成清单（文件名与 `vk tts` 缓存一致） | `out/luzhishen.mp4` |
+| `fox-grapes/foxgrapes.html` | **绘本动画短片《狐狸与葡萄》**（~73 s，伊索寓言）：自成一格的绘本套件（`lib/storybook.js`：蜡笔毛边滤镜、纸纹、手绘揉边路径、缓坡世界、葡萄架与会晃的葡萄串、尘土/汗珠/金星），狐狸是四足骨骼角色（`lib/fox-rig.js`，idle/walk/thirsty/lookUp/crouch/leap/fall/land/pant/shake/strut/talk），旁白 + 狐狸两个声音，配乐与音效全部代码合成 | `out/foxgrapes.mp4` |
 | `gallery.html` | **FX Gallery 活文档**：每个预设一小段 + 名称 + 生成它的那行代码 | `out/gallery.mp4` |
 | `plugin-demo.html` | 插件示例（`plugins/hello-plugin.js`） | — |
 
