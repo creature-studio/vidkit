@@ -72,6 +72,10 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 | `mv.html` | 16:9 **节拍同步歌词 MV**：Kevin MacLeod《Voxel Revolution》（CC BY 4.0）+ TTS 人声；节拍/段落来自 `vk analyze`，歌词时间来自 `vk align --separate`，`vk.lyricVideo()` 一行生成（素材制作脚本 `mv/make-song.mjs`） | `out/mv.mp4` |
 | `explainer-vo.html` | CO₂ 讲解的**配音版**：每个场景 `vo:` + `dur:'auto'`，时长由 TTS 决定并吸附到背景音乐节拍，逐字高亮字幕，ducking + −14 LUFS | `out/explainer-vo.mp4` |
 | `tadpole/tadpole.html` | **水墨动画短片《小蝌蚪找妈妈》**（~126 s）：`ink` 主题 + 宣纸质感 + 墨线滤镜，竖排书法片名/章节名 + 朱印，SVG 角色 rig（蝌蚪群、青蛙、鸭、金鱼、鹅、乌龟），**多角色配音**（6 种 edge-tts 音色），程序合成古琴/笛子配乐（`tadpole/make-music.mjs`，CC0）与水声/蛙鸣/鸭叫音效 | `out/tadpole.mp4` |
+| `gl-ink-demo.html` | **`vk.gl` WebGL 水墨特效演示**（20 s）：墨滴溅落与题字洇开、远山晕染成形 + 雾带、荷塘水墨化后期 + 水花/落花、剪纸窗花 | `out/gl-ink-demo.mp4` |
+| `tadpole/tadpole-gl.html` | 《小蝌蚪找妈妈》片头的 GL 版（原片未改） | `out/tadpole-gl.mp4` |
+| `nezha/nezha.html` | **水墨神话短片《哪吒闹海》**（骨骼版）：作者手绘哪吒 SVG 接入 `vk.rig`（idle / float / attack 片段 + IK 出手），程序化混天绫、龙与海浪；`nezha.html` 为早期非骨骼版，`nezha-ref/` 为原始 rig 演示 | `out/nezha-rig.mp4` |
+| `wusong/wusong.html` | **上美厂风格剪纸动画短片《武松打虎》**（~69 s）：剪纸角色 rig（武松、吊睛白额虎，`lib/*-rig.js`）+ 水墨景阳冈（`lib/jingyang.js`），`vk.gl` 墨晕片名/落叶/木屑，edge-tts 说书旁白（YunjianNeural），代码合成京剧锣鼓（四击头 / 冲头 / 急急风，`lib/papercut.js`） | `out/wusong.mp4` |
 | `gallery.html` | **FX Gallery 活文档**：每个预设一小段 + 名称 + 生成它的那行代码 | `out/gallery.mp4` |
 | `plugin-demo.html` | 插件示例（`plugins/hello-plugin.js`） | — |
 
@@ -658,6 +662,7 @@ ES module 用法：`import vk from 'vidkit/src/index.js'`（需要浏览器环�
 - **手绘 boil**：`vk.boil(t, rate)` 已在 core/random 中提供（返回按 8–12fps 步进的帧号，作为 `vk.hash` 的种子让线条抖动），Phase 3 配合 SVG filter / 路径扰动做成预设。
 - **粒子**：Canvas2D 层 + 无状态粒子范式（见 gallery `canvas2d · particles`），后续封装 `particles` 预设（发射器/力场，从 0 积分到 t）。
 - **WebGL 着色器层**：`scene.webgl({frag, uniforms: (local, info) => ({…})})` 已可运行（uTime/uRes/uBeat/uProgress）；Phase 3 增加多 pass、纹理输入（把 DOM 场景作为纹理）与着色器转场。
+- **`vk.gl` 水墨 WebGL 层** ✅：多 pass 着色器（墨晕、水墨化后期、宣纸、雾带）、确定性粒子、线条 boil、剪纸滤镜（见[WebGL 特效](#webgl-特效vkglsrcfxgl)）。后续：把 DOM 场景整体作为纹理的着色器转场。剪纸角色 rig（上美厂风格）见 `examples/wusong/`。
 
 ---
 
@@ -673,6 +678,66 @@ ES module 用法：`import vk from 'vidkit/src/index.js'`（需要浏览器环�
 - 纯 DSP 合成（`vk.synth`，Node 与页面通用、确定性）：`pluck`（Karplus–Strong 古琴/琵琶，含滑音/吟猱）、`flute`、`drop`、`bubbles`、`splash`、`croak`、`quack`、`woodfish`、`gong` + `reverb`、`mixStereo`、`penta`（五声音阶）、`wavBytes`。同名 `sfx` 可直接用：`sc.sfx(t, 'croak', .8, 480)`。
 
 完整示例：`examples/tadpole/`（`lib/pond.js` 池塘场景、`lib/rigs.js` 角色、`lib/school.js` 蝌蚪群）。
+
+### 骨骼角色（`vk.rig`，`src/fx/rig.js`）
+
+数据定义的骨骼层级 + 纯函数姿态（任意 t 可直接 seek，`vk qa` 顺序检查通过）：
+
+```js
+const rig = vk.rig({ root: g, bones: [{ id: 'torso' }, { id: 'upperArmR', parent: 'shoulderR' }, { id: 'lowerArmR', parent: 'upperArmR', x: 74, y: 4 }, …],
+  clips: { idle: t => ({ upperArmL: 145 + 5 * Math.sin(t), 'root.y': 4 * Math.sin(2 * t), 'armR.tx': 205, 'armR.ty': -145 }) },
+  ik: { armR: { chain: ['upperArmR', 'lowerArmR', 'handR'], bend: 1 } } });          // 元素：[data-bone="id"]
+const act = rig.play([{ at: 0, clip: 'idle' }, { at: 3.8, clip: 'attack', blend: .4 }],
+  { ik: { armR: t => [x, y] /* 世界坐标，或关键帧 [[t,[x,y]],…] */ }, ikMix: { armR: [[3.8, 0], [4.4, 1]] } });
+sc.on(l => act.render(l, { x: 640, y: 380, scale: .55, flip: -1 }));
+```
+
+- 姿态 = 普通对象：`骨骼id` 角度（叠加在静止旋转上）、`id.x / id.y / id.s`、`root.x / root.y / root.rot`（根内运动：起伏、倾身）、`<ik>.tx / .ty / .w`（片段自带的 IK 目标与权重，根局部坐标），其余为自由通道（如 `energy`）。
+- IK 在链根的父坐标系里用矩阵求解（不用 getCTM，考虑根的旋转/缩放/镜像与骨骼偏移）；`rig.point(bone, x, y, pose, root)` 求任意骨骼点的世界坐标（例如乾坤圈出手位置）。
+- `rig.sample(track, t)` 片段交叉淡化（可链式），`vk.rig.blink(t, {period, dur})`、`vk.rig.solve2BoneIK`、`vk.rig.blend`、`vk.rig.mat`；`rig.debug(true)` 显示骨骼调试层（默认关）。
+- 示例：`examples/nezha/`（`lib/nezha-rig.js` 用作者手绘的哪吒 SVG：idle / float / attack 片段 + brace / bow / dive / throw，程序化混天绫随 energy 与方向摆动）。
+
+### WebGL 特效（`vk.gl`，`src/fx/gl/`）
+
+一个按时间纯函数渲染的 WebGL 层：水墨晕染、SVG 水墨化后期、着色器宣纸、确定性粒子、线条 boil、剪纸滤镜。**没有 requestAnimationFrame / performance.now / Math.random**，噪声全部带种子；每个层在 `render(t)` 里同步重绘（或在缓存键不变时保留像素），所以任意 seek 顺序得到同一帧（`vk qa` 会对每个 `canvas.vk-gl` 做像素哈希比对）。
+
+```js
+sc.gl([                                                              // 场景层（v.gl([...]) = 全片层）
+  vk.gl.paper(),                                                     // 着色器宣纸（云絮 + 纤维 + 杂点 + 暗角）
+  vk.gl.inkBleed({ src: vk.gl.text('水墨丹青', { x: 1010, y: 104, size: 118, vertical: true }),
+                   at: 1.5, draw: .9, dur: 3, spread: 8, wipe: { dir: 'down', dur: 1.7 } }),   // 写字 + 洇开
+  vk.gl.particles({ preset: 'splatter', burst: [{ t: 2, n: 70 }], x: 460, y: 380 }),          // 墨点飞溅
+], { rect: [0, 0, 1280, 720], scale: 1, z: 'front' | 'back', blend: 'multiply', opacity });
+```
+
+**层选项**：`rect`（只渲染这块区域，性能关键）、`scale`（内部分辨率倍数，如 `.75`）、`z: 'back'`（插到背景之后、内容之下）、`blend`（CSS mix-blend-mode）、`opacity`、`class`。返回的层有 `.el`（2D canvas，可移动到任意 DOM 位置，例如放进池塘根节点里某个 SVG 之上）。
+
+**遮罩/颜色来源**（场景像素坐标）：`vk.gl.text(str, {x, y, size, font, vertical, lead, tracking})`、`vk.gl.path(d | [d…], {fill, gradient, stroke, transform})`、`vk.gl.image(img, rect)`、`vk.gl.draw((g, local) => …, {static, key})`、`vk.gl.svg(el, {offset, exclude, static})`（把活的 SVG 子树画到 canvas：path/rect/circle/ellipse/line/poly/image/text/use、描边虚线、线性/径向渐变、透明度；**忽略 SVG filter**——由 GL 效果代替）。`static` 来源只在字体加载后画一次并保留 GPU 金字塔。
+
+**效果**：
+
+| 效果 | 作用 | 主要选项 |
+|---|---|---|
+| `paper(o)` | 宣纸（`mode:'overlay'` 输出 multiply 图，配合层 `blend:'multiply'` 叠在任意场景上） | `color amount fibres vignette specks seed` |
+| `inkBleed(o)` | 墨晕：遮罩先"落笔"（`draw` 秒内墨心凝聚），再沿纸纤维向外洇开（湿边 √t 扩散、水痕 tide line、纤维毛细、积墨、斑驳、颗粒）；`soft:1` 保留遮罩灰度（远山淡墨） | `src at draw dur spread haloEnd color density halo rim fibre mottle grain pool warp wipe:{dir,dur} fade:[t0,t1] seed` |
+| `inkWash(o)` | 水墨化后期：把彩色 SVG 变成湿墨（边缘积墨加深、柔和晕边、水痕、纸纹颗粒、12fps 抖动）；源元素在 DOM 中被隐藏 | `src hide boil wobble dark edge bleed grain mottle tide alpha ink` |
+| `particles(o)` | GL 点精灵粒子：`drop / splat / mist / petal / spark / dot`；落地的墨滴变成晕开的墨点并在"定型"后缓存 | 同 `vk.particles` + `shape color color2 colors blend soak` |
+| `mist(o)` | 飘动的雾带（山间留白） | `y height speed density scale color seed` |
+| `shader(o)` | 自定义片元着色器（有 `uTime uStep uProgress uRes`、`scenePx() paperN() fbm()`） | `frag uniforms step key blend` |
+
+**粒子（纯数学，`vk.particles`）**：每个粒子的状态是 `(seed, i, t)` 的闭式解（线性阻力 + 重力的解析弹道、值噪声摆动、`floor` 侧视落地 / `landAt` 俯视落地），发射在固定槽位（`burst:[{t, n, x, y}]` 或 `rate` + `from/to`），发射器 `point / line / box / radius`。`P.at(t)` 返回 `[{id, x, y, size, alpha, rot, landed, settled…}]`，与求值顺序无关。预设：`inkDrops splatter spray petals sparks mist`。
+
+**线条 boil / 手绘抖动**（确定性、按 12fps "一拍二" 步进）：
+- `vk.gl.boil(sc, targets, {fps: 12, amp, freq, octaves, frames})`：SVG 湍流位移滤镜，种子由场景时间步进计算。
+- `vk.gl.jitter(d, t, {fps, amp, seed, frames, smooth})`：路径点扰动（同一"张"内不变，下一张重画；A/H/V 命令保持不变），`vk.gl.jitterPoints`。
+
+**剪纸（上美厂风格预备）**：`vk.gl.paperCut(v, {prefix: 'pc', rough, grain, shadow: [dx, dy, blur, opacity]})` 注入 `#pc-cut`（剪刀毛边）、`#pc-grain`（纸纤维明暗）、`#pc-shadow`（纸片投影）与 `#pc`（三者合一），用于 `<g filter="url(#pc)">` 的平涂形状（配合 `fill-rule="evenodd"` 做窗花镂空）。
+
+**捕获与性能**：
+- 所有 GL 效果共用每个视频一个离屏 WebGL1 上下文（`preserveDrawingBuffer`，预乘 alpha），每层把结果同步 `drawImage` 到自己的 2D canvas（`willReadFrequently`，CPU 后备），因此截图不会空白，也不依赖合成器时序。
+- 默认捕获（beginframe，chrome-headless-shell，`--gpu soft` = SwiftShader）与 `vk qa / stills / contact`（Playwright Chromium + SwiftShader）都有 WebGL，**无需额外 Chrome 参数**；`--gpu off` 会关闭 WebGL（层会打印一次警告并保持透明）。
+- 缓存：每个效果给出缓存键（`paper` 恒定、`inkBleed` 完成后恒定、粒子全部定型后恒定），键不变就跳过 GL。尽量用 `rect` 缩小区域、`scale:.75` 降低内部分辨率、遮罩用 `static`。`vk.gl.stats()` 查看 pass 数与耗时。
+- 示例：`examples/gl-ink-demo.html`（20 s：墨滴溅落 + 竖排题字洇开、远山分层晕染 + 雾带 + 渔舟 jitter + 水纹 boil、荷塘 SVG 水墨化 + 水花 + 落花、剪纸窗花），`examples/tadpole/tadpole-gl.html`（《小蝌蚪找妈妈》片头的 GL 版：片名湿笔书写、池塘活动层水墨化、落水滴与水花、宣纸纤维叠加；原文件未改动）。
 
 ---
 

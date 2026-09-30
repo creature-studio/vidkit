@@ -750,8 +750,8 @@ function modulator(v, el2, beat, energy) {
 // src/audio/words.js
 var PUNCT = /[\s.,!?;:…、，。！？；：“”‘’"'()（）《》【】\-—~·]/;
 var norm = (s2) => String(s2).replace(new RegExp(PUNCT.source, "g"), "").toLowerCase();
-function mapWords(text2, words) {
-  const pieces = [], T4 = String(text2);
+function mapWords(text3, words) {
+  const pieces = [], T4 = String(text3);
   let pos = 0;
   words.forEach((w, wi) => {
     const key = norm(w.w);
@@ -785,10 +785,10 @@ function alignToCues(data, o = {}) {
     return [+start.toFixed(3), +Math.max(start + 0.3, end).toFixed(3), l.text, words];
   });
 }
-function chunkCues(text2, words, o = {}) {
+function chunkCues(text3, words, o = {}) {
   const at = +o.at || 0, maxChars = o.maxChars || 18, hold2 = o.hold != null ? o.hold : 0.35;
   const W = words.map((w) => ({ ...w, t: w.t + at, end: (w.end != null ? w.end : w.t + 0.2) + at }));
-  const pieces = mapWords(text2, W);
+  const pieces = mapWords(text3, W);
   const clauses = [];
   let cur = [];
   pieces.forEach((p) => {
@@ -839,9 +839,9 @@ function readUnits(s2) {
   }
   return n;
 }
-function estimateSpeech(text2) {
-  const cjk = (String(text2).match(/[\u3400-\u9fff]/g) || []).length, latin = (String(text2).match(/[A-Za-z0-9]+/g) || []).length;
-  return +(cjk / 4.3 + latin / 2.7 + (String(text2).match(/[，。！？,.!?；;]/g) || []).length * 0.15).toFixed(2);
+function estimateSpeech(text3) {
+  const cjk = (String(text3).match(/[\u3400-\u9fff]/g) || []).length, latin = (String(text3).match(/[A-Za-z0-9]+/g) || []).length;
+  return +(cjk / 4.3 + latin / 2.7 + (String(text3).match(/[，。！？,.!?；;]/g) || []).length * 0.15).toFixed(2);
 }
 function voSegments(vo) {
   if (vo == null || vo === false) return [];
@@ -1006,11 +1006,20 @@ var Scene = class {
     return this;
   }
   // ---- layers ----
-  canvas(draw, o = {}) {
-    return this.video.addLayer("canvas", draw, { ...o, scene: this });
+  canvas(draw2, o = {}) {
+    return this.video.addLayer("canvas", draw2, { ...o, scene: this });
   }
   webgl(o = {}) {
     return this.video.addLayer("webgl", null, { ...o, scene: this });
+  }
+  // vk.gl effects layer (fx/gl): sc.gl([effects], {z, rect, scale, blend}) or sc.gl({…opts}, [effects])
+  gl(effects, o = {}) {
+    if (effects && !Array.isArray(effects) && !effects.render) {
+      const t = effects;
+      effects = o;
+      o = t;
+    }
+    return this.video.addLayer("gl", null, { ...o, scene: this, effects: [].concat(effects || []) });
   }
   // ---- authoring ----
   add(...nodes) {
@@ -1550,9 +1559,9 @@ function mixInto(dst, src, at, gain = 1) {
   return dst;
 }
 function mixStereo(L, R, src, at, gain = 1, pan = 0) {
-  const a = (pan + 1) * Math.PI / 4, gl = Math.cos(a) * gain, gr = Math.sin(a) * gain, s2 = Math.max(0, at | 0);
+  const a = (pan + 1) * Math.PI / 4, gl2 = Math.cos(a) * gain, gr = Math.sin(a) * gain, s2 = Math.max(0, at | 0);
   for (let i = 0; i < src.length && s2 + i < L.length; i++) {
-    L[s2 + i] += src[i] * gl;
+    L[s2 + i] += src[i] * gl2;
     R[s2 + i] += src[i] * gr;
   }
 }
@@ -2115,9 +2124,9 @@ function sample(arr, x) {
 
 // src/layers/canvas.js
 var CanvasLayer = class {
-  constructor(video, draw, o = {}) {
+  constructor(video, draw2, o = {}) {
     this.video = video;
-    this.draw = draw;
+    this.draw = draw2;
     this.o = o;
     const c = this.el = document.createElement("canvas");
     c.className = "vk-canvas";
@@ -2150,61 +2159,61 @@ var WebGLLayer = class {
     c.width = Math.round(video.W * dpr);
     c.height = Math.round(video.H * dpr);
     if (o.blend) c.style.mixBlendMode = o.blend;
-    const gl = this.gl = c.getContext("webgl", { preserveDrawingBuffer: true, premultipliedAlpha: true, alpha: true, antialias: false });
-    if (!gl) {
+    const gl2 = this.gl = c.getContext("webgl", { preserveDrawingBuffer: true, premultipliedAlpha: true, alpha: true, antialias: false });
+    if (!gl2) {
       console.warn("[vk] WebGL unavailable; webgl layer disabled");
       return;
     }
     if (o.init) {
-      o.init(gl, this);
+      o.init(gl2, this);
       return;
     }
     if (o.frag) this.program = this.compile(o.frag);
   }
   compile(frag) {
-    const gl = this.gl, sh = (type, src) => {
-      const s2 = gl.createShader(type);
-      gl.shaderSource(s2, src);
-      gl.compileShader(s2);
-      if (!gl.getShaderParameter(s2, gl.COMPILE_STATUS)) throw new Error("[vk] shader: " + gl.getShaderInfoLog(s2));
+    const gl2 = this.gl, sh = (type, src) => {
+      const s2 = gl2.createShader(type);
+      gl2.shaderSource(s2, src);
+      gl2.compileShader(s2);
+      if (!gl2.getShaderParameter(s2, gl2.COMPILE_STATUS)) throw new Error("[vk] shader: " + gl2.getShaderInfoLog(s2));
       return s2;
     };
-    const pr = gl.createProgram();
-    gl.attachShader(pr, sh(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, (frag.includes("precision") ? "" : "precision highp float;\n") + "uniform float uTime,uBeat,uProgress;uniform vec2 uRes;\n" + frag));
-    gl.linkProgram(pr);
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(pr, "p");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const pr = gl2.createProgram();
+    gl2.attachShader(pr, sh(gl2.VERTEX_SHADER, VERT));
+    gl2.attachShader(pr, sh(gl2.FRAGMENT_SHADER, (frag.includes("precision") ? "" : "precision highp float;\n") + "uniform float uTime,uBeat,uProgress;uniform vec2 uRes;\n" + frag));
+    gl2.linkProgram(pr);
+    const buf = gl2.createBuffer();
+    gl2.bindBuffer(gl2.ARRAY_BUFFER, buf);
+    gl2.bufferData(gl2.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl2.STATIC_DRAW);
+    const loc = gl2.getAttribLocation(pr, "p");
+    gl2.enableVertexAttribArray(loc);
+    gl2.vertexAttribPointer(loc, 2, gl2.FLOAT, false, 0, 0);
     return pr;
   }
   render(local, info) {
-    const gl = this.gl;
-    if (!gl) return;
-    gl.viewport(0, 0, this.el.width, this.el.height);
+    const gl2 = this.gl;
+    if (!gl2) return;
+    gl2.viewport(0, 0, this.el.width, this.el.height);
     if (this.o.render) {
-      this.o.render(gl, local, info, this);
+      this.o.render(gl2, local, info, this);
       return;
     }
     if (!this.program) return;
-    gl.useProgram(this.program);
-    const u = (n) => gl.getUniformLocation(this.program, n);
-    gl.uniform1f(u("uTime"), local);
-    gl.uniform2f(u("uRes"), this.el.width, this.el.height);
-    gl.uniform1f(u("uBeat"), info.beats ? info.beats.pulse(info.t) : 0);
-    gl.uniform1f(u("uProgress"), info.p || 0);
+    gl2.useProgram(this.program);
+    const u = (n) => gl2.getUniformLocation(this.program, n);
+    gl2.uniform1f(u("uTime"), local);
+    gl2.uniform2f(u("uRes"), this.el.width, this.el.height);
+    gl2.uniform1f(u("uBeat"), info.beats ? info.beats.pulse(info.t) : 0);
+    gl2.uniform1f(u("uProgress"), info.p || 0);
     const extra = this.o.uniforms ? this.o.uniforms(local, info) : {};
     for (const k in extra) {
       const v = extra[k], l = u(k);
-      if (Array.isArray(v)) gl["uniform" + v.length + "f"](l, ...v);
-      else gl.uniform1f(l, v);
+      if (Array.isArray(v)) gl2["uniform" + v.length + "f"](l, ...v);
+      else gl2.uniform1f(l, v);
     }
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl2.clearColor(0, 0, 0, 0);
+    gl2.clear(gl2.COLOR_BUFFER_BIT);
+    gl2.drawArrays(gl2.TRIANGLES, 0, 6);
   }
 };
 
@@ -2329,15 +2338,15 @@ function collectRefs(root, doc = document) {
   return [...out.values()].filter(Boolean);
 }
 function filterRegion(filterEl, b) {
-  const num = (v, d) => {
+  const num2 = (v, d) => {
     if (v == null || v === "") return d;
     v = String(v).trim();
     return v.endsWith("%") ? parseFloat(v) / 100 : parseFloat(v);
   };
   const userUnits = filterEl && filterEl.getAttribute("filterUnits") === "userSpaceOnUse";
   const g = (k) => filterEl ? filterEl.getAttribute(k) : null;
-  if (userUnits) return { x: num(g("x"), b.x - 0.1 * b.width), y: num(g("y"), b.y - 0.1 * b.height), width: num(g("width"), 1.2 * b.width), height: num(g("height"), 1.2 * b.height) };
-  const fx = num(g("x"), -0.1), fy = num(g("y"), -0.1), fw = num(g("width"), 1.2), fh = num(g("height"), 1.2);
+  if (userUnits) return { x: num2(g("x"), b.x - 0.1 * b.width), y: num2(g("y"), b.y - 0.1 * b.height), width: num2(g("width"), 1.2 * b.width), height: num2(g("height"), 1.2 * b.height) };
+  const fx = num2(g("x"), -0.1), fy = num2(g("y"), -0.1), fw = num2(g("width"), 1.2), fh = num2(g("height"), 1.2);
   return { x: b.x + fx * b.width, y: b.y + fy * b.height, width: fw * b.width, height: fh * b.height };
 }
 var refId = (v) => {
@@ -2404,18 +2413,18 @@ function defsMarkup(refs) {
   const s2 = new XMLSerializer();
   return refs.length ? `<defs>${refs.map((r) => s2.serializeToString(r)).join("")}</defs>` : "";
 }
-async function bakeRoot(svg2, o) {
-  const vb = svg2.viewBox && svg2.viewBox.baseVal && svg2.viewBox.baseVal.width ? svg2.viewBox.baseVal : null;
-  let w = px(svg2.getAttribute("width")), h3 = px(svg2.getAttribute("height"));
+async function bakeRoot(svg3, o) {
+  const vb = svg3.viewBox && svg3.viewBox.baseVal && svg3.viewBox.baseVal.width ? svg3.viewBox.baseVal : null;
+  let w = px(svg3.getAttribute("width")), h3 = px(svg3.getAttribute("height"));
   if (!(w > 0 && h3 > 0)) {
-    const r = svg2.getBoundingClientRect();
+    const r = svg3.getBoundingClientRect();
     w = r.width;
     h3 = r.height;
   }
   if (!(w > 0 && h3 > 0)) throw new Error("bake: <svg> needs numeric width/height attributes");
   const res = (window.devicePixelRatio || 1) * (o.scale || 1);
   const vbox = vb ? `${vb.x} ${vb.y} ${vb.width} ${vb.height}` : `0 0 ${w} ${h3}`;
-  const par = svg2.getAttribute("preserveAspectRatio") || "xMidYMid meet";
+  const par = svg3.getAttribute("preserveAspectRatio") || "xMidYMid meet";
   let pw = w * res, ph = h3 * res;
   if (vb && !/^none/.test(par)) {
     const k = (/slice/.test(par) ? Math.max : Math.min)(w / vb.width, h3 / vb.height);
@@ -2424,10 +2433,10 @@ async function bakeRoot(svg2, o) {
   }
   pw = Math.max(1, Math.round(pw));
   ph = Math.max(1, Math.round(ph));
-  const refs = collectRefs(svg2);
+  const refs = collectRefs(svg3);
   if (isDynamic(refs)) return false;
-  const inner = new XMLSerializer().serializeToString(svg2).replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
-  const markup = `<svg xmlns="${SVGNS}" xmlns:xlink="${XLINK}" width="${pw}" height="${ph}" viewBox="${vbox}" preserveAspectRatio="none" style="${inheritedStyle(svg2)}">${defsMarkup(refs)}${inner}</svg>`;
+  const inner = new XMLSerializer().serializeToString(svg3).replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+  const markup = `<svg xmlns="${SVGNS}" xmlns:xlink="${XLINK}" width="${pw}" height="${ph}" viewBox="${vbox}" preserveAspectRatio="none" style="${inheritedStyle(svg3)}">${defsMarkup(refs)}${inner}</svg>`;
   const { url } = await rasterize(markup, pw, ph);
   const im = document.createElementNS(SVGNS, "image");
   const [x, y, bw, bh] = vbox.split(" ").map(Number);
@@ -2438,8 +2447,8 @@ async function bakeRoot(svg2, o) {
   im.setAttribute("preserveAspectRatio", "none");
   im.setAttribute("class", "vk-baked");
   await loadInto(im, url);
-  svg2.replaceChildren(im);
-  svg2.setAttribute("data-vk-baked", `${pw}x${ph}`);
+  svg3.replaceChildren(im);
+  svg3.setAttribute("data-vk-baked", `${pw}x${ph}`);
   return true;
 }
 function unitScale(el2) {
@@ -2762,19 +2771,19 @@ var Video = class {
       else if (Array.isArray(el2)) el2.forEach((e) => e && e.nodeType && placeNode(e, n, sc, parent));
     });
   }
-  addLayer(kind, draw, o) {
+  addLayer(kind, draw2, o) {
     const Cls = kind === "webgl" ? WebGLLayer : kind === "canvas" ? CanvasLayer : registry.layers[kind];
-    const layer = new Cls(this, draw, o);
+    const layer2 = new Cls(this, draw2, o);
     const host = o.scene ? o.fixed || !o.scene.cam ? o.scene.el : o.scene.cam : this.stage;
-    if (layer.el) {
+    if (layer2.el) {
       if (o.z === "back" || o.z === "below") {
         const bgs = [...host.children].filter((c) => c.classList.contains("vk-bg"));
-        host.insertBefore(layer.el, bgs.length ? bgs[bgs.length - 1].nextSibling : host.firstChild);
-      } else host.appendChild(layer.el);
-      if (o.zIndex != null) layer.el.style.zIndex = o.zIndex;
+        host.insertBefore(layer2.el, bgs.length ? bgs[bgs.length - 1].nextSibling : host.firstChild);
+      } else host.appendChild(layer2.el);
+      if (o.zIndex != null) layer2.el.style.zIndex = o.zIndex;
     }
-    (o.scene ? o.scene.layers : this.layers).push(layer);
-    return layer;
+    (o.scene ? o.scene.layers : this.layers).push(layer2);
+    return layer2;
   }
   // absolute-time helpers
   tween(target, o) {
@@ -2785,8 +2794,16 @@ var Video = class {
     this.globalFns.push(fn);
     return this;
   }
-  canvas(draw, o = {}) {
-    return this.addLayer("canvas", draw, { z: "front", zIndex: 30, ...o });
+  canvas(draw2, o = {}) {
+    return this.addLayer("canvas", draw2, { z: "front", zIndex: 30, ...o });
+  }
+  gl(effects, o = {}) {
+    if (effects && !Array.isArray(effects) && !effects.render) {
+      const t = effects;
+      effects = o;
+      o = t;
+    }
+    return this.addLayer("gl", null, { z: "front", zIndex: 30, ...o, effects: [].concat(effects || []) });
   }
   sfx(t, name, gain = 1, freq) {
     t = typeof t === "string" ? parseTime(t, this.beats) + this.beats.leadT : t;
@@ -2794,9 +2811,9 @@ var Video = class {
     return this;
   }
   // ---- voice-over ----
-  voiceEntry(text2) {
+  voiceEntry(text3) {
     const M = this.voManifest;
-    return M && M.items ? M.items[text2] || null : null;
+    return M && M.items ? M.items[text3] || null : null;
   }
   // plan the scene's voice lines (scene-local times). Multi-line / multi-voice: vo: [{text, voice, rate, pitch, gap, at, who}, …]
   planSceneVoice(sc, o) {
@@ -2846,8 +2863,8 @@ var Video = class {
       sc.cap = null;
     }
   }
-  caption(start, end, text2, words) {
-    this.caps.push(words ? [start, end, text2, words] : [start, end, text2]);
+  caption(start, end, text3, words) {
+    this.caps.push(words ? [start, end, text3, words] : [start, end, text3]);
     return this;
   }
   texture(name, opts) {
@@ -3293,8 +3310,8 @@ __export(api_exports, {
   text: () => text,
   title: () => title
 });
-var txt = (tag, cls, defFx) => (text2, o = {}) => node(o, function text_(ctx) {
-  return h(tag, cls, o.html ? text2 : md(text2));
+var txt = (tag, cls, defFx) => (text3, o = {}) => node(o, function text_(ctx) {
+  return h(tag, cls, o.html ? text3 : md(text3));
 }, defFx);
 var title = txt("h1", "vk-h1", "letters");
 var h2 = txt("h2", "vk-h2", "reveal");
@@ -3501,13 +3518,13 @@ function resample(d, n = 120) {
   return "M" + pts.join(" L") + " Z";
 }
 FX.morph = (el2, o, api) => {
-  const path = el2.tagName.toLowerCase() === "path" ? el2 : el2.querySelector("path");
-  const seq = o.paths ? o.paths.slice() : [path.getAttribute("d"), o.to];
+  const path2 = el2.tagName.toLowerCase() === "path" ? el2 : el2.querySelector("path");
+  const seq = o.paths ? o.paths.slice() : [path2.getAttribute("d"), o.to];
   const allCompat = seq.every((d) => compatible(d, seq[0]));
   const norm2 = allCompat ? seq : seq.map((d) => resample(d, o.n || 120));
-  path.setAttribute("d", norm2[0]);
+  path2.setAttribute("d", norm2[0]);
   const step = o.each || (o.d || 0.9) + 0.4;
-  for (let i = 1; i < norm2.length; i++) api.tween(path, { t: o.t + (i - 1) * step, d: o.d || 0.9, ease: o.ease || "inOutCubic", from: { "attr:d": norm2[i - 1] }, to: { "attr:d": norm2[i] } });
+  for (let i = 1; i < norm2.length; i++) api.tween(path2, { t: o.t + (i - 1) * step, d: o.d || 0.9, ease: o.ease || "inOutCubic", from: { "attr:d": norm2[i - 1] }, to: { "attr:d": norm2[i] } });
 };
 
 // src/fx/text.js
@@ -4039,13 +4056,13 @@ B.diagram = (spec, o = {}) => node(o, function diagram(ctx) {
   ctx.advance(last);
   return box;
 }, null);
-B.quote = (text2, o = {}) => node(o, function quote(ctx) {
+B.quote = (text3, o = {}) => node(o, function quote(ctx) {
   const px3 = ctx.px, q = h("figure", "vk-quote");
   q.style.cssText = `margin:0;max-width:${len(ctx, o.w || 900, "x")};text-align:${o.align || "left"};position:relative`;
   const mark = h("div", null, "\u201C", q);
   mark.dataset.qa = "ignore";
   mark.style.cssText = `font-family:var(--vk-serif);font-size:${px3(180)}px;line-height:.6;color:var(--accent);height:${px3(70)}px`;
-  const body = h("blockquote", null, md(text2), q);
+  const body = h("blockquote", null, md(text3), q);
   body.style.cssText = `margin:0;font-family:${o.serif === false ? "var(--vk-sans)" : "var(--vk-serif)"};font-size:${size(ctx, o.size || 50)};line-height:1.3;font-weight:${o.weight || 500}`;
   const t0 = ctx.at(o);
   ctx.scene.fx(mark, "pop", { t: t0, d: 0.5 });
@@ -4058,7 +4075,7 @@ B.quote = (text2, o = {}) => node(o, function quote(ctx) {
   ctx.advance(t0 + 1.2);
   return q;
 }, null);
-B.image = (src, o = {}) => node(o, function image(ctx) {
+B.image = (src, o = {}) => node(o, function image2(ctx) {
   const px3 = ctx.px, box = h("div", "vk-image");
   box.style.cssText = `position:relative;width:${len(ctx, o.w || 640, "x")};height:${len(ctx, o.h || 360, "y")};overflow:hidden;border-radius:${px3(o.radius != null ? o.radius : 14)}px;flex:none;background:var(--surface)`;
   const img = h("img", null, null, box);
@@ -4151,8 +4168,8 @@ B.cta = (spec, o = {}) => node(o, function cta(ctx) {
   ctx.advance(t);
   return box;
 }, null);
-B.badge = (text2, o = {}) => node(o, function badge(ctx) {
-  const e = h("span", "vk-badge vk-mono", md(text2));
+B.badge = (text3, o = {}) => node(o, function badge(ctx) {
+  const e = h("span", "vk-badge vk-mono", md(text3));
   const px3 = ctx.px;
   e.style.cssText = `display:inline-block;padding:${px3(6)}px ${px3(16)}px;border-radius:${px3(999)}px;font-size:${px3(o.size || 20)}px;font-weight:700;border:${px3(2)}px solid ${o.hl ? "var(--accent)" : "var(--line)"};background:${o.hl ? "var(--accent)" : "transparent"};color:${o.hl ? "var(--on-accent)" : "var(--fg)"}`;
   return e;
@@ -4273,8 +4290,8 @@ B2.line = (data, o = {}) => node(o, function line(ctx) {
       const area = s("path", { d: dPath + ` L${pts[pts.length - 1][0]} ${Y(min)} L${pts[0][0]} ${Y(min)} Z`, fill: `url(#${gid})` }, svgEl);
       sc.tween(area, { t: t0 + 0.2, d, ease: "inOutCubic", from: { clipPath: "inset(0% 100% 0% 0%)" }, to: { clipPath: "inset(0% 0% 0% 0%)" } });
     }
-    const path = s("path", { d: dPath, stroke: col3, "stroke-width": o.strokeWidth || 4, "stroke-linecap": "round", "stroke-linejoin": "round" }, svgEl);
-    sc.fx(path, "draw", { t: t0 + 0.2 + k * 0.3, d, ease: "inOutCubic" });
+    const path2 = s("path", { d: dPath, stroke: col3, "stroke-width": o.strokeWidth || 4, "stroke-linecap": "round", "stroke-linejoin": "round" }, svgEl);
+    sc.fx(path2, "draw", { t: t0 + 0.2 + k * 0.3, d, ease: "inOutCubic" });
     if (o.dots !== false) pts.forEach((p, i) => {
       const c = s("circle", { cx: p[0], cy: p[1], r: 5, fill: col3, stroke: "var(--bg)", "stroke-width": 2 }, svgEl);
       c.style.transformBox = "fill-box";
@@ -4390,15 +4407,15 @@ B2.ring = (pct2, o = {}) => node(o, function ring(ctx) {
   const arc = s("circle", { cx: R, cy: R, r: rr, fill: "none", stroke: o.color || "var(--accent)", "stroke-width": th, "stroke-linecap": "round", transform: `rotate(-90 ${R} ${R})`, "stroke-dasharray": `0 ${C}` }, svgEl);
   const cen = h("div", null, null, box);
   cen.style.cssText = "position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center";
-  const num = h("div", "vk-mono", "", cen);
-  num.style.cssText = `font-size:${px3(R * 0.38)}px;font-weight:800`;
+  const num2 = h("div", "vk-mono", "", cen);
+  num2.style.cssText = `font-size:${px3(R * 0.38)}px;font-weight:800`;
   if (o.label) h("div", null, md(o.label), cen).style.cssText = `font-size:${px3(Math.max(14, R * 0.14))}px;color:var(--muted);margin-top:${px3(4)}px;max-width:${px3(R * 1.4)}px;text-align:center;line-height:1.25`;
   const t0 = ctx.at(o), d = o.d || 1.3, e = getEase(o.ease || "outCubic");
   ctx.scene.on((local) => {
     const p = e(clamp01((local - t0) / d)) * pct2 / 100;
     arc.setAttribute("stroke-dasharray", `${(p * C).toFixed(2)} ${C.toFixed(2)}`);
   });
-  ctx.scene.fx(num, "count", { t: t0, d, to: pct2, decimals: o.decimals, format: (x) => x.toFixed(o.decimals | 0) + "%" });
+  ctx.scene.fx(num2, "count", { t: t0, d, to: pct2, decimals: o.decimals, format: (x) => x.toFixed(o.decimals | 0) + "%" });
   ctx.advance(t0 + d);
   return box;
 }, "fade");
@@ -4640,11 +4657,11 @@ var c01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
 var esc3 = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 B3.lyrics = (cue, o = {}) => node({ fx: false, ...o }, function lyrics(ctx) {
   const v = ctx.video, style = o.style || "pop", d = o.d || (style === "slam" ? 0.16 : 0.22);
-  const [, , text2, words] = Array.isArray(cue) ? cue : [cue.start, cue.end, cue.text, cue.words];
+  const [, , text3, words] = Array.isArray(cue) ? cue : [cue.start, cue.end, cue.text, cue.words];
   const el2 = h("div", "vk-lyric vk-lyric-" + style);
   el2.style.cssText = `font-family:${o.font === "sans" ? "var(--vk-sans)" : "var(--vk-display),var(--vk-sans)"};font-weight:${o.weight || 900};line-height:1.12;font-size:${size(ctx, o.size || (style === "slam" ? 150 : 64))};text-align:${o.align || "center"};max-width:${len(ctx, o.w || 0.86, "x")};color:${o.color ? `var(--${o.color},${o.color})` : "var(--fg)"}` + (style === "slam" ? `;position:relative;width:${len(ctx, o.w || 0.86, "x")};height:1.3em;white-space:nowrap` : "");
   const accent = o.accent || "var(--accent)", dim = o.dim != null ? o.dim : 0.42;
-  const P = mapWords(text2, words), W = [];
+  const P = mapWords(text3, words), W = [];
   P.forEach((p) => {
     if (p.wi < 0) {
       const s3 = h("span", "vk-lp", esc3(p.s), el2);
@@ -4843,11 +4860,11 @@ registry.textures.rice = (v, o) => {
   const e = document.createElement("div");
   e.className = "vk-ov vk-rice";
   const tone = o.tone || [0.38, 0.35, 0.28], sz = o.size || 300, f = o.freq || 0.85, seed = o.seed || 4;
-  const svg2 = `<svg xmlns='http://www.w3.org/2000/svg' width='${sz}' height='${sz}'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='${f}' numOctaves='2' seed='${seed}' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${tone[0]} 0 0 0 0 ${tone[1]} 0 0 0 0 ${tone[2]} 0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
+  const svg3 = `<svg xmlns='http://www.w3.org/2000/svg' width='${sz}' height='${sz}'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='${f}' numOctaves='2' seed='${seed}' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${tone[0]} 0 0 0 0 ${tone[1]} 0 0 0 0 ${tone[2]} 0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
   const vig = o.vignette != null ? o.vignette : 0.22, k = v.k || 1, tile = sz * (o.scale || 1), shadow = `inset 0 0 ${Math.round(120 * k)}px rgba(70,62,40,${vig})`;
-  e.style.cssText += `;mix-blend-mode:multiply;opacity:${o.amount != null ? o.amount : 0.55};background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(svg2)}");background-size:${tile}px;box-shadow:${shadow}`;
+  e.style.cssText += `;mix-blend-mode:multiply;opacity:${o.amount != null ? o.amount : 0.55};background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(svg3)}");background-size:${tile}px;box-shadow:${shadow}`;
   if (o.cache !== false && v.bakeLater) v.bakeLater(async () => {
-    const url = await bakeTile(svg2, tile, tile);
+    const url = await bakeTile(svg3, tile, tile);
     const img = new Image();
     img.src = url;
     await img.decode();
@@ -4950,12 +4967,12 @@ function ensureCSS() {
   document.head.appendChild(s2);
 }
 var px2 = (ctx, v, d) => ctx.px(v != null ? v : d) + "px";
-function vtitle(text2, o = {}) {
+function vtitle(text3, o = {}) {
   return node({ fx: "ink", d: 1.4, pos: { x: 96, y: 58 }, ...o }, function vtitle_(ctx) {
     ensureCSS();
     const e = h("div", "vk-vt");
     e.style.fontSize = px2(ctx, o.size, 118);
-    h("div", "vk-vt-main", esc4(text2), e);
+    h("div", "vk-vt-main", esc4(text3), e);
     if (o.sub) {
       const s2 = h("div", "vk-vt-sub", esc4(o.sub), e);
       s2.style.fontSize = px2(ctx, o.subSize, 21);
@@ -4965,7 +4982,7 @@ function vtitle(text2, o = {}) {
       const s2 = h("div", "vk-seal", esc4(o.seal), e);
       s2.style.fontSize = px2(ctx, o.sealSize, 20);
       s2.style.padding = `${ctx.px(8)}px ${ctx.px(6)}px`;
-      s2.style.marginTop = px2(ctx, o.sealTop, Math.round((o.size || 118) * [...text2].length * 0.62));
+      s2.style.marginTop = px2(ctx, o.sealTop, Math.round((o.size || 118) * [...text3].length * 0.62));
       const t = ctx.scene.time(o.sealAt != null ? o.sealAt : o.at || 0.3) + (o.sealAt != null ? 0 : 1.1);
       ctx.scene.fx(s2, "stamp", { t, d: 0.5 });
       ctx.extend(t + 0.5);
@@ -4974,19 +4991,19 @@ function vtitle(text2, o = {}) {
     return e;
   }, "ink");
 }
-function chapter(text2, o = {}) {
+function chapter(text3, o = {}) {
   return node({ fx: "brush", d: 1.1, pos: { x: 84, y: 58 }, ...o }, function chapter_(ctx) {
     ensureCSS();
     const e = h("div", "vk-chap");
     e.style.fontSize = px2(ctx, o.size, 42);
-    e.innerHTML = (o.no ? `<span class="vk-chap-no">${esc4(o.no)}</span>` : "") + esc4(text2);
+    e.innerHTML = (o.no ? `<span class="vk-chap-no">${esc4(o.no)}</span>` : "") + esc4(text3);
     return e;
   }, "brush");
 }
-function seal(text2, o = {}) {
+function seal(text3, o = {}) {
   return node({ fx: "stamp", d: 0.5, ...o }, function seal_(ctx) {
     ensureCSS();
-    const s2 = h("div", "vk-seal", esc4(text2));
+    const s2 = h("div", "vk-seal", esc4(text3));
     s2.style.fontSize = px2(ctx, o.size, 22);
     s2.style.padding = `${ctx.px(8)}px ${ctx.px(6)}px`;
     return s2;
@@ -5037,6 +5054,1515 @@ T3.ink = (e, c) => {
 T3.wash = (e) => {
   const b = (1 + e * 0.08).toFixed(3);
   return { in: { opacity: e, filter: `blur(${((1 - e) * 6).toFixed(2)}px)` }, out: { filter: `blur(${(e * 8).toFixed(2)}px)${b !== "1.000" ? ` brightness(${b})` : ""}` } };
+};
+
+// src/fx/rig.js
+var D2R = Math.PI / 180;
+var R2D = 180 / Math.PI;
+var f2 = (x) => Math.round(x * 100) / 100;
+var mat = {
+  id: () => [1, 0, 0, 1, 0, 0],
+  mul: (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]],
+  // = SVG `translate(x y) rotate(rot) scale(sx sy)`
+  trs: (x = 0, y = 0, rot = 0, sx = 1, sy = sx) => {
+    const c = Math.cos(rot * D2R), s2 = Math.sin(rot * D2R);
+    return [c * sx, s2 * sx, -s2 * sy, c * sy, x, y];
+  },
+  inv: (m) => {
+    const det = m[0] * m[3] - m[1] * m[2], a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
+    return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
+  },
+  apply: (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]
+};
+var rootMatrix = (r = {}) => {
+  const s2 = r.scale == null ? 1 : r.scale;
+  return mat.trs(r.x || 0, r.y || 0, r.rot || 0, s2 * (r.flip || 1), s2);
+};
+function solve2BoneIK(tx, ty, l1, l2, bend = 1) {
+  const d = Math.max(1e-6, Math.hypot(tx, ty));
+  const cd = clamp(d, Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
+  const base = Math.atan2(ty, tx);
+  const a = Math.acos(clamp((l1 * l1 + cd * cd - l2 * l2) / (2 * l1 * cd), -1, 1));
+  const sh = base - bend * a;
+  const ex = Math.cos(sh) * l1, ey = Math.sin(sh) * l1;
+  const fore = Math.atan2(Math.sin(base) * cd - ey, Math.cos(base) * cd - ex);
+  let el2 = (fore - sh) * R2D;
+  el2 = (el2 + 540) % 360 - 180;
+  return { a1: sh * R2D, a2: fore * R2D, elbow: el2, shoulder: sh * R2D, reach: d / (l1 + l2) };
+}
+function blink(t, o = {}) {
+  const per = o.period || 4.4, dur = o.dur || 0.24, ph = ((t + (o.offset || 0)) % per + per) % per;
+  if (ph < per - dur) return 0;
+  return o.smooth ? Math.sin((ph - (per - dur)) / dur * Math.PI) : 1;
+}
+function blendPose(a, b, w, defaults = {}) {
+  if (w <= 0) return { ...a };
+  if (w >= 1) return { ...b };
+  const out = {}, keys = /* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) {
+    const va = k in a ? a[k] : k in defaults ? defaults[k] : b[k];
+    const vb = k in b ? b[k] : k in defaults ? defaults[k] : va;
+    out[k] = typeof va === "number" && typeof vb === "number" ? va + (vb - va) * w : w < 0.5 ? va : vb;
+  }
+  return out;
+}
+function valueAt(v, t) {
+  if (v == null) return v;
+  if (typeof v === "function") return v(t);
+  if (Array.isArray(v) && Array.isArray(v[0])) return kf(t, v);
+  return v;
+}
+function createRig(def) {
+  const bones = [], byId = {};
+  for (const b of def.bones) {
+    const bb = { parent: null, x: 0, y: 0, rot: 0, s: 1, ...b };
+    bones.push(bb);
+    byId[bb.id] = bb;
+  }
+  const order = [], seen = /* @__PURE__ */ new Set();
+  const visit = (b) => {
+    if (seen.has(b.id)) return;
+    if (b.parent && !byId[b.parent]) throw new Error("[vk.rig] unknown parent " + b.parent + " of " + b.id);
+    if (b.parent) visit(byId[b.parent]);
+    seen.add(b.id);
+    order.push(b);
+  };
+  bones.forEach(visit);
+  const clips = def.clips || {}, chains = def.ik || {};
+  const defaults = {};
+  for (const b of order) defaults[b.id] = 0;
+  for (const n of Object.keys(chains)) defaults[n + ".w"] = 0;
+  Object.assign(defaults, def.defaults || {});
+  const rootEl = def.root || null;
+  const find = def.el || ((id) => rootEl && rootEl.querySelector(`[data-bone="${id}"]`));
+  const els = {};
+  if (rootEl || def.el) for (const b of order) els[b.id] = b.el || find(b.id) || null;
+  const local = (id, pose = {}) => {
+    const b = byId[id];
+    return mat.trs(b.x + (pose[id + ".x"] || 0), b.y + (pose[id + ".y"] || 0), b.rot + (pose[id] || 0), b.s * (pose[id + ".s"] == null ? 1 : pose[id + ".s"]));
+  };
+  const base = (pose = {}, root = {}) => mat.mul(rootMatrix(root), mat.trs(pose["root.x"] || 0, pose["root.y"] || 0, pose["root.rot"] || 0));
+  function matrix(id, pose = {}, root = {}) {
+    const chain = [];
+    for (let b = byId[id]; b; b = b.parent ? byId[b.parent] : null) chain.unshift(b.id);
+    let m = base(pose, root);
+    for (const c of chain) m = mat.mul(m, local(c, pose));
+    return m;
+  }
+  const point = (id, x = 0, y = 0, pose, root) => mat.apply(matrix(id, pose, root), x, y);
+  const toLocal = (p, root = {}) => mat.apply(mat.inv(rootMatrix(root)), p[0], p[1]);
+  function solveIK(name, target, pose = {}, root = {}, o = {}) {
+    const ch = chains[name] || name, [ia, ib, ic] = ch.chain, A = byId[ia], B4 = byId[ib], C = byId[ic];
+    const F2 = mat.mul(A.parent ? matrix(A.parent, pose, root) : base(pose, root), mat.trs(A.x + (pose[ia + ".x"] || 0), A.y + (pose[ia + ".y"] || 0)));
+    const [tx, ty] = mat.apply(mat.inv(F2), target[0], target[1]);
+    const bx = B4.x + (pose[ib + ".x"] || 0), by = B4.y + (pose[ib + ".y"] || 0), cx = C.x + (pose[ic + ".x"] || 0), cy = C.y + (pose[ic + ".y"] || 0);
+    const l1 = Math.hypot(bx, by), l2 = Math.hypot(cx, cy), o1 = Math.atan2(by, bx) * R2D, o2 = Math.atan2(cy, cx) * R2D;
+    const s2 = solve2BoneIK(tx, ty, l1, l2, o.bend != null ? o.bend : ch.bend != null ? ch.bend : 1);
+    const ra = s2.a1 - o1, rb = s2.a2 - o2 - ra;
+    const w = o.weight == null ? 1 : o.weight, out = { ...pose };
+    const wrap = (x) => (x % 360 + 540) % 360 - 180;
+    const angA = ra - A.rot, angB = rb - B4.rot, fkA = pose[ia] || 0, fkB = pose[ib] || 0;
+    out[ia] = fkA + wrap(angA - fkA) * w;
+    out[ib] = fkB + wrap(angB - fkB) * w;
+    return out;
+  }
+  const clipPose = (item, t) => {
+    const c = typeof item.clip === "string" ? clips[item.clip] : item.clip;
+    if (!c) throw new Error("[vk.rig] unknown clip " + item.clip);
+    const ct = (item.local ? t - item.at : t) * (item.speed || 1) + (item.offset || 0);
+    const p = typeof c === "function" ? c(ct, item) : { ...c };
+    for (const n of Object.keys(chains)) if (n + ".tx" in p && !(n + ".w" in p)) p[n + ".w"] = 1;
+    return item.pose ? { ...p, ...item.pose } : p;
+  };
+  function sample2(track, t, n = null) {
+    const k = n == null ? track.length : n;
+    let i = -1;
+    for (let j = 0; j < k; j++) if (t >= track[j].at) i = j;
+    if (i < 0) i = 0;
+    const cur = clipPose(track[i], t), bl = track[i].blend == null ? 0.3 : track[i].blend;
+    if (i === 0 || bl <= 0 || t >= track[i].at + bl) return cur;
+    const w = smooth01((t - track[i].at) / bl);
+    return blendPose(sample2(track, t, i), cur, w, defaults);
+  }
+  function resolve(pose, t, root, opts = {}) {
+    let p = pose;
+    for (const name of Object.keys(chains)) {
+      const wt = opts.ik ? valueAt(opts.ik[name], t) : null;
+      const mix = opts.ikMix && opts.ikMix[name] != null ? clamp(valueAt(opts.ikMix[name], t), 0, 1) : 1;
+      let target = null;
+      const own = name + ".tx" in p ? mat.apply(base(p, root), p[name + ".tx"], p[name + ".ty"]) : null;
+      if (wt && own) target = [own[0] + (wt[0] - own[0]) * mix, own[1] + (wt[1] - own[1]) * mix];
+      else if (wt) target = wt;
+      else target = own;
+      const weight = opts.ikWeight && opts.ikWeight[name] != null ? clamp(valueAt(opts.ikWeight[name], t), 0, 1) : wt && !own ? 1 : name + ".w" in p ? clamp(p[name + ".w"], 0, 1) : own ? 1 : 0;
+      if (target && weight > 0) p = solveIK(name, target, p, root, { weight, bend: opts.bend && opts.bend[name] });
+    }
+    return p;
+  }
+  function apply(pose = {}, root = {}) {
+    if (rootEl) {
+      const s2 = root.scale == null ? 1 : root.scale;
+      rootEl.setAttribute("transform", `translate(${f2(root.x || 0)} ${f2(root.y || 0)}) rotate(${f2(root.rot || 0)}) scale(${f2(s2 * (root.flip || 1))} ${f2(s2)}) translate(${f2(pose["root.x"] || 0)} ${f2(pose["root.y"] || 0)}) rotate(${f2(pose["root.rot"] || 0)})`);
+    }
+    for (const b of order) {
+      const e = els[b.id];
+      if (!e) continue;
+      const sc = b.s * (pose[b.id + ".s"] == null ? 1 : pose[b.id + ".s"]);
+      e.setAttribute("transform", `translate(${f2(b.x + (pose[b.id + ".x"] || 0))} ${f2(b.y + (pose[b.id + ".y"] || 0))}) rotate(${f2(b.rot + (pose[b.id] || 0))})${sc !== 1 ? ` scale(${f2(sc)})` : ""}`);
+    }
+    if (debugEl) drawDebug(pose);
+  }
+  let debugEl = null;
+  function debug(on = true) {
+    if (!rootEl) return;
+    if (on && !debugEl) {
+      debugEl = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      debugEl.setAttribute("class", "vk-rig-debug");
+      debugEl.setAttribute("pointer-events", "none");
+      rootEl.appendChild(debugEl);
+    }
+    if (!on && debugEl) {
+      debugEl.remove();
+      debugEl = null;
+    }
+  }
+  function drawDebug(pose) {
+    const P = (id) => point(id, 0, 0, { ...pose, "root.x": 0, "root.y": 0, "root.rot": 0 }, {});
+    let s2 = "";
+    for (const b of order) {
+      const q = P(b.id);
+      if (b.parent) {
+        const p = P(b.parent);
+        s2 += `<line x1="${f2(p[0])}" y1="${f2(p[1])}" x2="${f2(q[0])}" y2="${f2(q[1])}" stroke="#6b58d1" stroke-width="3.5" stroke-linecap="round" opacity=".92"/>`;
+      }
+      s2 += `<circle cx="${f2(q[0])}" cy="${f2(q[1])}" r="5" fill="#fff" stroke="#6b58d1" stroke-width="3"/>`;
+    }
+    debugEl.innerHTML = s2;
+  }
+  const rig = {
+    def,
+    bones: order,
+    byId,
+    clips,
+    chains,
+    els,
+    local,
+    matrix,
+    point,
+    toLocal,
+    solveIK,
+    sample: sample2,
+    resolve,
+    apply,
+    debug,
+    clip: (name, t) => clipPose({ clip: name, at: 0 }, t),
+    blend: (a, b, w) => blendPose(a, b, w, defaults),
+    // timeline player: pose(t, root) → final pose; render(t, root, extra) → apply (extra(pose, t) may post-edit)
+    play(track, opts = {}) {
+      const tr = [...track].sort((a, b) => a.at - b.at);
+      const player = {
+        track: tr,
+        opts,
+        clipPose: (t) => sample2(tr, t),
+        pose(t, root = {}, edit) {
+          let p = sample2(tr, t);
+          if (edit) p = edit(p, t) || p;
+          return resolve(p, t, root, opts);
+        },
+        render(t, root = {}, edit) {
+          const p = player.pose(t, root, edit);
+          apply(p, root);
+          return p;
+        }
+      };
+      return player;
+    }
+  };
+  return rig;
+}
+
+// src/fx/gl/glsl.js
+var PRELUDE = `precision highp float;
+varying vec2 vUv;
+float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3. - 2. * f);
+  return mix(mix(h12(i), h12(i + vec2(1., 0.)), u.x), mix(h12(i + vec2(0., 1.)), h12(i + vec2(1., 1.)), u.x), u.y); }
+float fbm(vec2 p){ float s = 0., a = .5; for (int i = 0; i < 5; i++) { s += a * vnoise(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + 17.1; a *= .5; } return s / .96875; }
+float fbm3(vec2 p){ float s = 0., a = .5; for (int i = 0; i < 3; i++) { s += a * vnoise(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + 17.1; a *= .5; } return s / .875; }
+`;
+var VERT2 = `attribute vec2 p; varying vec2 vUv; void main(){ vUv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }`;
+var BLUR = `uniform sampler2D uTex; uniform vec2 uDir;
+void main(){ vec4 s = texture2D(uTex, vUv) * .375 + (texture2D(uTex, vUv + uDir) + texture2D(uTex, vUv - uDir)) * .25
+  + (texture2D(uTex, vUv + 2. * uDir) + texture2D(uTex, vUv - 2. * uDir)) * .0625; gl_FragColor = s; }`;
+var DOWN = `uniform sampler2D uTex; uniform vec2 uTexel;
+void main(){ gl_FragColor = .25 * (texture2D(uTex, vUv + uTexel * vec2(-.5, -.5)) + texture2D(uTex, vUv + uTexel * vec2(.5, -.5)) + texture2D(uTex, vUv + uTexel * vec2(-.5, .5)) + texture2D(uTex, vUv + uTexel * vec2(.5, .5))); }`;
+var COPY = `uniform sampler2D uTex; void main(){ gl_FragColor = texture2D(uTex, vUv); }`;
+var NOISE = `uniform vec2 uSize; uniform float uSeed;
+void main(){
+  vec2 p = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y) + uSeed * vec2(173.1, 91.7);
+  float R = fbm(p / 230.);
+  float G = fbm(p / 42. + 5.3);
+  float fib = 0.;
+  for (int k = 0; k < 4; k++) {
+    float fk = float(k);
+    float a = fk * 1.9 + (fbm3(p / 520. + fk * 3.7) - .5) * 3.5;
+    vec2 q = mat2(cos(a), -sin(a), sin(a), cos(a)) * p;
+    float n = vnoise(q * vec2(.010, .42) + fk * 19.3 + uSeed);
+    float ridge = pow(1. - abs(n * 2. - 1.), 12.);
+    float gate = smoothstep(.52, .78, vnoise(q * vec2(.018, .06) + fk * 7.1 + uSeed * 2.));
+    fib = max(fib, ridge * gate * (.55 + .45 * vnoise(q * vec2(.05, .2) + 3.)));
+  }
+  float A = .55 * h12(floor(p)) + .45 * vnoise(p / 1.7);
+  gl_FragColor = vec4(R, G, fib, A);
+}`;
+var NOISE_LOOKUP = `uniform sampler2D uN; uniform vec4 uNX; uniform vec2 uNS; uniform vec2 uRes;
+vec2 scenePx(vec2 uv){ return vec2(uNX.x + uv.x * uRes.x * uNX.z, uNX.y + (1. - uv.y) * uRes.y * uNX.w); }
+vec4 paperN(vec2 sp){ return texture2D(uN, vec2(sp.x / uNS.x, 1. - sp.y / uNS.y)); }
+`;
+
+// src/fx/gl/core.js
+var cores = /* @__PURE__ */ new WeakMap();
+function getCore(video) {
+  let c = cores.get(video);
+  if (!c) {
+    c = new GLCore(video);
+    cores.set(video, c);
+  }
+  return c;
+}
+var warned = false;
+var GLCore = class {
+  constructor(video) {
+    this.video = video;
+    this.W = video.W;
+    this.H = video.H;
+    this.dpr = Math.max(1, Math.min(4, window.devicePixelRatio || 1));
+    const c = this.canvas = document.createElement("canvas");
+    c.width = Math.round(this.W * this.dpr);
+    c.height = Math.round(this.H * this.dpr);
+    const attrs = { preserveDrawingBuffer: true, premultipliedAlpha: true, alpha: true, antialias: false, depth: false, stencil: false, powerPreference: "high-performance" };
+    const gl2 = this.gl = c.getContext("webgl", attrs) || c.getContext("experimental-webgl", attrs);
+    this.ok = !!gl2;
+    if (!gl2) {
+      if (!warned) console.warn("[vk] WebGL unavailable: vk.gl layers render nothing (vk render --gpu soft|swiftshader keeps WebGL on)");
+      warned = true;
+      return;
+    }
+    this.progs = /* @__PURE__ */ new Map();
+    this.ready = false;
+    video.afterFonts.push(() => {
+      this.ready = true;
+    });
+    const b = this.quad = gl2.createBuffer();
+    gl2.bindBuffer(gl2.ARRAY_BUFFER, b);
+    gl2.bufferData(gl2.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl2.STATIC_DRAW);
+    gl2.pixelStorei(gl2.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, true);
+    gl2.pixelStorei(gl2.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl2.NONE);
+    gl2.disable(gl2.DEPTH_TEST);
+    this.maxPoint = (gl2.getParameter(gl2.ALIASED_POINT_SIZE_RANGE) || [1, 64])[1];
+    this.stats = { frames: 0, passes: 0, uploads: 0, ms: 0 };
+  }
+  // make sure the drawing buffer can hold a pw×ph layer
+  fit(pw, ph) {
+    const c = this.canvas;
+    if (c.width < pw || c.height < ph) {
+      c.width = Math.max(c.width, pw);
+      c.height = Math.max(c.height, ph);
+    }
+  }
+  // compile (cached): frag gets the prelude (precision, vUv, hash/noise) unless it declares its own precision
+  program(frag, vert = VERT2) {
+    const key = vert + "\n@@\n" + frag;
+    let p = this.progs.get(key);
+    if (p) return p;
+    const gl2 = this.gl;
+    const sh = (type, src) => {
+      const s2 = gl2.createShader(type);
+      gl2.shaderSource(s2, src);
+      gl2.compileShader(s2);
+      if (!gl2.getShaderParameter(s2, gl2.COMPILE_STATUS)) throw new Error("[vk.gl] shader: " + gl2.getShaderInfoLog(s2) + "\n" + src.split("\n").map((l, i) => i + 1 + ": " + l).join("\n"));
+      return s2;
+    };
+    const pr = gl2.createProgram();
+    gl2.attachShader(pr, sh(gl2.VERTEX_SHADER, vert));
+    gl2.attachShader(pr, sh(gl2.FRAGMENT_SHADER, (/precision\s/.test(frag) ? "" : PRELUDE) + frag));
+    gl2.linkProgram(pr);
+    if (!gl2.getProgramParameter(pr, gl2.LINK_STATUS)) throw new Error("[vk.gl] link: " + gl2.getProgramInfoLog(pr));
+    p = { pr, loc: {}, attr: {} };
+    this.progs.set(key, p);
+    return p;
+  }
+  uloc(p, n) {
+    return n in p.loc ? p.loc[n] : p.loc[n] = this.gl.getUniformLocation(p.pr, n);
+  }
+  // set uniforms: number → 1f · [a,b(,c,d)] → nf · {tex} → sampler (auto texture units)
+  uniforms(p, u) {
+    const gl2 = this.gl;
+    let unit = 0;
+    for (const k in u) {
+      const v = u[k], l = this.uloc(p, k);
+      if (l == null) continue;
+      if (v && v.tex !== void 0) {
+        gl2.activeTexture(gl2.TEXTURE0 + unit);
+        gl2.bindTexture(gl2.TEXTURE_2D, v.tex);
+        gl2.uniform1i(l, unit++);
+      } else if (Array.isArray(v)) gl2["uniform" + v.length + "fv"](l, v);
+      else if (typeof v === "boolean") gl2.uniform1f(l, v ? 1 : 0);
+      else gl2.uniform1f(l, +v || 0);
+    }
+  }
+  texture(w, h3, filter) {
+    const gl2 = this.gl, tex = gl2.createTexture();
+    gl2.bindTexture(gl2.TEXTURE_2D, tex);
+    gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, filter || gl2.LINEAR);
+    gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, filter || gl2.LINEAR);
+    gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.CLAMP_TO_EDGE);
+    gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.CLAMP_TO_EDGE);
+    if (w) gl2.texImage2D(gl2.TEXTURE_2D, 0, gl2.RGBA, w, h3, 0, gl2.RGBA, gl2.UNSIGNED_BYTE, null);
+    return { tex, w, h: h3 };
+  }
+  // render target (texture + framebuffer)
+  target(w, h3) {
+    const gl2 = this.gl, t = this.texture(w, h3);
+    t.fb = gl2.createFramebuffer();
+    gl2.bindFramebuffer(gl2.FRAMEBUFFER, t.fb);
+    gl2.framebufferTexture2D(gl2.FRAMEBUFFER, gl2.COLOR_ATTACHMENT0, gl2.TEXTURE_2D, t.tex, 0);
+    gl2.bindFramebuffer(gl2.FRAMEBUFFER, null);
+    return t;
+  }
+  upload(t, source) {
+    const gl2 = this.gl;
+    gl2.bindTexture(gl2.TEXTURE_2D, t.tex);
+    gl2.texImage2D(gl2.TEXTURE_2D, 0, gl2.RGBA, gl2.RGBA, gl2.UNSIGNED_BYTE, source);
+    t.w = source.width;
+    t.h = source.height;
+    this.stats.uploads++;
+  }
+  // draw a full-screen quad with `frag` into target (null = the layer region of the drawing buffer)
+  pass(frag, u, target, o = {}) {
+    const gl2 = this.gl, p = typeof frag === "string" ? this.program(frag) : frag;
+    gl2.useProgram(p.pr);
+    if (target) {
+      gl2.bindFramebuffer(gl2.FRAMEBUFFER, target.fb);
+      gl2.viewport(0, 0, target.w, target.h);
+    } else {
+      gl2.bindFramebuffer(gl2.FRAMEBUFFER, null);
+      gl2.viewport(0, 0, this.vw, this.vh);
+    }
+    if (o.clear || target) {
+      gl2.clearColor(0, 0, 0, 0);
+      gl2.clear(gl2.COLOR_BUFFER_BIT);
+    }
+    this.blend(target ? "none" : o.blend || "normal");
+    gl2.bindBuffer(gl2.ARRAY_BUFFER, this.quad);
+    const loc = p.attr.p != null ? p.attr.p : p.attr.p = gl2.getAttribLocation(p.pr, "p");
+    for (let i = 1; i < 4; i++) gl2.disableVertexAttribArray(i);
+    gl2.enableVertexAttribArray(loc);
+    gl2.vertexAttribPointer(loc, 2, gl2.FLOAT, false, 0, 0);
+    this.uniforms(p, u);
+    gl2.drawArrays(gl2.TRIANGLES, 0, 6);
+    this.stats.passes++;
+  }
+  blend(mode) {
+    const gl2 = this.gl;
+    if (mode === "none") {
+      gl2.disable(gl2.BLEND);
+      return;
+    }
+    gl2.enable(gl2.BLEND);
+    if (mode === "add") gl2.blendFunc(gl2.ONE, gl2.ONE);
+    else if (mode === "multiply") gl2.blendFunc(gl2.DST_COLOR, gl2.ONE_MINUS_SRC_ALPHA);
+    else gl2.blendFunc(gl2.ONE, gl2.ONE_MINUS_SRC_ALPHA);
+  }
+  // Gaussian pyramid of `src` (a texture of w×h): levels[i] (i ≥ 1) = downsampled 2^i and blurred (σ = 1 texel).
+  // `levels` holds the targets between calls (allocated once per effect).
+  pyramid(src, n, levels = []) {
+    let prev = src, w = src.w, h3 = src.h;
+    for (let i = 1; i <= n; i++) {
+      w = Math.max(1, Math.ceil(w / 2));
+      h3 = Math.max(1, Math.ceil(h3 / 2));
+      if (!levels[i]) levels[i] = { a: this.target(w, h3), b: this.target(w, h3) };
+      const L = levels[i];
+      this.pass(DOWN, { uTex: prev, uTexel: [1 / prev.w, 1 / prev.h] }, L.a);
+      this.pass(BLUR, { uTex: L.a, uDir: [1 / w, 0] }, L.b);
+      this.pass(BLUR, { uTex: L.b, uDir: [0, 1 / h3] }, L.a);
+      prev = L.a;
+    }
+    return levels;
+  }
+  // the scene-space paper noise texture (see glsl.js NOISE), generated once
+  noise(seed = 0) {
+    const k = "n" + seed;
+    if (this[k]) return this[k];
+    const t = this[k] = this.target(Math.round(this.W), Math.round(this.H));
+    this.pass(NOISE, { uSize: [t.w, t.h], uSeed: seed }, t);
+    return t;
+  }
+  // begin a layer: bind the drawing buffer region pw×ph and clear it
+  begin(pw, ph) {
+    const gl2 = this.gl;
+    this.fit(pw, ph);
+    this.vw = pw;
+    this.vh = ph;
+    gl2.bindFramebuffer(gl2.FRAMEBUFFER, null);
+    gl2.viewport(0, 0, pw, ph);
+    gl2.disable(gl2.SCISSOR_TEST);
+    gl2.clearColor(0, 0, 0, 0);
+    gl2.clear(gl2.COLOR_BUFFER_BIT);
+  }
+  bindOutput() {
+    const gl2 = this.gl;
+    gl2.bindFramebuffer(gl2.FRAMEBUFFER, null);
+    gl2.viewport(0, 0, this.vw, this.vh);
+  }
+  // copy the layer region (bottom-left pw×ph of the GL buffer) into a 2D context
+  blit(ctx, pw, ph) {
+    ctx.drawImage(this.canvas, 0, this.canvas.height - ph, pw, ph, 0, 0, pw, ph);
+  }
+};
+
+// src/fx/gl/shaders.js
+var CUBIC = `vec4 cubicTex(sampler2D t, vec2 uv, vec2 sz){
+  vec2 st = uv * sz - .5, i = floor(st), f = fract(st);
+  vec2 w0 = (1. - f) * (1. - f) * (1. - f) / 6., w1 = (4. - 6. * f * f + 3. * f * f * f) / 6., w2 = (1. + 3. * f + 3. * f * f - 3. * f * f * f) / 6., w3 = f * f * f / 6.;
+  vec2 g0 = w0 + w1, g1 = w2 + w3, h0 = (w1 / g0) - 1. + i + .5, h1 = (w3 / g1) + 1. + i + .5;
+  return g0.y * (g0.x * texture2D(t, vec2(h0.x, h0.y) / sz) + g1.x * texture2D(t, vec2(h1.x, h0.y) / sz))
+       + g1.y * (g0.x * texture2D(t, vec2(h0.x, h1.y) / sz) + g1.x * texture2D(t, vec2(h1.x, h1.y) / sz)); }
+`;
+var PAPER = NOISE_LOOKUP + `uniform vec3 uBase; uniform float uAmt, uFib, uVig, uMode, uSpeck;
+void main(){
+  vec2 sp = scenePx(vUv); vec4 n = paperN(sp);
+  vec3 col = uBase * (1. - uAmt * (.075 * (n.r - .5) + .035 * (n.g - .5)));
+  float fib = n.b;
+  col = mix(col, min(vec3(1.), col * vec3(1.045, 1.045, 1.05)), uFib * fib * .8);   // fibre strands: lighter pulp
+  col = mix(col, col * vec3(.965, .962, .95), uFib * smoothstep(.35, 1., fib) * .45); // \u2026with a faint darker core
+  float cl = smoothstep(.55, .85, fbm3(sp / 14. + 3.1)) * smoothstep(.5, .7, n.r);
+  col = mix(col, min(vec3(1.), col * 1.03), uFib * cl * .6);                      // pulp clouds
+  col *= 1. - .05 * uAmt * (n.a - .5);
+  vec2 sc = floor(sp / 5.); float sh = h12(sc + 7.3);
+  float sk = step(.9993, sh) * smoothstep(1.6, .4, length(fract(sp / 5.) * 5. - 2.5 - (vec2(h12(sc + 1.), h12(sc + 2.)) - .5) * 2.));
+  col *= 1. - sk * .28 * uSpeck;
+  vec2 v = (sp / uNS - .5) * vec2(1., .82);
+  col *= 1. - uVig * smoothstep(.3, .9, length(v) * 1.25) * vec3(1., 1.02, 1.08);
+  gl_FragColor = uMode > .5 ? vec4(min(vec3(1.), col / uBase), 1.) : vec4(col, 1.);
+}`;
+var BLEED = NOISE_LOOKUP + CUBIC + `uniform sampler2D uM0, uM1, uM3, uHa, uHb; uniform vec2 uHaSize, uHbSize, uM3Size; uniform float uHmix;
+uniform float uX, uDraw, uDur, uHaloEnd, uFade, uSoft; uniform vec3 uWipe;
+uniform vec3 uColor; uniform float uDensity, uHaloDensity, uRim, uFibre, uFeather, uMottle, uGrain, uSeedF, uPool, uHWarp;
+void main(){
+  vec2 sp = scenePx(vUv); vec4 n = paperN(sp);
+  float dl = 0.;
+  if (uWipe.z > 0.) { float pos = dot(vec2(vUv.x, 1. - vUv.y) - .5, uWipe.xy) + .5; dl = uWipe.z * clamp(pos + (n.g - .5) * .06, 0., 1.); }
+  float x = uX - dl;
+  if (x < 0.) { gl_FragColor = vec4(0.); return; }
+  // far from any ink (coarsest halo level and the lightly blurred mask both empty): nothing to draw
+  if (texture2D(uHb, vUv).a < .003 && texture2D(uM3, vUv).a < .003) { gl_FragColor = vec4(0.); return; }
+  float d = clamp(x / max(uDraw, 1e-4), 0., 1.), sd = d * d * (3. - 2. * d);
+  float w = clamp((x - uDraw * .35) / max(uDur, 1e-4), 0., 1.), wet = sqrt(w);
+  float thC = .98 - .48 * sd, thH = 1. - (1. - uHaloEnd) * wet;
+  // domain warp (organic outlines): a few px for the stroke, a fraction of the spread for the halo
+  vec2 wq = sp / 23. + uSeedF, wv = (vec2(fbm3(wq), fbm3(wq + 9.7)) - .5) * 3.;
+  vec2 pxUv = 1. / uRes;
+  float Fc = mix(texture2D(uM0, vUv + wv * 1.6 * uFeather * pxUv).a, texture2D(uM1, vUv + wv * 1.6 * uFeather * pxUv).a, .6);
+  vec2 wq2 = sp / 61. + uSeedF * 1.7, wv2 = (vec2(fbm3(wq2), fbm3(wq2 + 4.1)) - .5) * 3.;
+  vec2 huv = vUv + (wv2 * uHWarp + wv * uHWarp * .35) * pxUv;
+  float Fh = mix(cubicTex(uHa, huv, uHaSize).a, cubicTex(uHb, huv, uHbSize).a, uHmix);
+  // paper-driven irregularity: cloudy (R) + mid (G) noise, fine ragged edge, a little wicking along fibres (B)
+  float lo = (n.r - .5) * 2.2, mid = (n.g - .5) * 2.2, fine = vnoise(sp * .6 + uSeedF) - .5;
+  float cth = thC + (mid * .07 + fine * .12 * (1. - .8 * uSoft)) * uFeather - n.b * .08 * uFibre * (1. - .6 * uSoft);
+  float cov = smoothstep(cth - .02 - .5 * uSoft, cth + .02, Fc);
+  float hth = thH * (1. + (lo * .45 + mid * .3 + fine * .25) * uFeather) - n.b * .16 * uFibre;
+  float hcov = wet > 0. ? smoothstep(hth - .006, hth + .02, Fh) : 0.;
+  // halo density: fades from the stroke outwards; darker tide line at the front, softer while still wet
+  float Fn = cubicTex(uM3, huv, uM3Size).a;
+  float hg = clamp((Fh - hth) / max(.05, 1. - hth) * .8, 0., 1.) * .5 + smoothstep(.02, .45, Fn) * .5;
+  float rim = hcov * (1. - smoothstep(hth + .005, hth + .03 + .05 * (1. - wet), Fh)) * (.35 + .65 * wet);
+  float mott = 1. - uMottle * (.35 * lo + .2 * mid);
+  // pigment pools at the edges of the core (the stroke dries darker at its border)
+  float pool = cov * (1. - smoothstep(cth, cth + .3, Fc)) * uPool;
+  float a = cov * uDensity * mott * mix(.86, 1., Fc) + pool * (1. - uDensity * .8);
+  float ha = (hcov * uHaloDensity * mix(.25, 1.25, hg) + rim * uRim) * mott;
+  a = a + ha * (1. - a);
+  a *= 1. - uGrain * ((n.a - .5) * .8 * (1. - .6 * uSoft) + .25 * n.b);
+  a = clamp(a * clamp(sd * 2.5, 0., 1.) * uFade, 0., 1.);
+  gl_FragColor = vec4(uColor * a, a);
+}`;
+var WASH = NOISE_LOOKUP + CUBIC + `uniform sampler2D uS, uL2, uL3, uL4; uniform vec2 uL4Size;
+uniform float uBoil, uWob, uWobF, uDark, uEdge, uBleed, uGrain, uMottle, uAlpha, uSeedF, uInk, uTide; uniform vec3 uInkC;
+void main(){
+  vec2 sp = scenePx(vUv); vec4 n = paperN(sp);
+  vec2 q = sp / uWobF + uBoil * 17.13 + uSeedF;
+  vec2 off = (vec2(vnoise(q), vnoise(q + 31.7)) - .5) * 2. * uWob / (uRes * uNX.zw);
+  vec2 uv = vUv + off;
+  vec4 c = texture2D(uS, uv), b = mix(texture2D(uL2, uv), texture2D(uL3, uv), .5), bb = cubicTex(uL4, uv, uL4Size);
+  float a0 = c.a;
+  vec3 base = c.rgb / max(a0, 1e-4);
+  // pigment pools at the borders of every wash (irregular band)
+  float edge = clamp((a0 - b.a) * uEdge + (n.g - .5) * .5 * a0, 0., 1.);
+  vec3 pooled = mix(base * base * .62, uInkC, .2 * uInk);
+  base = mix(base, pooled, edge * uDark);
+  // wet-wash mottling and tide lines (water marks) inside large shapes
+  float lo = (n.r - .5) * 2.2, mid = (n.g - .5) * 2.2;
+  base *= 1. + lo * uMottle * .22 - mid * uMottle * .08;
+  float wm = fbm3(sp / 70. + uSeedF + 3.);
+  float tide = smoothstep(.028, .0, abs(wm - .52)) * clamp(b.a * 1.4 - .3, 0., 1.);
+  base = mix(base, base * base * .75, tide * uTide);
+  float a = a0 * clamp(1. - uGrain * ((n.a - .5) * .9 + .4 * n.b), 0., 1.);
+  // soft bleed of diluted colour into the paper around shapes
+  float hth = .14 + (n.g - .5) * .3 - n.b * .12;
+  float halo = smoothstep(hth, hth + .2, bb.a) * uBleed * (1. - a0);
+  vec3 hc = bb.rgb / max(bb.a, 1e-4);
+  float ha = halo * .45 * (1. - .4 * smoothstep(hth + .2, hth + .6, bb.a));
+  gl_FragColor = vec4(base * a + hc * ha * (1. - a), a + ha * (1. - a)) * uAlpha;
+}`;
+var MIST = NOISE_LOOKUP + `uniform float uTime, uY, uH, uSpeed, uDensity, uScale, uSeedF; uniform vec3 uColor;
+void main(){
+  vec2 sp = scenePx(vUv);
+  float band = exp(-pow((sp.y - uY) / uH, 2.));
+  if (band < .004) { gl_FragColor = vec4(0.); return; }
+  vec2 q = vec2(sp.x / (uScale * 3.2) + uTime * uSpeed / uScale, sp.y / uScale) + uSeedF;
+  float f = fbm(q) * .75 + fbm(q * 2.3 + 7.) * .25;
+  float a = smoothstep(.36, .72, f) * band * uDensity;
+  gl_FragColor = vec4(uColor * a, a);
+}`;
+var PVERT = `attribute vec4 a0; attribute vec4 a1; attribute vec4 a2;
+uniform vec2 uRes; uniform vec4 uNX; uniform float uMaxPt;
+varying vec4 v1; varying vec3 vC; varying float vA, vM;
+void main(){
+  vec2 lp = (a0.xy - uNX.xy) / uNX.zw;
+  gl_Position = vec4(lp.x / uRes.x * 2. - 1., 1. - lp.y / uRes.y * 2., 0., 1.);
+  float m = a1.y == 1. ? 1.8 : a1.y == 2. || a1.y == 4. ? 1.6 : 1.15;
+  float want = a0.z * 2. * m / uNX.z;
+  gl_PointSize = min(want, uMaxPt);
+  vM = m;
+  v1 = a1; vC = a2.rgb; vA = a0.w;
+}`;
+var PFRAG = `precision highp float;
+float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3. - 2. * f);
+  return mix(mix(h12(i), h12(i + vec2(1., 0.)), u.x), mix(h12(i + vec2(0., 1.)), h12(i + vec2(1., 1.)), u.x), u.y); }
+uniform vec3 uC2; uniform float uSoak;
+varying vec4 v1; varying vec3 vC; varying float vA, vM;
+void main(){
+  vec2 pc = gl_PointCoord * 2. - 1.;
+  float shape = v1.y, u = v1.z, r = length(pc) * vM, a = 0.; vec3 col = vC;
+  if (shape < .5) {                                     // drop in flight: round, slightly ragged, dense
+    float e = 1. + .12 * (vnoise(vec2(atan(pc.y, pc.x) * 1.3 + u * 40., u * 9.)) - .5);
+    a = smoothstep(e, e - .18, r);
+  } else if (shape < 1.5) {                             // landed splat soaking into the paper
+    float ang = atan(pc.y, pc.x);
+    float e = 1. + .36 * (vnoise(vec2(ang * 1.1 + u * 40., u * 9.)) - .5) + .16 * (vnoise(vec2(ang * 4.3 + u * 70., 3.)) - .5);
+    e += .5 * pow(max(0., vnoise(vec2(ang * 3.2 + u * 13., 7.)) - .6) / .4, 2.);
+    float blot = smoothstep(e, e - .07, r);
+    float rim = smoothstep(e - .3, e - .03, r) * blot;
+    float soak = clamp(v1.w * 2., 0., 1.);
+    float halo = smoothstep(e * 1.55, e * 1.02, r) * (1. - blot) * .3 * soak * uSoak;
+    a = blot * (.78 + .22 * rim) + halo;
+  } else if (shape < 2.5) {                             // mist / spray: soft gaussian
+    a = exp(-r * r * 3.2);
+  } else if (shape < 3.5) {                             // petal: rotated, pointed ellipse, pale base \u2192 coloured tip
+    float t = radians(v1.x); vec2 q = mat2(cos(t), -sin(t), sin(t), cos(t)) * pc * vM;
+    float y = q.y, w = .52 * (1. - .35 * y) * sqrt(max(0., 1. - y * y));
+    float notch = .12 * smoothstep(.2, 0., abs(q.x)) * smoothstep(.75, 1., -y);
+    a = smoothstep(.03, -.03, abs(q.x) - w) * smoothstep(1., .92, abs(y) + notch);
+    col = mix(uC2, vC, smoothstep(.9, -.6, y));
+    col *= .92 + .08 * smoothstep(.05, 0., abs(q.x));
+  } else if (shape < 4.5) {                             // spark: hot core + glow (use blend: 'add')
+    a = exp(-r * r * 5.) * .7 + smoothstep(.3, .05, r) * .6;
+    col = mix(vC, vec3(1., .97, .85), smoothstep(.35, 0., r));
+  } else {                                              // plain dot
+    a = smoothstep(1., .85, r);
+  }
+  a = clamp(a * vA, 0., 1.);
+  gl_FragColor = vec4(col * a, a);
+}`;
+var CUSTOM_HEAD = NOISE_LOOKUP + "uniform float uTime, uStep, uProgress;\n";
+
+// src/fx/gl/math.js
+var clamp012 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+var sm2 = (x) => {
+  x = clamp012(x);
+  return x * x * (3 - 2 * x);
+};
+function stepT(t, fps = 12) {
+  return fps > 0 ? Math.floor(t * fps + 1e-6) / fps : t;
+}
+function boilFrame(t, fps = 12, frames = 0) {
+  const f = Math.floor(t * fps + 1e-6);
+  return frames > 0 ? (f % frames + frames) % frames : f;
+}
+function rgb(c) {
+  if (Array.isArray(c)) return c.some((v) => v > 1) ? c.slice(0, 3).map((v) => v / 255) : c.slice(0, 3);
+  const s2 = String(c || "#000").trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(s2);
+  if (m) return [...m[1]].map((ch) => parseInt(ch + ch, 16) / 255);
+  m = /^#([0-9a-f]{6})/i.exec(s2);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
+  m = /rgba?\(([^)]+)\)/i.exec(s2);
+  if (m) return m[1].split(/[ ,/]+/).slice(0, 3).map((v) => +v / 255);
+  return [0, 0, 0];
+}
+function bleedCurve(local, o = {}) {
+  const at = o.at || 0, draw2 = o.draw != null ? o.draw : 0.8, dur = o.dur != null ? o.dur : 2.5;
+  const x = local - at;
+  const d = draw2 > 0 ? clamp012(x / draw2) : x >= 0 ? 1 : 0;
+  const w = dur > 0 ? clamp012((x - draw2 * 0.35) / dur) : x >= draw2 * 0.35 ? 1 : 0;
+  const wet = Math.sqrt(w);
+  const fade = o.fade ? 1 - sm2((local - o.fade[0]) / Math.max(1e-6, o.fade[1] - o.fade[0])) : 1;
+  return {
+    on: x >= 0 && fade > 0,
+    draw: d,
+    wet,
+    alpha: (x >= 0 ? sm2(d * 2.2) : 0) * fade,
+    core: 0.98 - 0.48 * sm2(d),
+    // core threshold .98 → .5 (skeleton → exact shape)
+    halo: 1 - (1 - (o.haloEnd != null ? o.haloEnd : 0.12)) * wet,
+    // halo threshold 1 → .12 (front moves out)
+    done: x >= Math.max(draw2, draw2 * 0.35 + dur) && (!o.fade || local < o.fade[0])
+  };
+}
+function levelSigma(i) {
+  let s2 = 0;
+  for (let k = 1; k <= i; k++) s2 += 4 ** k;
+  return Math.sqrt(s2 + (i ? 0 : 0.25));
+}
+function levelFor(sigma, maxLevel = 6) {
+  if (sigma <= levelSigma(1)) return clamp012((sigma - 0.5) / (levelSigma(1) - 0.5));
+  for (let i = 1; i < maxLevel; i++) {
+    const a = levelSigma(i), b = levelSigma(i + 1);
+    if (sigma <= b) return i + (sigma - a) / (b - a);
+  }
+  return maxLevel;
+}
+function haloSigma(spread, th = 0.12) {
+  return spread / Math.max(0.2, probit(1 - th));
+}
+function probit(p) {
+  p = Math.min(1 - 1e-12, Math.max(1e-12, p));
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
+  const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+  const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+  const q0 = Math.min(p, 1 - p);
+  if (q0 < 0.02425) {
+    const q2 = Math.sqrt(-2 * Math.log(q0)), x = (((((c[0] * q2 + c[1]) * q2 + c[2]) * q2 + c[3]) * q2 + c[4]) * q2 + c[5]) / ((((d[0] * q2 + d[1]) * q2 + d[2]) * q2 + d[3]) * q2 + 1);
+    return p < 0.5 ? x : -x;
+  }
+  const q = p - 0.5, r = q * q;
+  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+}
+function jitterPath(d, t, o = {}) {
+  const amp = o.amp != null ? o.amp : 1.5, fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm22 = o.smooth || 3;
+  if (!amp) return d;
+  let k = 0;
+  const f = (x) => Math.round(x * 100) / 100;
+  return String(d).replace(/([MLCQSTmlcqst])([^MLCQSTAHVZmlcqstahvz]*)/g, (all, cmd, args) => {
+    const nums = args.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+    if (!nums || nums.length < 2) return all;
+    const rel = cmd === cmd.toLowerCase();
+    const out = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      const u = k++ / sm22;
+      const dx = rel ? 0 : (noise1(u + seed) - 0.5) * 2 * amp, dy = rel ? 0 : (noise1(u + seed + 91.7) - 0.5) * 2 * amp;
+      out.push(f(+nums[i] + dx) + "," + f(+nums[i + 1] + dy));
+    }
+    return cmd + out.join(" ") + " ";
+  }).trim();
+}
+function jitterPoints(pts, t, o = {}) {
+  const amp = o.amp != null ? o.amp : 1.5, fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm22 = o.smooth || 3;
+  return pts.map((p, i) => [p[0] + (noise1(i / sm22 + seed) - 0.5) * 2 * amp, p[1] + (noise1(i / sm22 + seed + 91.7) - 0.5) * 2 * amp]);
+}
+
+// src/fx/gl/particles.js
+var D2R2 = Math.PI / 180;
+var isR = (v) => Array.isArray(v) && v.length === 2 && typeof v[0] === "number";
+function particles(opts = {}) {
+  const o = { ...opts.preset ? PRESETS[opts.preset] : {}, ...opts };
+  const seed = o.seed != null ? o.seed : 1;
+  const r = (i, k) => hash(seed * 131.7 + i * 17.13 + k * 3.917 + 0.31);
+  const pick = (v, i, k, d) => {
+    if (v == null) return d;
+    if (typeof v === "function") return v(i, (kk) => r(i, 100 + kk));
+    if (isR(v)) return v[0] + (v[1] - v[0]) * r(i, k);
+    return v;
+  };
+  const bursts = [].concat(o.burst || []).map((b) => typeof b === "number" ? { t: b } : b);
+  const counts = bursts.map((b) => b.n != null ? b.n : o.n != null ? o.n : 30);
+  const rate = o.rate || 0, from = o.from || 0, to = o.to != null ? o.to : Infinity;
+  const maxLife = isR(o.life) ? o.life[1] : typeof o.life === "number" ? o.life : 2;
+  const nBurst = counts.reduce((a, b) => a + b, 0);
+  function spawn(i) {
+    let t0, b = null;
+    if (i < nBurst) {
+      let j = 0, c = i;
+      while (c >= counts[j]) {
+        c -= counts[j];
+        j++;
+      }
+      b = bursts[j];
+      t0 = b.t + (b.dur ? r(i, 0) * b.dur : 0);
+    } else t0 = from + (i - nBurst) / rate;
+    const src = b || {};
+    const ex = src.x != null ? src.x : o.x || 0, ey = src.y != null ? src.y : o.y || 0;
+    let x = ex, y = ey;
+    const line = src.line || o.line, box = src.box || o.box, rad = src.radius != null ? src.radius : o.radius;
+    if (line) {
+      const u = r(i, 1);
+      x = line[0] + (line[2] - line[0]) * u;
+      y = line[1] + (line[3] - line[1]) * u;
+    } else if (box) {
+      x = ex + (r(i, 1) - 0.5) * box[0];
+      y = ey + (r(i, 2) - 0.5) * box[1];
+    } else if (rad) {
+      const a = r(i, 1) * Math.PI * 2, rr = rad * Math.sqrt(r(i, 2));
+      x = ex + Math.cos(a) * rr;
+      y = ey + Math.sin(a) * rr;
+    }
+    const ang = ((src.angle != null ? src.angle : o.angle != null ? o.angle : -90) + (r(i, 3) - 0.5) * (src.spread != null ? src.spread : o.spread != null ? o.spread : 360)) * D2R2;
+    const sp = pick(src.speed || o.speed, i, 4, 100);
+    return { t0, x, y, vx: Math.cos(ang) * sp + (o.wind || 0), vy: Math.sin(ang) * sp };
+  }
+  const G2 = o.gravity || 0, GX = o.gravityX || 0, K = o.drag || 0;
+  function pos(s2, a) {
+    if (K < 1e-6) return [s2.x + s2.vx * a + 0.5 * GX * a * a, s2.y + s2.vy * a + 0.5 * G2 * a * a];
+    const e = (1 - Math.exp(-K * a)) / K;
+    return [s2.x + (s2.vx - GX / K) * e + GX / K * a, s2.y + (s2.vy - G2 / K) * e + G2 / K * a];
+  }
+  function landing(s2, life, i) {
+    if (o.landAt != null) return Math.min(life, pick(o.landAt, i, 12, life));
+    const fl = o.floor;
+    if (fl == null) return null;
+    const floorY = typeof fl === "function" ? fl : () => fl;
+    let prev = 0, py = pos(s2, 0)[1];
+    if (py >= floorY(s2.x)) return null;
+    const steps2 = 48;
+    for (let k = 1; k <= steps2; k++) {
+      const a = life * k / steps2, p = pos(s2, a);
+      if (p[1] >= floorY(p[0])) {
+        let lo = prev, hi = a;
+        for (let it = 0; it < 24; it++) {
+          const m = (lo + hi) / 2, q = pos(s2, m);
+          if (q[1] >= floorY(q[0])) hi = m;
+          else lo = m;
+        }
+        return hi;
+      }
+      prev = a;
+      py = p[1];
+    }
+    return null;
+  }
+  const total = (n) => rate ? nBurst + n : nBurst;
+  function state(i, t) {
+    const s2 = spawn(i), age = t - s2.t0;
+    if (age < 0) return null;
+    const life = pick(o.life, i, 5, 2), lands = o.floor != null || o.landAt != null;
+    if (age > life + (lands ? o.splatLife != null ? o.splatLife : life : 0)) return null;
+    const la = landing(s2, life, i);
+    let x, y, landed = false, land = null, a = age;
+    if (la != null && age >= la) {
+      [x, y] = pos(s2, la);
+      landed = true;
+      land = { x, y, t: s2.t0 + la, age: age - la };
+      a = la;
+    } else {
+      if (age > life) return null;
+      [x, y] = pos(s2, age);
+    }
+    const sway = o.sway || 0;
+    if (sway && !landed) {
+      const f = o.swayFreq || 1.3;
+      x += (noise1(i * 7.7 + a * f) - 0.5) * 2 * sway;
+      y += (noise1(i * 3.1 + 40 + a * f) - 0.5) * sway * 0.5;
+    }
+    const size0 = pick(o.size, i, 6, 6), grow = o.grow != null ? o.grow : 1;
+    const lifeP = Math.min(1, age / life), fin = o.fadeIn != null ? o.fadeIn : 0.05, fout = o.fadeOut != null ? o.fadeOut : 0.3;
+    let alpha = pick(o.alpha, i, 7, 1) * Math.min(1, age / Math.max(1e-6, fin)) * (landed ? 1 : Math.min(1, (life - age) / Math.max(1e-6, fout * life)));
+    if (landed) {
+      const sl = o.splatLife != null ? o.splatLife : life, sf = o.splatFade != null ? o.splatFade : 0.4;
+      alpha *= Math.min(1, (sl - land.age) / Math.max(1e-6, sf * sl));
+    }
+    if (alpha <= 0) return null;
+    const rot = pick(o.rot, i, 8, 0) + pick(o.spin, i, 9, 0) * a;
+    const soakK = (o.soak || 5) * (landed ? land.age : 0), settledSize = landed && soakK > 6.9;
+    const size2 = landed ? size0 * (1 + ((o.splat != null ? o.splat : 2.2) - 1) * (settledSize ? 1 : 1 - Math.exp(-soakK))) : size0 * (1 + (grow - 1) * lifeP);
+    const A = Math.min(1, alpha);
+    return { id: i, x, y, size: size2, alpha: A, rot, age, life, landed, land, u: r(i, 11), t0: s2.t0, settled: settledSize && age >= fin && land.age <= (o.splatLife != null ? o.splatLife : life) * (1 - (o.splatFade != null ? o.splatFade : 0.4)) };
+  }
+  return {
+    o,
+    seed,
+    // number of particles that may exist at time t (upper bound of the index range)
+    count(t) {
+      return rate ? total(Math.max(0, Math.min(Math.floor((Math.min(t, to) - from) * rate) + 1, Math.ceil((to - from) * rate)))) : nBurst;
+    },
+    at(t) {
+      const out = [];
+      for (let i = 0; i < nBurst; i++) {
+        const p = state(i, t);
+        if (p) out.push(p);
+      }
+      if (rate) {
+        const extra = o.floor != null || o.landAt != null ? o.splatLife != null ? o.splatLife : maxLife : 0;
+        const lo = Math.max(0, Math.floor((t - maxLife - extra - from) * rate)), hi = Math.floor((Math.min(t, to) - from) * rate + 1e-9);
+        const cap = to === Infinity ? Infinity : Math.ceil((to - from) * rate);
+        for (let j = lo; j <= hi && j < cap; j++) {
+          const p = state(nBurst + j, t);
+          if (p) out.push(p);
+        }
+      }
+      return out;
+    },
+    spawn,
+    pos
+  };
+}
+var SHAPES = { drop: 0, splat: 1, mist: 2, petal: 3, spark: 4, dot: 5 };
+var PRESETS = {
+  // ink flicked off a brush: dense drops, fall, splat on the floor and soak in
+  inkDrops: { angle: -80, spread: 80, speed: [260, 620], gravity: 1100, drag: 0.7, life: [1.4, 2.2], size: [3, 11], alpha: [0.75, 1], splat: 2.4, soak: 6, splatLife: 30, splatFade: 0.02, shape: "drop", color: "#1f2529", n: 26 },
+  // top-down splatter around an impact (paper seen from above): drops fly out, slow down and soak in where they stop
+  splatter: { angle: 0, spread: 360, speed: [120, 900], drag: 5, life: [0.12, 0.3], landAt: [0.08, 0.26], size: [1.5, 7], alpha: [0.8, 1], splat: 1.8, soak: 8, splatLife: 60, splatFade: 0.01, shape: "drop", color: "#1f2529", n: 60, fadeIn: 1e-3 },
+  // water spray: many fine pale droplets, strong drag, fade out
+  spray: { angle: -90, spread: 120, speed: [120, 520], gravity: 700, drag: 2.2, life: [0.6, 1.3], size: [1.5, 5], alpha: [0.45, 0.9], fadeOut: 0.6, shape: "mist", color: "#f4f6ee", n: 90 },
+  // falling petals: slow, swaying, spinning
+  petals: { angle: 90, spread: 30, speed: [20, 60], gravity: 30, drag: 1.2, life: [5, 8], size: [9, 16], sway: 38, swayFreq: 0.6, spin: [-120, 120], rot: [0, 360], fadeIn: 0.4, fadeOut: 0.2, shape: "petal", color: "#d0675f", color2: "#f3e3da" },
+  // sparks: fast, short, additive glow
+  sparks: { angle: -90, spread: 360, speed: [150, 520], gravity: 260, drag: 3, life: [0.35, 0.9], size: [2, 5], grow: 0.4, shape: "spark", color: "#f2c45a", blend: "add", n: 60 },
+  // slow drifting mist motes
+  mist: { angle: -90, spread: 60, speed: [8, 25], gravity: -4, drag: 0.2, life: [4, 7], size: [30, 70], alpha: [0.12, 0.25], sway: 30, swayFreq: 0.25, fadeIn: 0.3, fadeOut: 0.4, shape: "mist", color: "#f4f4ea" }
+};
+
+// src/fx/gl/index.js
+var f4 = (x) => (Math.round(x * 1e4) / 1e4).toString();
+var GLLayer = class {
+  constructor(video, _draw, o = {}) {
+    this.video = video;
+    this.o = o;
+    this.core = getCore(video);
+    const r = this.rect = o.rect ? o.rect.slice() : [0, 0, video.W, video.H];
+    this.res = this.core.dpr * (o.scale || 1);
+    this.pw = Math.max(1, Math.round(r[2] * this.res));
+    this.ph = Math.max(1, Math.round(r[3] * this.res));
+    const c = this.el = document.createElement("canvas");
+    c.className = "vk-canvas vk-gl" + (o.class ? " " + o.class : "");
+    c.width = this.pw;
+    c.height = this.ph;
+    c.style.cssText = `left:${r[0]}px;top:${r[1]}px;width:${r[2]}px;height:${r[3]}px` + (o.blend ? `;mix-blend-mode:${o.blend}` : "") + (o.opacity != null ? `;opacity:${o.opacity}` : "");
+    this.ctx = c.getContext("2d", { willReadFrequently: true });
+    this.effects = [];
+    this.inited = false;
+    this.lastKey = null;
+    if (this.core.ok) this.core.fit(this.pw, this.ph);
+    [].concat(o.effects || []).forEach((e) => e && this.add(e));
+  }
+  add(...effects) {
+    effects.flat().forEach((e) => {
+      if (e) {
+        this.effects.push(e);
+        if (this.inited && e.init) e.init(this.core, this);
+      }
+    });
+    return this;
+  }
+  // uniforms every effect shader gets: layer size, scene-space mapping, paper noise
+  common(seed = 0) {
+    const r = this.rect;
+    return { uRes: [this.pw, this.ph], uNX: [r[0], r[1], 1 / this.res, 1 / this.res], uNS: [this.video.W, this.video.H], uN: this.core.noise(seed) };
+  }
+  // 2D context whose user space = scene px (for drawing masks into layer-sized canvases)
+  sceneCtx(canvas) {
+    const g = canvas.getContext("2d", { willReadFrequently: true });
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    g.setTransform(this.res, 0, 0, this.res, -this.rect[0] * this.res, -this.rect[1] * this.res);
+    return g;
+  }
+  canvas() {
+    const c = document.createElement("canvas");
+    c.width = this.pw;
+    c.height = this.ph;
+    return c;
+  }
+  render(local, info) {
+    const core = this.core;
+    if (!core.ok) return;
+    const t0 = performance.now();
+    if (!this.inited) {
+      this.inited = true;
+      this.effects.forEach((e) => e.init && e.init(core, this));
+    }
+    let key = core.ready ? "R" : "N";
+    for (const e of this.effects) {
+      const k = e.key ? e.key(local, info, this) : null;
+      if (k == null) {
+        key = null;
+        break;
+      }
+      key += "|" + k;
+    }
+    if (key != null && key === this.lastKey) return;
+    core.begin(this.pw, this.ph);
+    for (const e of this.effects) {
+      e.render(core, this, local, info);
+      core.bindOutput();
+    }
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.pw, this.ph);
+    core.blit(this.ctx, this.pw, this.ph);
+    this.lastKey = key;
+    core.stats.frames++;
+    core.stats.ms += performance.now() - t0;
+  }
+};
+registry.layers.gl = GLLayer;
+function layer(target, o = {}) {
+  const isScene = target && target.video && target.el;
+  const v = isScene ? target.video : target;
+  return v.addLayer("gl", null, isScene ? { ...o, scene: target } : { z: "front", zIndex: 30, ...o });
+}
+function draw(fn, o = {}) {
+  return { draw: fn, static: !!o.static, key: o.key };
+}
+function text2(str, o = {}) {
+  return {
+    static: o.static !== false,
+    draw(g) {
+      const size2 = o.size || 120, font = o.font || '"Ma Shan Zheng","Noto Serif SC",serif';
+      g.font = `${o.weight || 400} ${size2}px ${font}`;
+      g.fillStyle = o.color || "#000";
+      g.textBaseline = o.vertical ? "top" : o.baseline || "alphabetic";
+      const chars = [...String(str)];
+      if (o.vertical) {
+        g.textAlign = "center";
+        const step = size2 * (o.lead || 1.04);
+        chars.forEach((ch, i) => {
+          const jx = o.jitter ? Math.sin(i * 12.9898) * o.jitter : 0;
+          g.fillText(ch, (o.x || 0) + jx, (o.y || 0) + i * step);
+        });
+      } else {
+        g.textAlign = o.align || "left";
+        if (o.tracking) {
+          let x = o.x || 0;
+          chars.forEach((ch) => {
+            g.fillText(ch, x, o.y || 0);
+            x += g.measureText(ch).width + o.tracking * size2;
+          });
+        } else g.fillText(String(str), o.x || 0, o.y || 0);
+      }
+    }
+  };
+}
+function path(d, o = {}) {
+  const ds = [].concat(d), P = ds.map((x) => new Path2D(x));
+  return {
+    static: o.static !== false,
+    draw(g, local, info) {
+      g.save();
+      const T4 = o.transform;
+      if (Array.isArray(T4)) g.transform(...T4);
+      else if (T4) {
+        g.translate(T4.x || 0, T4.y || 0);
+        if (T4.rot) g.rotate(T4.rot * Math.PI / 180);
+        if (T4.scale) g.scale(T4.scale, T4.scale);
+      }
+      const fs = o.gradient ? o.gradient(g) : o.fill || "#000";
+      P.forEach((p, i) => {
+        if (fs !== "none") {
+          g.fillStyle = Array.isArray(fs) ? fs[i % fs.length] : fs;
+          g.fill(p, o.rule || "nonzero");
+        }
+        if (o.stroke) {
+          g.strokeStyle = o.stroke;
+          g.lineWidth = o.width || 2;
+          g.lineCap = "round";
+          g.lineJoin = "round";
+          g.stroke(p);
+        }
+      });
+      g.restore();
+    }
+  };
+}
+function image(img, o = {}) {
+  return { static: o.static !== false, draw(g) {
+    g.drawImage(img, o.x || 0, o.y || 0, o.w || img.width, o.h || img.height);
+  } };
+}
+function svg2(el2, o = {}) {
+  return { static: !!o.static, el: el2, draw(g) {
+    drawSVG(g, typeof el2 === "string" ? document.querySelector(el2) : el2, o);
+  } };
+}
+var SKIP = /* @__PURE__ */ new Set(["defs", "clipPath", "mask", "filter", "linearGradient", "radialGradient", "pattern", "symbol", "marker", "style", "script", "title", "desc", "metadata", "foreignObject"]);
+function drawSVG(g, root, o = {}) {
+  if (!root) return;
+  const off = o.offset || [0, 0], base = g.getTransform(), ex = o.exclude ? typeof o.exclude === "string" ? o.exclude : [].concat(o.exclude) : null;
+  const walk = (el2, op) => {
+    const tag = el2.tagName;
+    if (SKIP.has(tag)) return;
+    if (ex && (typeof ex === "string" ? el2.matches(ex) : ex.includes(el2))) return;
+    const cs = getComputedStyle(el2);
+    if (cs.display === "none") return;
+    const a = op * (el2 === root && o.ignoreRootOpacity ? 1 : +cs.opacity);
+    if (a <= 2e-3) return;
+    if (tag === "g" || tag === "svg" || tag === "a") {
+      for (const c of el2.children) walk(c, a);
+      return;
+    }
+    if (tag === "use") {
+      const ref = document.getElementById((el2.getAttribute("href") || el2.getAttribute("xlink:href") || "").slice(1));
+      if (ref) {
+        const m2 = el2.getCTM();
+        if (m2) {
+          g.setTransform(base);
+          g.transform(1, 0, 0, 1, off[0], off[1]);
+          g.transform(m2.a, m2.b, m2.c, m2.d, m2.e, m2.f);
+          paint(g, ref, getComputedStyle(ref), a, true);
+        }
+      }
+      return;
+    }
+    const m = el2.getCTM();
+    if (!m) return;
+    g.setTransform(base);
+    g.transform(1, 0, 0, 1, off[0], off[1]);
+    g.transform(m.a, m.b, m.c, m.d, m.e, m.f);
+    paint(g, el2, cs, a, false);
+  };
+  walk(root, 1);
+  g.setTransform(base);
+}
+var num = (el2, k, d = 0) => {
+  const v = el2.getAttribute(k);
+  return v == null || v === "" ? d : parseFloat(v);
+};
+function shapePath2(el2) {
+  const tag = el2.tagName, P = new Path2D();
+  if (tag === "path") return new Path2D(el2.getAttribute("d") || "");
+  if (tag === "rect") {
+    const x = num(el2, "x"), y = num(el2, "y"), w = num(el2, "width"), h3 = num(el2, "height"), rx = num(el2, "rx", num(el2, "ry"));
+    if (rx && P.roundRect) P.roundRect(x, y, w, h3, rx);
+    else P.rect(x, y, w, h3);
+    return P;
+  }
+  if (tag === "circle") {
+    P.arc(num(el2, "cx"), num(el2, "cy"), Math.max(0, num(el2, "r")), 0, Math.PI * 2);
+    return P;
+  }
+  if (tag === "ellipse") {
+    P.ellipse(num(el2, "cx"), num(el2, "cy"), Math.max(0, num(el2, "rx")), Math.max(0, num(el2, "ry")), 0, 0, Math.PI * 2);
+    return P;
+  }
+  if (tag === "line") {
+    P.moveTo(num(el2, "x1"), num(el2, "y1"));
+    P.lineTo(num(el2, "x2"), num(el2, "y2"));
+    return P;
+  }
+  if (tag === "polyline" || tag === "polygon") {
+    const v = (el2.getAttribute("points") || "").trim().split(/[\s,]+/).map(Number);
+    for (let i = 0; i + 1 < v.length; i += 2) i ? P.lineTo(v[i], v[i + 1]) : P.moveTo(v[i], v[i + 1]);
+    if (tag === "polygon") P.closePath();
+    return P;
+  }
+  return null;
+}
+function paintOf(g, el2, v, alpha) {
+  if (!v || v === "none") return null;
+  const m = /url\(\s*["']?#([^"')]+)/.exec(v);
+  if (!m) return v;
+  const gr = document.getElementById(m[1]);
+  if (!gr) return null;
+  let stops = [...gr.querySelectorAll("stop")];
+  const href = gr.getAttribute("href") || gr.getAttribute("xlink:href");
+  if (!stops.length && href) {
+    const r = document.getElementById(href.slice(1));
+    if (r) stops = [...r.querySelectorAll("stop")];
+  }
+  if (!stops.length) return null;
+  let bb;
+  try {
+    bb = el2.getBBox();
+  } catch (e) {
+    bb = { x: 0, y: 0, width: 1, height: 1 };
+  }
+  const user = gr.getAttribute("gradientUnits") === "userSpaceOnUse";
+  const P = (k, d) => {
+    const s2 = gr.getAttribute(k);
+    if (s2 == null) return d;
+    return s2.endsWith("%") ? parseFloat(s2) / 100 : parseFloat(s2);
+  };
+  const X2 = (u) => user ? u : bb.x + u * bb.width, Y = (u) => user ? u : bb.y + u * bb.height;
+  let G2;
+  if (gr.tagName === "radialGradient") {
+    const cx = P("cx", 0.5), cy = P("cy", 0.5), r = P("r", 0.5);
+    if (user) G2 = g.createRadialGradient(P("fx", cx), P("fy", cy), 0, cx, cy, r);
+    else {
+      G2 = g.createRadialGradient(P("fx", cx), P("fy", cy), 0, cx, cy, r);
+      G2.bb = [bb.x, bb.y, Math.max(1e-6, bb.width), Math.max(1e-6, bb.height)];
+    }
+  } else G2 = g.createLinearGradient(X2(P("x1", 0)), Y(P("y1", 0)), X2(P("x2", 1)), Y(P("y2", 0)));
+  for (const s2 of stops) {
+    const cs = getComputedStyle(s2), off = s2.getAttribute("offset") || "0", o = Math.min(1, Math.max(0, off.endsWith("%") ? parseFloat(off) / 100 : parseFloat(off)));
+    const c = rgb(cs.stopColor || s2.getAttribute("stop-color") || "#000"), so = +(cs.stopOpacity || 1);
+    G2.addColorStop(o, `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${so})`);
+  }
+  return G2;
+}
+function paint(g, el2, cs, a, isUse) {
+  const tag = el2.tagName;
+  if (tag === "image") {
+    try {
+      g.globalAlpha = a;
+      g.drawImage(el2, num(el2, "x"), num(el2, "y"), num(el2, "width"), num(el2, "height"));
+    } catch (e) {
+    }
+    g.globalAlpha = 1;
+    return;
+  }
+  if (tag === "text") {
+    const fs = paintOf(g, el2, cs.fill, a);
+    if (!fs) return;
+    g.globalAlpha = a * +cs.fillOpacity;
+    g.fillStyle = fs;
+    g.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    g.textAlign = { middle: "center", end: "right" }[cs.textAnchor] || "left";
+    g.fillText(el2.textContent, num(el2, "x"), num(el2, "y"));
+    g.globalAlpha = 1;
+    return;
+  }
+  if (tag === "g" && isUse) {
+    for (const c of el2.children) {
+      const m = c.transform && c.transform.baseVal.consolidate();
+      g.save();
+      if (m) {
+        const k = m.matrix;
+        g.transform(k.a, k.b, k.c, k.d, k.e, k.f);
+      }
+      paint(g, c, getComputedStyle(c), a * +getComputedStyle(c).opacity, true);
+      g.restore();
+    }
+    return;
+  }
+  const P = shapePath2(el2);
+  if (!P) return;
+  const fill = paintOf(g, el2, cs.fill, a), stroke = paintOf(g, el2, cs.stroke, a);
+  const rule = cs.fillRule === "evenodd" ? "evenodd" : "nonzero";
+  if (fill) {
+    g.globalAlpha = a * +cs.fillOpacity;
+    g.fillStyle = fill;
+    if (fill.bb) {
+      const [x, y, w, h3] = fill.bb, Q2 = new Path2D();
+      Q2.addPath(P, new DOMMatrix([1 / w, 0, 0, 1 / h3, -x / w, -y / h3]));
+      g.save();
+      g.transform(w, 0, 0, h3, x, y);
+      g.fill(Q2, rule);
+      g.restore();
+    } else g.fill(P, rule);
+  }
+  const sw = parseFloat(cs.strokeWidth);
+  if (stroke && sw > 0) {
+    g.globalAlpha = a * +cs.strokeOpacity;
+    g.strokeStyle = stroke.bb ? "rgba(0,0,0,0)" : stroke;
+    g.lineWidth = sw;
+    g.lineCap = cs.strokeLinecap || "butt";
+    g.lineJoin = cs.strokeLinejoin || "miter";
+    const da = cs.strokeDasharray && cs.strokeDasharray !== "none" ? cs.strokeDasharray.split(/[\s,]+/).map(parseFloat).filter((x) => x >= 0) : null;
+    if (da && da.length && da.some((x) => x > 0)) {
+      g.setLineDash(da.length % 2 ? da.concat(da) : da);
+      g.lineDashOffset = parseFloat(cs.strokeDashoffset) || 0;
+    }
+    g.stroke(P);
+    g.setLineDash([]);
+  }
+  g.globalAlpha = 1;
+}
+function maskState(src, levels) {
+  const st = { src, canvas: null, tex: null, pyr: [], drawnReady: null, levels };
+  st.update = (core, L, local, info) => {
+    if (src.static && st.drawnReady === true) return;
+    if (src.static && st.drawnReady === false && !core.ready) return;
+    if (!st.canvas) {
+      st.canvas = L.canvas();
+      st.tex = core.texture(L.pw, L.ph);
+    }
+    const g = L.sceneCtx(st.canvas);
+    src.draw(g, local, info, L);
+    core.upload(st.tex, st.canvas);
+    st.tex.w = L.pw;
+    st.tex.h = L.ph;
+    core.pyramid(st.tex, st.levels, st.pyr);
+    st.drawnReady = core.ready;
+  };
+  st.level = (i) => i <= 0 ? st.tex : st.pyr[Math.min(i, st.levels)].a;
+  st.size = (i) => {
+    const t = st.level(i);
+    return [t.w, t.h];
+  };
+  return st;
+}
+var srcKey = (src, local) => src.static ? "S" : src.key ? src.key(local) : null;
+function paper(o = {}) {
+  return {
+    name: "paper",
+    key: () => "paper",
+    render(core, L) {
+      core.pass(PAPER, { ...L.common(o.seed || 0), uBase: rgb(o.color || "#e4e5d8"), uAmt: o.amount != null ? o.amount : 1, uFib: o.fibres != null ? o.fibres : 1, uVig: o.vignette != null ? o.vignette : 0.22, uSpeck: o.specks != null ? o.specks : 1, uMode: o.mode === "overlay" ? 1 : 0 }, null, { blend: "none" });
+    }
+  };
+}
+function inkBleed(o = {}) {
+  let st, lv;
+  const dirs = { down: [0, 1], up: [0, -1], right: [1, 0], left: [-1, 0] };
+  const wipe = o.wipe ? { dir: Array.isArray(o.wipe.dir) ? o.wipe.dir : dirs[o.wipe.dir || "down"], dur: o.wipe.dur != null ? o.wipe.dur : 1 } : null;
+  const curve = (local) => bleedCurve(local - (wipe ? wipe.dur : 0), o);
+  return {
+    name: "inkBleed",
+    o,
+    init(core, L) {
+      const sig = haloSigma(o.spread != null ? o.spread : 14, o.haloEnd != null ? o.haloEnd : 0.12) * L.res;
+      const l = levelFor(sig, 7);
+      lv = { a: Math.floor(l), b: Math.min(7, Math.floor(l) + 1), mix: l - Math.floor(l) };
+      st = maskState(o.src, Math.max(3, lv.b));
+    },
+    key(local, info, L) {
+      const sk = srcKey(o.src, local);
+      if (sk == null) return null;
+      const x = local - (o.at || 0);
+      if (x < 0) return "off";
+      if (o.fade && local >= o.fade[1]) return "gone";
+      const c = curve(local), fading = o.fade && local >= o.fade[0];
+      if (c.done && !fading) return "done" + sk;
+      return f4(local) + sk;
+    },
+    render(core, L, local, info) {
+      const x = local - (o.at || 0);
+      if (x < 0 || o.fade && local >= o.fade[1]) return;
+      st.update(core, L, local, info);
+      const fade = o.fade ? 1 - Math.min(1, Math.max(0, (local - o.fade[0]) / (o.fade[1] - o.fade[0]))) : 1;
+      const A = st.level(lv.a), B4 = st.level(lv.b);
+      core.pass(BLEED, {
+        ...L.common(o.paperSeed || 0),
+        uM0: st.level(0),
+        uM1: st.level(1),
+        uM3: st.level(3),
+        uM3Size: st.size(3),
+        uHa: A,
+        uHb: B4,
+        uHaSize: [A.w, A.h],
+        uHbSize: [B4.w, B4.h],
+        uHmix: lv.mix,
+        uX: x,
+        uDraw: o.draw != null ? o.draw : 0.8,
+        uDur: o.dur != null ? o.dur : 2.5,
+        uHaloEnd: o.haloEnd != null ? o.haloEnd : 0.12,
+        uFade: fade * fade * (3 - 2 * fade),
+        uSoft: o.soft || 0,
+        uWipe: wipe ? [wipe.dir[0], wipe.dir[1], wipe.dur] : [0, 0, 0],
+        uColor: rgb(o.color || "#1f2529"),
+        uDensity: o.density != null ? o.density : 0.95,
+        uHaloDensity: o.halo != null ? o.halo : 0.3,
+        uRim: o.rim != null ? o.rim : 0.22,
+        uHWarp: (o.warp != null ? o.warp : 0.5) * (o.spread != null ? o.spread : 14) * L.res,
+        uFibre: o.fibre != null ? o.fibre : 0.8,
+        uPool: o.pool != null ? o.pool : 0.5,
+        uFeather: o.feather != null ? o.feather : 1,
+        uMottle: o.mottle != null ? o.mottle : 0.35,
+        uGrain: o.grain != null ? o.grain : 0.35,
+        uSeedF: (o.seed || 0) * 7.13
+      });
+    }
+  };
+}
+function inkWash(o = {}) {
+  let st;
+  return {
+    name: "inkWash",
+    o,
+    init(core, L) {
+      st = maskState(o.src, 4);
+      const h3 = o.hide !== void 0 ? o.hide : o.src && o.src.el;
+      if (h3) [].concat(typeof h3 === "string" ? [...document.querySelectorAll(h3)] : h3).forEach((e) => {
+        if (e && e.style) e.style.visibility = "hidden";
+      });
+    },
+    key(local) {
+      const sk = srcKey(o.src, local);
+      if (sk == null) return null;
+      return (o.boil === 0 ? "still" : boilFrame(local, o.boil || 12, o.frames || 0)) + sk;
+    },
+    render(core, L, local, info) {
+      st.update(core, L, local, info);
+      const L4 = st.level(4);
+      core.pass(WASH, {
+        ...L.common(o.paperSeed || 0),
+        uS: st.level(0),
+        uL2: st.level(2),
+        uL3: st.level(3),
+        uL4: L4,
+        uL4Size: [L4.w, L4.h],
+        uTide: o.tide != null ? o.tide : 0.5,
+        uBoil: o.boil === 0 ? 0 : boilFrame(local, o.boil || 12, o.frames || 0),
+        uWob: o.wobble != null ? o.wobble : 1.6,
+        uWobF: o.wobbleScale || 26,
+        uDark: o.dark != null ? o.dark : 0.6,
+        uEdge: o.edge || 2.5,
+        uBleed: o.bleed != null ? o.bleed : 0.6,
+        uGrain: o.grain != null ? o.grain : 0.45,
+        uMottle: o.mottle != null ? o.mottle : 0.5,
+        uAlpha: o.alpha != null ? o.alpha : 1,
+        uSeedF: (o.seed || 0) * 5.1,
+        uInk: 1,
+        uInkC: rgb(o.ink || "#1f2529")
+      });
+    }
+  };
+}
+function particles2(o = {}) {
+  const sys = o.system || particles(o), so = sys.o;
+  const shape = SHAPES[o.shape || so.shape || "dot"] ?? 5;
+  const cols = (o.colors || so.colors || [o.color || so.color || "#1f2529"]).map(rgb), c22 = rgb(o.color2 || so.color2 || "#ffffff");
+  let buf = null, data = new Float32Array(0);
+  return {
+    name: "particles",
+    system: sys,
+    // nothing alive → 'empty'; only fully soaked splats left → their id set (pixels identical until one changes)
+    key(local) {
+      const P = sys.at(local);
+      if (!P.length) return "empty";
+      if (P.every((p) => p.settled)) return "S" + P.map((p) => p.id).join(",");
+      return null;
+    },
+    render(core, L, local) {
+      const P = sys.at(local);
+      if (!P.length) return;
+      const gl2 = core.gl, prog = core.program(PFRAG, PVERT);
+      if (data.length < P.length * 12) data = new Float32Array(P.length * 12);
+      P.forEach((p, i) => {
+        const c = cols[Math.floor(p.u * cols.length) % cols.length], k = i * 12;
+        data[k] = p.x;
+        data[k + 1] = p.y;
+        data[k + 2] = p.size;
+        data[k + 3] = p.alpha;
+        data[k + 4] = p.rot;
+        data[k + 5] = p.landed && shape === 0 ? 1 : shape;
+        data[k + 6] = p.u;
+        data[k + 7] = p.landed ? p.land.age : 0;
+        data[k + 8] = c[0];
+        data[k + 9] = c[1];
+        data[k + 10] = c[2];
+        data[k + 11] = 1;
+      });
+      if (!buf) buf = gl2.createBuffer();
+      gl2.useProgram(prog.pr);
+      core.bindOutput();
+      core.blend(o.blend || so.blend || "normal");
+      gl2.bindBuffer(gl2.ARRAY_BUFFER, buf);
+      gl2.bufferData(gl2.ARRAY_BUFFER, data.subarray(0, P.length * 12), gl2.DYNAMIC_DRAW);
+      ["a0", "a1", "a2"].forEach((n, j) => {
+        const l = prog.attr[n] != null ? prog.attr[n] : prog.attr[n] = gl2.getAttribLocation(prog.pr, n);
+        if (l < 0) return;
+        gl2.enableVertexAttribArray(l);
+        gl2.vertexAttribPointer(l, 4, gl2.FLOAT, false, 48, j * 16);
+      });
+      const r = L.rect;
+      core.uniforms(prog, { uRes: [L.pw, L.ph], uNX: [r[0], r[1], 1 / L.res, 1 / L.res], uMaxPt: core.maxPoint, uC2: c22, uSoak: o.soak != null ? o.soak : 1 });
+      gl2.drawArrays(gl2.POINTS, 0, P.length);
+      core.stats.passes++;
+      ["a0", "a1", "a2"].forEach((n) => {
+        const l = prog.attr[n];
+        if (l >= 0) gl2.disableVertexAttribArray(l);
+      });
+    }
+  };
+}
+function mist(o = {}) {
+  return {
+    name: "mist",
+    key: o.speed === 0 ? () => "mist" : null,
+    render(core, L, local) {
+      core.pass(MIST, { ...L.common(0), uTime: local, uY: o.y != null ? o.y : 400, uH: o.height || 60, uSpeed: o.speed != null ? o.speed : 12, uDensity: o.density != null ? o.density : 0.85, uScale: o.scale || 90, uSeedF: (o.seed || 0) * 3.7, uColor: rgb(o.color || "#e8e9dd") });
+    }
+  };
+}
+function shader(o = {}) {
+  const frag = CUSTOM_HEAD + o.frag;
+  return {
+    name: "shader",
+    key: o.key || null,
+    render(core, L, local, info) {
+      core.pass(frag, { ...L.common(o.seed || 0), uTime: local, uStep: stepT(local, o.step || 12), uProgress: info && info.p || 0, ...o.uniforms ? o.uniforms(local, info) : {} }, null, { blend: o.blend });
+    }
+  };
+}
+var boilN = 0;
+function boil2(sc, targets, o = {}) {
+  const id = o.id || "vk-boil-" + ++boilN, v = sc.video || sc;
+  const w = document.createElement("div");
+  w.innerHTML = `<svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><filter id="${id}" data-vk-dynamic x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="${o.freq || 0.035}" numOctaves="${o.octaves || 2}" seed="${o.seed || 3}" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="${(o.amp != null ? o.amp : 2.2) * 2}" xChannelSelector="R" yChannelSelector="G"/></filter></svg>`;
+  const s2 = w.firstElementChild;
+  (sc.el || v.stage).appendChild(s2);
+  const tur = s2.querySelector("feTurbulence"), base = o.seed || 3;
+  const els = typeof targets === "string" ? [...(sc.el || v.stage).querySelectorAll(targets)] : [].concat(targets || []);
+  els.forEach((e) => {
+    if (e instanceof SVGElement) e.setAttribute("filter", `url(#${id})`);
+    else e.style.filter = `url(#${id})`;
+  });
+  let last = null;
+  const upd = (t) => {
+    const f = boilFrame(t, o.fps || 12, o.frames || 0), sd = String(base + f * 7);
+    if (sd !== last) {
+      last = sd;
+      tur.setAttribute("seed", sd);
+    }
+  };
+  if (sc.on) sc.on((l) => upd(l));
+  else v.onRender(upd);
+  return { id, filter: s2.querySelector("filter") };
+}
+function paperCut(v, o = {}) {
+  const p = o.prefix || "pc", s2 = o.seed || 5, r = o.rough != null ? o.rough : 1.2, gr = o.grain != null ? o.grain : 0.5, sh = o.shadow || [3, 5, 3, 0.35];
+  const id = "vk-pc-defs-" + p;
+  if (document.getElementById(id)) return p;
+  const cut = `<feTurbulence type="turbulence" baseFrequency=".9" numOctaves="1" seed="${s2}" result="cn"/><feDisplacementMap in="SourceGraphic" in2="cn" scale="${r * 2}" xChannelSelector="R" yChannelSelector="G" result="cut"/>`;
+  const grain = (inp) => `<feTurbulence type="fractalNoise" baseFrequency=".05 .7" numOctaves="3" seed="${s2 + 3}" result="fn"/><feColorMatrix in="fn" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${-gr * 1.4} ${gr * 0.75}" result="fm"/><feComposite in="fm" in2="${inp}" operator="in" result="fk"/><feComposite in="${inp}" in2="fk" operator="arithmetic" k1="0" k2="1" k3="-.35" k4="0" result="gr"/>`;
+  const shadow = (inp) => `<feGaussianBlur in="${inp}" stdDeviation="${sh[2]}" result="sb"/><feOffset in="sb" dx="${sh[0]}" dy="${sh[1]}" result="so"/><feColorMatrix in="so" type="matrix" values="0 0 0 0 .12  0 0 0 0 .08  0 0 0 0 .06  0 0 0 ${sh[3]} 0" result="sc"/>`;
+  const w = document.createElement("div");
+  w.innerHTML = `<svg id="${id}" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>
+<filter id="${p}-cut" x="-3%" y="-3%" width="106%" height="106%">${cut}</filter>
+<filter id="${p}-grain">${grain("SourceGraphic")}</filter>
+<filter id="${p}-shadow" x="-10%" y="-10%" width="125%" height="130%">${shadow("SourceAlpha")}<feMerge><feMergeNode in="sc"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="${p}" x="-10%" y="-10%" width="125%" height="130%">${cut}${grain("cut")}${shadow("cut")}<feMerge><feMergeNode in="sc"/><feMergeNode in="gr"/></feMerge></filter>
+</defs></svg>`;
+  (v.stage || document.body).appendChild(w.firstElementChild);
+  return p;
+}
+var gl = {
+  layer,
+  paper,
+  inkBleed,
+  inkWash,
+  particles: particles2,
+  mist,
+  shader,
+  text: text2,
+  path,
+  svg: svg2,
+  image,
+  draw,
+  boil: boil2,
+  paperCut,
+  jitter: jitterPath,
+  jitterPoints,
+  stepT,
+  boilFrame,
+  bleedCurve,
+  presets: PRESETS,
+  system: particles,
+  core: getCore,
+  COPY
 };
 
 // src/index.js
@@ -5183,6 +6709,11 @@ var vk = {
   attr,
   INK,
   installInk: (o) => installInk(current, o),
+  // skeletal rigs (fx/rig.js): vk.rig(def) → rig; helpers on vk.rig.*
+  rig: Object.assign((def) => createRig(def), { create: createRig, solve2BoneIK, blink, blend: blendPose, valueAt, mat, rootMatrix }),
+  // WebGL effects (fx/gl): vk.gl.layer / paper / inkBleed / inkWash / particles / shader / boil / paperCut …; vk.particles = pure particle system
+  gl: Object.assign({}, gl, { stats: () => current && gl.core(current).stats }),
+  particles: Object.assign((o) => particles(o), { presets: gl.presets }),
   MusicInfo,
   alignToCues,
   chunkCues,
