@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>纸上山海 · paper-cut pop-up book (vk.three.diorama popup + look:papercut)</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="../../dist/vidkit-three.js"></script>
+<script>
+// A pop-up book that opens, raises a paper-cut mountain village, turns the page and raises a night sea — composed
+// from generic pieces only: vk.three.diorama({ kind: 'popup' }) (hinged cut-paper flats from vk.three.shapes, page
+// turns, printed pages) + post.look 'papercut' (toon bands → outline → paper fibre). Pure in t.
+const v = vk.video({ fps: 30, theme: 'editorial', transition: 'fade:0.6', title: '纸上山海 · pop-up book' });
+const R = vk.three.rig, T3 = vk.three;
+const W = 6.2;                                         // cross-spine pieces span both pages (v-fold)
+const print = (title, line, color) => (g, w, h) => {
+  g.fillStyle = color; g.font = `700 ${w * .11}px "Noto Serif SC", serif`; g.textAlign = 'center'; g.fillText(title, w * .5, h * .86);
+  g.font = `400 ${w * .045}px "Noto Serif SC", serif`; g.fillStyle = '#6b5a48'; g.fillText(line, w * .5, h * .94);
+  g.strokeStyle = color; g.lineWidth = 6; g.strokeRect(w * .05, h * .03, w * .9, h * .94);
+};
+const BOOK = T3.diorama({ kind: 'popup', cover: '#8c2f27', paper: '#f5eedf', table: '#3b2d25', open: { t: 1.4, d: 2, ease: 'inOutCubic' }, turns: [{ t: 8.6, d: 2 }],
+  lightDir: [-3, 6.5, 4], lightIntensity: 2.6, ambient: 1.05, softness: 6,
+  spreads: [
+    { printLeft: print('山', '从前，山里有一座塔', '#8c2f27'), printRight: print('村', '塔下住着人家', '#8c2f27'),
+      pieces: [
+        { shape: 'mountains', width: W, base: 0, height: 1.25, amp: .55, seed: 3, color: '#5c8f4f', z: -1.75, at: 2.2 },
+        { shape: 'circle', r: .42, color: '#f2a03d', x: 1.7, z: -1.95, lift: 1.55, glow: .35, at: 2.6 },
+        { shape: 'cloud', w: 1.3, h: .45, color: '#ffffff', x: -1.5, z: -1.55, lift: 1.65, at: 2.8, animate: (t, m) => { m.position.x = Math.sin(t * .6) * .15; } },
+        { shape: 'hills', width: W, base: 0, height: .7, amp: .3, seed: 8, color: '#2f6b3a', z: -1.05, at: 2.4 },
+        { shape: 'pagoda', tiers: 4, w: 1, color: '#b8282a', x: 1.1, z: -.45, at: 2.9 },
+        { shape: 'house', w: .8, h: .5, color: '#d9b26f', x: -1.6, z: -.5, at: 3.1 },
+        { shape: 'house', w: .6, h: .42, color: '#c9894f', x: -.75, z: -.25, at: 3.2 },
+        { shape: 'pine', h: 1.1, color: '#1f4a2c', x: -2.3, z: .15, at: 3.3 },
+        { shape: 'tree', h: .95, color: '#3e7d44', x: 2.3, z: .2, at: 3.4 },
+        { shape: 'grass', width: W, blades: 60, h: .28, color: '#4f8a3c', z: .95, at: 3.5 },
+      ] },
+    { printLeft: print('海', '翻过山，是夜里的海', '#24628f'), printRight: print('舟', '一叶小舟向月亮', '#24628f'),
+      pieces: [
+        { shape: 'crescent', r: .5, color: '#f6e7b0', x: -1.6, z: -1.95, lift: 1.5, glow: .6 },
+        { shape: 'star', r: .14, color: '#f6e7b0', x: .3, z: -1.9, lift: 2.0, glow: .6 },
+        { shape: 'star', r: .1, color: '#f6e7b0', x: 1.9, z: -1.9, lift: 1.75, glow: .6 },
+        { shape: 'waves', width: W, base: 0, height: .9, amp: .14, freq: 2.4, color: '#16426a', z: -1.5 },
+        { shape: 'waves', width: W, base: 0, height: .6, amp: .12, freq: 2.9, phase: 1, color: '#24628f', z: -.8 },
+        { shape: 'boat', w: 1.1, mast: .95, color: '#fff1d6', x: .7, z: -.35, animate: (t, m) => { m.rotation.z = Math.sin(t * 1.8) * .06; } },
+        { shape: 'waves', width: W, base: 0, height: .38, amp: .1, freq: 3.3, phase: 2, color: '#3f86ad', z: .1 },
+        { shape: 'waves', width: W, base: 0, height: .22, amp: .07, freq: 4, phase: 3, color: '#7fb7cf', z: .85 },
+      ] },
+  ],
+  // day → night: the key light cools and dims across the page turn (pure in t)
+  animate: (t, mod) => { const n = vk.progress(t, 8.8, 1.8, 'inOutSine'); mod.key.intensity = 2.6 - 1.2 * n; mod.key.color.setRGB(1 - .35 * n, .95 - .2 * n, .88 + .1 * n); mod.ambient.intensity = 1.05 - .35 * n; } });
+
+vk.scene('book', 15, { bg: '#3b2d25', mode: 'dark', layout: 'bottom', sfx: false }, sc => {
+  sc.three(BOOK, { background: 0x3b2d25,
+    camera: R.keys([
+      { t: 0, pos: [1.65, 8.2, 2.4], target: [1.65, 0, 0], fov: 34 },
+      { t: 1.4, pos: [1.2, 8.6, 2.8], target: [1.2, 0, 0], ease: 'inOutSine' },
+      { t: 4.2, pos: [0, 5.9, 6.9], target: [0, .7, -.4], ease: 'inOutCubic' },
+      { t: 8.4, pos: [1.6, 4.4, 6], target: [0, .8, -.5], ease: 'inOutSine' },
+      { t: 10.8, pos: [0, 5.6, 6.2], target: [0, .5, -.3], ease: 'inOutSine' },
+      { t: 15, pos: [-1.4, 4, 5.7], target: [0, .8, -.6], ease: 'inOutSine' },
+    ]),
+    post: { look: 'papercut' } });
+  sc.add(vk.title('纸上山海', { at: .2, out: 1.5, outFx: 'fade' }));
+});
+
+// coda: the same cut-paper vocabulary as a layered shadow box (diorama kind 'papercut'), layers rising in
+vk.scene('coda', 4.6, { bg: '#0e2a47', mode: 'dark', layout: 'bottom', sfx: false }, sc => {
+  sc.three(T3.diorama({ kind: 'papercut', palette: 'sea', sky: '#1d3d60', skyGlow: .5, backlight: '#f6e7b0', backlightIntensity: 1.5, sun: { shape: 'crescent', r: .7, x: -2.5, y: 1.85, color: '#f6e7b0', glow: 1.2 }, frame: { color: '#8c2f27' },
+    layers: [
+      { shape: 'waves', height: -1.9, amp: .16, freq: 2.2, color: '#6fb0d2' },
+      { shape: 'waves', height: -1.35, amp: .14, freq: 2.7, phase: 1, color: '#3f86ad', props: [{ shape: 'boat', w: 1.2, mast: 1, x: 1.6, y: -1.3, color: '#fff1d6', animate: (t, m) => { m.rotation.z = Math.sin(t * 1.8) * .06; } }] },
+      { shape: 'waves', height: -.8, amp: .12, freq: 3.1, phase: 2, color: '#24628f' },
+      { shape: 'mountains', height: -.2, amp: .7, seed: 3, color: '#16426a', props: [{ shape: 'pagoda', tiers: 4, w: .9, x: 2.6, y: .1, color: '#0e2a47' }] },
+      { shape: 'mountains', height: .45, amp: .8, seed: 9, color: '#102f50' },
+    ], rise: { t: .1, d: 1, stagger: .14 } }),
+    { background: 0x0b1e33, camera: R.orbit({ target: [0, 0, -1], radius: 10.5, height: .3, from: 5, to: -5, dur: 4.6, fov: 36 }), post: { look: 'papercut' } });
+  sc.add(vk.small('vk.three.diorama popup + papercut · look: papercut', { at: 1.6 }));
+});
+</script>
+</body>
+</html>

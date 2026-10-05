@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>千里江山 · ink-wash 3D landscape (vk.three terrain + look:ink + text3d)</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="../../dist/vidkit-three.js"></script>
+<script>
+// Ink-wash 3D landscape built ONLY from generic primitives — no ink-specific 3D code:
+//   vk.three.terrain (procedural mountains + instanced pines that grow in + still water)
+//   → post.look 'ink' (mist → ink tone → Kuwahara wash → boiling depth/normal outline → paper bleed)
+//   vk.three.text3d with a CJK subset made by `vk font3d fonts/MaShanZheng-Regular.ttf --chars "…"` (OFL)
+// Every frame is a pure function of t (seekable, parallel-render safe).
+const v = vk.video({ fps: 30, theme: 'ink', transition: 'wash:1', title: '千里江山 · ink 3D' });
+const R = vk.three.rig, T3 = vk.three, PAPER = '#efe8d8';
+const INK = (o = {}) => ({ preset: 'ink', mist: { color: PAPER, near: o.near || 7, far: o.far || 34, density: o.density || 1, power: 1.25 }, paper: { color: PAPER, amount: .55, edge: .8, bleed: 2 }, ...o.extra });
+const pines = (n, grow) => ({ shape: 'pine', n, minH: .1, maxH: .55, maxSlope: .6, scale: [.45, .9], color: '#222624', grow });
+
+// 1 · 远山 — fly low over ridges while pines ink themselves in
+vk.scene('mountains', 6.5, { bg: PAPER, sfx: false }, sc => {
+  sc.three(T3.terrain({ type: 'mountains', size: 40, height: 6, segments: 220, seed: 11, colors: 'ink', rock: '#3a3b3d', rockSlope: .45,
+    water: { level: .07, color: '#d9d2c1', opacity: .9 }, scatter: [pines(900, { t: .3, d: 3.2 })] }),
+    { background: 0xefe8d8, camera: R.fly({ points: [[-12, 8.2, 17], [-5, 7.6, 10.5], [2, 7.9, 5], [7.5, 8.8, 0]], look: [[-3, 2.4, 3], [2, 2.6, -2], [6, 2.8, -8], [9, 3, -13]], dur: 6.5, ease: 'inOutSine', fov: 44 }),
+      post: { look: INK() } });
+});
+
+// 2 · 江 — a river valley (custom height function), a boat drifting, birds crossing (paper silhouettes from vk.three.shapes)
+const base = T3.heightField({ type: 'mountains', size: 40, seed: 4 });
+const valley = (x, z) => { const k = Math.min(1, Math.max(0, (Math.abs(x + Math.sin(z * .18) * 2.2) - 1.6) / 7)); return base(x, z) * (k * k * (3 - 2 * k)) * .95; };
+vk.scene('river', 5.5, { bg: PAPER, sfx: false }, sc => {
+  sc.three([T3.terrain({ type: valley, size: 40, height: 7, segments: 220, colors: 'ink', rock: '#2e2f31', rockSlope: .4, water: { level: .015, color: '#e2dccd', opacity: .95 }, scatter: [pines(700)] }),
+    { setup({ THREE, scene }) {
+        const P = T3.diorama.paperMesh, ink = '#1a1b1d';
+        this.boat = P({ shape: 'boat', width: 1.1 }, ink, { thickness: .03 }); this.boat.position.set(0, .12, 6); scene.add(this.boat);
+        this.birds = [0, 1, 2, 3].map(i => { const b = P({ shape: 'bird', width: .5 }, ink, { thickness: .01 }); b.position.set(-6 - i * .9, 4.2 + (i % 2) * .5, -2 - i * .7); scene.add(b); return b; });
+      },
+      update(t) {
+        this.boat.position.set(Math.sin(5.6 * .18 - t * .05) * -2.2 * .2, .1 + Math.sin(t * 2.1) * .02, 6 - t * .55); this.boat.rotation.z = Math.sin(t * 1.7) * .04;
+        this.birds.forEach((b, i) => { b.position.x = -6 - i * .9 + t * 2.1; b.position.y = 4.2 + (i % 2) * .5 + Math.sin(t * 3 + i) * .12; b.scale.y = .6 + .4 * Math.abs(Math.sin(t * 7 + i * 1.3)); });
+      } }],
+    { background: 0xefe8d8, camera: R.dolly({ from: [1.2, 2.2, 13.5], to: [-.4, 2.6, 8.5], target: [0, 1.2, 2], target2: [0, 1.6, -6], dur: 5.5, ease: 'inOutSine', fov: 40 }),
+      post: { look: INK({ near: 5, far: 30, density: 1.1 }) } });
+});
+
+// 3 · 千里江山 — title letters rise out of the mist, mountains behind (height fades to 0 toward the camera)
+const far = T3.heightField({ type: 'mountains', size: 60, seed: 23 }), backdrop = (x, z) => far(x, z) * Math.min(1, Math.max(0, (22 - z) / 34)) ** 1.4;
+vk.scene('title', 5.5, { bg: PAPER, sfx: false, layout: 'bottom', mode: 'light' }, sc => {
+  sc.three([T3.terrain({ type: backdrop, size: 60, height: 13, segments: 160, colors: 'ink', position: [0, -4.2, -31], scatter: [pines(500)] }),
+    T3.text3d({ text: '千里江山', font: 'mashanzheng-subset.json', size: 1.75, depth: .18, bevel: { size: .012, thickness: .02 }, color: '#1b1c1e', letterSpacing: .06,
+      position: [0, -.5, 0], in: { preset: 'rise', t: .4, d: 1.3, stagger: .22, ease: 'outCubic' }, wave: { amp: .03, speed: 1.4 } })],
+    { background: 0xefe8d8, camera: R.push({ target: [0, .9, 0], dir: [0, .1, 1], from: 9.5, to: 8.2, dur: 5.5, fov: 38 }),
+      post: { look: INK({ near: 8, far: 32, density: 1.2 }) } });
+  sc.add(vk.small('vk.three.terrain + text3d → look: ink', { at: 2.4 }));
+});
+</script>
+</body>
+</html>
