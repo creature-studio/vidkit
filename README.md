@@ -26,7 +26,11 @@
 11. [编写插件](#编写插件)
 12. [开发与测试](#开发与测试)
 13. [路线图（Phase 3）](#路线图)
-14. [字体与素材许可](#字体许可)
+14. [风格库（style packs）](#风格库vkstylestylesid)
+15. [镜头与动作（Phase 3）](#镜头与动作phase-3)
+16. [动态图形套件（`vk.mg`）与运动模糊](#动态图形套件vkmg与运动模糊)
+17. [3D：`vk.three`（three.js r186，可选）](#3dvkthreethreejs-r186可选)
+18. [字体与素材许可](#字体许可)
 
 ---
 
@@ -78,6 +82,12 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 | `wusong/wusong.html` | **上美厂风格剪纸动画短片《武松打虎》**（~69 s）：剪纸角色 rig（武松、吊睛白额虎，`lib/*-rig.js`）+ 水墨景阳冈（`lib/jingyang.js`），`vk.gl` 墨晕片名/落叶/木屑，edge-tts 说书旁白（YunjianNeural），代码合成京剧锣鼓（四击头 / 冲头 / 急急风，`lib/papercut.js`） | `out/wusong.mp4` |
 | `gallery.html` | **FX Gallery 活文档**：每个预设一小段 + 名称 + 生成它的那行代码 | `out/gallery.mp4` |
 | `plugin-demo.html` | 插件示例（`plugins/hello-plugin.js`） | — |
+| `styles/<id>/preview.html` | **风格库**：10 个风格包（含需要 `vidkit-three.js` 的 `three-tech`）各自的 ~5 s 同一样片（片名 + 角色 + 特效 + 转场）；`vk style gallery` 生成画廊页 | `out/styles/<id>.mp4` · `out/styles/index.html` |
+| `kite-papercut/` · `kite-ink/` | **`vk make` 生成的短片**：同一个故事 `stories/kite.md`（3 场景、旁白 + 两个角色对白）分别用 `papercut` 与 `ink` 风格生成 | `out/kite-papercut.mp4` · `out/kite-ink.mp4` |
+| `reel/reel.html` | **15 s / 128 BPM 动态海报 reel**（8 个一小节场景）：`vk.mg` 全套——彩条覆盖转场卡在小节线、冲击波环 / 速度线 / 放射线 / 白闪、字母砸落挤压拉伸、汉字 slam + 回声残影 + 硬投影、逐拍形变、点阵波浪背景、数据弹性柱、手机里的 UI 微交互、半拍关键词快切、汇聚收束 logo、HUD；子帧运动模糊 + 合成鼓组。`out/reel-original.mp4` 为参考原片逐帧渲染，`out/reel-compare.png` 为对照表 | `out/reel.mp4` |
+| `wusong/wusong-v2-scene.html` | 《武松打虎》**打斗两场重做**（一棒劈下 · 骑虎挥拳）：镜头系统（近景/跟拍/打击推近、头部不出画）、脚步锁定的走路、竖直劈棒、可见的拳、帽带跟随运动（原片 `wusong.html` 未改） | `out/wusong-v2-scene.mp4` |
+| `three-basics.html` | **`vk.three` 入门**（11 s）：粒子星系 → 文字、耳机转台 + 灯条扫光、手机 orbit + 景深（需 `dist/vidkit-three.js`） | — |
+| `three-promo/three-promo.html` | **3D 产品宣传片**（24 s，1080p，虚构耳机 LUMEN Buds）：粒子 logo 组装、转台主镜头 + 扫光、CatmullRom 穿梭、三色并排、crane 片尾，`bars` 覆盖转场，合成器铺底 + edge-tts 中文旁白，运动模糊 | `out/three-promo.mp4` · `out/three-promo-sheet.png` |
 
 `npm run examples` 会依次对每个示例做 QA、渲染 MP4+SRT、生成联系表与静帧到 `out/`。
 
@@ -114,8 +124,10 @@ vidkit/
 │  ├─ fx/                apply · text · transitions · svg · shapes · charts · blocks · textures · backgrounds · rhythm · lyrics
 │  ├─ authoring/         api(元素工厂) · node(公共选项/md) · themes · formats · declarative(data-* 兼容)
 │  ├─ audio/             score(离线音效合成) · music(节拍/包络/段落 MusicInfo) · words(对齐→字幕/卡拉 OK)
-│  └─ runtime/           css · preview · qa · bake(静态层缓存)
-├─ dist/                 vidkit.js（IIFE，~200 KB）· vidkit.esm.js
+│  ├─ runtime/           css · preview · qa · bake(静态层缓存)
+│  └─ three/             可选 3D 包入口 index · layer · post · math(纯函数) · loaders · env · materials · products · turntable · particles
+├─ dist/                 vidkit.js（IIFE，~200 KB）· vidkit.esm.js · vidkit-three.js（可选 3D 包，含 three r186）
+├─ vendor/               three r186 + addons（MIT）· Draco 解码器（Apache-2.0）· hdri/studio_loft_1k.hdr（Poly Haven CC0）；许可见 vendor/LICENSES.md
 ├─ fonts/                Noto Sans SC · JetBrains Mono · Archivo · Anton · Instrument Serif（OFL 1.1）
 ├─ examples/             promo · explainer · vertical · gallery · mv · explainer-vo · plugin-demo · data/ · assets/(music) · mv/ · plugins/
 ├─ scripts/              build · render-examples · list-presets · debug/probe 工具 · profile-render/profile-cpu · compare-capture/compare-video
@@ -194,6 +206,8 @@ const v = vk.video({
   autoSfx: true,             // 转场自动 whoosh
   score: [[1.2, 'kick', 1]], scoreOptions: { pad: [110, 165, 220], beatKick: 2 },
   captions: [[0.5, 2.5, '手动字幕']],
+  motionBlur: { shutter: '1/40', samples: 4 },   // 子帧运动模糊（默认关；vk render 时生效，见 vk.mg 一节）
+  cover: { colors: [...], n: 6, axis: 'alt' },     // 覆盖类转场 stripes / bars 的全片默认
   seed: 1, manual: false,    // manual:true 时需手动 v.start()
 });
 ```
@@ -261,6 +275,7 @@ vk.scene('卡点', 'b:8', [ … ]);       // 8 拍
 | `swap` | 关键词换色 | `{fx:'swap', at:1}` |
 | `stack` | 动态堆叠（每行撑满盒宽，交替方向入场） | `vk.stack(['KINETIC','TYPE'])` |
 | `draw` `draw-fill`/`fill` `morph` | SVG 描边绘制 / 描边后填充 / 形状变形 | 见 SVG |
+| `slam` `echo` `drop` `letters-pop` `mask-rise` `hard-shadow` | **动态海报字（`vk.mg`，首次使用时注册）**：大比例+旋转+偏移砸入（`echo:3` 残影、`shadow:[dx,dy,色]` 硬投影、`wobble` 落定后摇摆）/ 回声残影放大入场 / 逐字砸落 + 挤压拉伸 / 逐字弹出 + `bob` / 逐字从遮罩线下升起 / 硬投影长出（可组合 `'pop hard-shadow'`） | `vk.title('MOTION', {fx:'drop', shadow:[10,10,'#0008']})` |
 | `none` | 无动画 | |
 
 ### 转场（`transition: 'name:秒'`）
@@ -273,6 +288,7 @@ vk.scene('卡点', 'b:8', [ … ]);       // 8 拍
 | 遮罩形状 | `iris`（=`circle`）`iris-out` `shape-diamond` `shape-star` `shape-hexagon` `shape-triangle` `shape-heart` `shape-square` `shape-blob` |
 | 分割 | `split`（竖向对开）`split-h`（横向）`split-open`（旧场景从中间裂开）`diagonal` `blinds`（百叶窗） |
 | 故障 | `glitch`（=`slice`，切片错位 + 色相抖动） |
+| 覆盖（`vk.mg`，画在两个场景之上，首次使用时注册） | `stripes`（n 条彩条错峰滑入 outExpo / 滑出 inExpo，横竖交替，切点在转场正中）`bars`（彩条从一侧长满再向另一侧收走）；选项 `{n, colors, axis:'x'|'y'|'alt', stagger, at, travel, reverse}`，全片默认 `vk.video({cover})` |
 
 焦点可指定：`transition: { type: 'iris', d: .7, focal: { x: 320, y: 360 } }`。
 
@@ -284,6 +300,8 @@ vk.svg('<rect …/><circle …/>', { fx: 'draw-fill', each: .25 })
 vk.svg(`<path d="${vk.shapePath('circle', 150, 150, 120)}"/>`, {
   fx: 'morph', paths: ['circle', 'star', 'heart', 'square'].map(k => vk.shapePath(k, 150, 150, 120)), each: .8 })
 ```
+
+逐拍形变：`{fx:'morph', shapes:['circle','square','triangle','star'], beats:1, r:120, cx:150, cy:150}`——每 `beats` 拍一步（outBack，提前一帧落拍；需 `bpm`），形状来自 `vk.mg.shapeOutline`（等弧长采样，可直接插值）。画布版（描边回声、内部镂空、每拍换底色、白闪）见 `vk.mg.morphSeq`。
 
 `vk.shapePath / shapePoints / shapePolygon(kind, cx, cy, r)`：circle、star、diamond、square、triangle、hexagon、polygon、heart、blob（固定顶点数，可直接互相插值）。路径不兼容时 `morph` 自动重采样为 n 个点。
 
@@ -325,15 +343,15 @@ vk.svg(`<path d="${vk.shapePath('circle', 150, 150, 120)}"/>`, {
 
 ### 背景（`bg: { type, … }`）
 
-`gradient`（`spin`）· `mesh`（流动渐变网格）· `grid`（`drift`）· `dots`（`drift`）· `noise`（动态噪声，`speed`）。可数组叠加。
+`gradient`（`spin`）· `mesh`（流动渐变网格）· `grid`（`drift`）· `dots`（`drift`）· `noise`（动态噪声，`speed`）· `dotwave`（`vk.mg`：径向正弦点阵 + 每拍一圈脉冲环 + HSL 色相循环 + 文字留空 `hole:{w,h,soft}`，canvas）。可数组叠加。
 
 ### 镜头
 
-`camera: [{t, x, y, s, r, ease}]` 关键帧（平移/缩放/旋转）、`push: .08` 缓推、`shake: [{t, amp, d}]` 抖动（24fps 量化，更像手持）、`scene.beatZoom(.03)` 随节拍脉冲缩放。
+`camera: [{t, x, y, s, r, ease}]` 关键帧（平移/缩放/旋转；省略的 x/y 默认回到画面中心、s 为 1（与旧版一致）；加 `cameraHold: true` / `sc.camera(keys, {hold:true})` 则省略的 x/y/s/r **沿用上一帧**）、`shots: [...]` 景别镜头表（见[镜头与动作](#镜头与动作phase-3)）、`push: .08` 缓推、`shake: [{t, amp, d}]` 抖动（24fps 量化，更像手持）、`scene.beatZoom(.03)` 随节拍脉冲缩放。
 
 ### 音效（`sfx`，离线合成）
 
-`kick` `bass` `tick` `hat` `pop` `chime` `whoosh` `riser` `snap` —— `vk.title('…', {sfx:'kick'})` 或 `scene.sfx(1.2, 'pop', .6)`。
+`kick` `bass` `tick` `hat` `pop` `chime` `whoosh` `riser` `snap`（`reel` 风格包另装 `reel-kick` `reel-hat` `reel-clap` `reel-whoosh` `reel-riser` `reel-blip` `reel-ping` `reel-click` `reel-pop` `reel-chord`）—— `vk.title('…', {sfx:'kick'})` 或 `scene.sfx(1.2, 'pop', .6)`。
 
 ---
 
@@ -578,11 +596,14 @@ vk render  page.html -o out.mp4 [--fps 30] [--scale 2] [--format 16:9|9:16|1:1|4
                                 [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
                                 [--capture beginframe|screenshot] [--gpu soft|swiftshader|off] [--no-cache]
                                 [--timing] [--chunk 帧数] [--x264-threads n]      （--workers 默认 = CPU 核数）
+                                [--shutter 1/40 --samples 4 | --no-motion-blur]   子帧运动模糊（覆盖页面 vk.video({motionBlur})）
 vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2] [--capture …] [--no-cache]   静帧 PNG（默认每个场景动画落定后的一帧）
 vk contact page.html [-o sheet.png] [--times a,b | --settle] [--cols 4]   联系表（每场景 2 帧，或 --settle 1 帧）
 vk qa      page.html [--sample 0.5] [--order-step 1] [--json=report.json]   版面 QA + 渲染顺序确定性 + 可见文字快照
 vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]   开发服务器：热更新 + 进度条（--dev 同时监听 src/ 重建）
-vk new     video.html [--format 9:16] [--theme bold]          生成模板
+vk new     video.html [--format 9:16] [--theme bold]          生成模板（带 --story 时等同 vk make）
+vk make    --style ink[,papercut.chars] --story story.md -o examples/<slug>/ [--tts] [--render]   故事 → 风格化配音短片页
+vk style   list | sample [id,…] | gallery [-o out/styles/index.html] | extract ref.png [--id x] [--k 6]
                                 [--lufs -14|off] [--duck -10] [--no-voice]   ← render 的混音参数
 
 # 音频（Phase 2，需 tools/setup-audio.sh）
@@ -741,6 +762,232 @@ sc.gl([                                                              // 场景�
 
 ---
 
+## 风格库（`vk.style`，`styles/<id>/`）
+
+一个**风格包**＝一个目录，全部离线可用（字体随包，纹理/材质为程序生成的 SVG 滤镜或 `vk.gl` 着色器，音乐为代码合成）：
+
+```text
+styles/<id>/style.json    数据：调色板 palette（天空/远山/中景/地面/树…）与色相 hues（角色用色名 red/gold/blue…）、
+                          材质 material（cut 剪纸 / ink 墨线 / flat 扁平 / leather 皮影 / decor 重彩描金 / neon 霓虹 /
+                          pixel 像素 / crayon 蜡笔）、主题 theme（字体/字幕条）、video{texture, fadeOut}、转场
+                          transitions{default, soft, strong}、排版 typography、声音 sound{voice, sfx 映射, music}、
+                          节奏 pacing、镜头 camera{establish, dialog, action, push, punch}、角色约定 characters、
+                          特效预设 effects、样片 demo、QA 清单 qa[]
+styles/<id>/style.js      运行时钩子（vk => ({ decorate, post, title, label, effect, music, charAfter, … })）
+styles/<id>/preview.html  ~5 s 样片（styles/demo.js：同一脚本 = 片名 + 走路入画的角色 + 招牌特效 + 转场）
+```
+
+| id | 名称 | 一句话 |
+|---|---|---|
+| `ink` | 水墨 | 宣纸、淡墨远山 + 浓墨勾线、雾带留白，竖排书法片名 + 朱印，`vk.gl.inkBleed` 题字洇开，古琴竹笛 |
+| `papercut` | 剪纸（上美厂） | 彩纸层叠、剪刀毛边与镂空、纸片投影，红色题匾，纸屑花瓣迸散，锣鼓点 |
+| `shadow` | 皮影 | 油灯幕布（微颤）、半透明染色驴皮人物 + 镂刻花纹 + 操纵签子，雕花牌匾，梆子 |
+| `opera` | 重彩装饰（大闹天宫） | 石青石绿朱红金黄平涂、粗墨线、层叠祥云与天宫殿宇，金光放射，急急风锣鼓 |
+| `tech` | 科技宣传 | 深蓝底、发光透视网格、电光蓝强调色、Archivo 粗体大标题，脉冲环，鼓点 + 合成器 |
+| `neon` | 赛博霓虹 | 雨夜都市、霓虹线描人物、霓虹招牌点亮 + `vk.gl.bloom` 辉光、CRT 扫描线，琶音 |
+| `pixel` | 像素 | 16 色（Sweetie-16）、整帧 4 px 像素化（确定性 SVG 滤镜）、打字机标题，金币迸出，芯片音乐 |
+| `crayon` | 蜡笔绘本 | 画纸纹理、蜡质颗粒、线条每秒 8 次“沸腾”、站酷快乐体彩色标题，涂鸦星星，卡林巴 |
+| `reel` | 动态海报 | 纸白 / 墨黑 + 粉黄青紫平涂、Archivo Black 超粗字 slam + 残影 + 硬投影、默认 `stripes` 彩条转场、冲击波环 + 放射线 + 白闪、128 BPM 合成鼓组（kick / hat / clap / whoosh / riser / 结尾和弦） |
+
+```js
+const v = vk.video({ style: 'papercut' });                    // 主题、质感、默认转场、缓推、混音参数、字幕风格
+const v = vk.video({ style: ['ink', 'papercut.chars'] });     // 组合：水墨世界 + 剪纸角色（也可 'ink-bg' / 'papercut-chars'）
+const v = vk.video({ style: { base: 'neon', chars: 'pixel', sound: 'opera' } });   // 按角色拆分：world/chars/type/motion/sound/fx
+const S = v.style;                                             // 或 vk.style('ink')
+vk.scene('开场', 5, { transition: S.transition('default') }, sc => {
+  const W = S.world(sc, 'mountain dusk pine moon');           // 场景词：地点/时间/道具（中英均可：山 黄昏 松 月亮）
+  const hero = S.character(W.actors, { look: { hairStyle: 'bun', cloth: 'red' }, scale: .7 });   // 通用侧面角色，按风格材质绘制
+  S.title(sc, '片名', { sub: 'subtitle' });  S.effect(sc, 'signature', { at: 1, x: 600, y: 300 });
+  sc.on(l => hero.render(l, { x: 300, ground: W.ground, d: walked(l), clip: 'walk' }));   // d = 走过的距离 → 脚步锁定
+  S.sfx(sc, 'step', .4);
+});
+S.music(v);                                                    // 风格配乐（确定性合成 bed）
+```
+
+- `vk.style.list()` / `.get(id)` / `.register(json, vk => runtime)`（注册自己的风格包）；现有 `theme:` 用法完全不变（风格包的主题注册为 `style:<id>`）。
+- `vk.style.kit`（svgLayer / overlay / burst / ease…）、`vk.style.material(id)`、`vk.style.bed(v, {bpm, tracks})` 步进音序器、`vk.style.transitions`（tear 撕纸 / pixel 像素擦除 / cloud 祥云 / scribble 涂鸦 / lamp 灯灭 / scan 扫描；首次使用风格包时才注册进 `vk.transitions`，不用风格的页面转场表不变；单独使用可先调 `vk.style.installTransitions()`）。
+- 画廊：`vk style sample` 渲染全部样片（MP4 + 海报 PNG），`vk style gallery` 生成 `out/styles/index.html`（卡片：海报、循环样片、简介、色板、用法片段）并截图 `gallery.png`。
+
+### 故事 → 短片：`vk make`
+
+```bash
+vk make --style papercut --story examples/stories/kite.md -o examples/kite-papercut/   # 生成页面（故事内联为可编辑数据）
+vk tts examples/kite-papercut/kite-papercut.html                                       # edge-tts 旁白/对白 + 词时间 + 口型包络
+vk render examples/kite-papercut/kite-papercut.html -o out/kite-papercut.mp4           # 或 vk make … --tts --render
+```
+
+故事格式（markdown；也接受同结构的 JSON）：
+
+```markdown
+# 小芽的风筝
+sub: 一个很短的故事
+cast 小芽: girl                         ← 发型(bun/twinbuns/pony/long/short/cap/bald)、颜色名、girl/boy/elder…、音色 id
+cast 阿公: elder cap blue gold grey
+
+## 山顶 @ mountain day pine             ← 场景名 @ 场景词
+- 阿公 enter right                      ← 动作：enter/exit/walk/run/wave/cheer/point/talk/bow/surprise/think/look/sad/jump/face
+> 阿公和小芽，爬上了山顶。               ← 旁白
+阿公: 风来了，松手吧！                   ← 对白（按角色分配音色，说话时口型同步）
+- 小芽 cheer                            ← 动作挂在上一行台词开始时
+- effect                                ← 风格招牌特效（+ 打击推近）；也可 - shot close 小芽 · - sfx big · - hold 1.5
+```
+
+`vk.film(story, {style})` 把它变成：每个故事场景一个 `dur:'auto'` 场景（时长由配音决定）、风格世界、角色站位（从左入场的占左侧位，不交叉）、脚步锁定的走路（停在双脚着地的位置）、手势淡入淡出、对白口型（`vk.motion.mouth`：有 TTS 包络时按响度/频谱质心选口型，否则按词时间）、镜头表（风格的 establish/dialog/action 景别；有人在别人台词时动作就用双人镜头）、片名、特效、脚步声与配乐。
+
+`vk style extract ref.png [--id x] [--k 6]`：参考图 → 风格包起步文件（`style.json` + 空 `style.js` + `palette.svg`）。做法很简单：96 px 缩略图上的确定性 k-means 取 k 色（按占比排序，最亮→天空/纸，最暗→墨线，最饱和→强调色），384 px 图上的高通亮度均值估计颗粒（→ texture grain/rice 强度），边缘密度粗判材质。它只是起点，世界/标题/特效钩子仍需手写。
+
+## 镜头与动作（Phase 3）
+
+**镜头**（`src/core/camera.js`，纯函数）：
+
+```js
+sc.shots([
+  { t: 0, shot: 'full', on: sub, follow: .35 },               // 景别 + 跟拍（平滑滞后 .35 s）
+  { t: 2.1, shot: 'medium-close', on: sub, lookroom: .1 },     // 切近景（视线方向留白）
+  { t: 2.8, shot: 'full', s: 1.45, on: sub, d: .3 },           // d：混合时长（视窗矩形插值，不漂移）
+  { t: 3.7, punch: .16, at: [x, y], d: .55 },                  // 打击推近（快起慢回）
+  { t: 5, pan: [x, y], d: 1.2 }, { t: 7, dolly: 1.3, at: [x, y] },
+], { keep: [sub, sub2], margin: .05 });                        // 每帧把这些头部框保持在画内（必要时拉远）
+// sub(t) → { head: [x, y], headR, feet: [x, y], facing }：通常由 rig.point 求出（puppet.subject(t, state) 现成）
+```
+
+景别：`extreme-wide / wide / full / medium-wide / medium / medium-close / close / extreme-close`（别名 ws/ms/mcu/cu/ecu）。`vk.cam.frameShot / keepInFrame / clampView / punchEnv / smoothFollow / shotCamera` 可单独使用；`sc.toScreen([x, y], t)` 把世界坐标换成屏幕坐标。相机关键帧默认行为不变（省略 x/y 回到 640/360）；`vk.video({cameraHold: true})` 或 `sc.camera(keys, {hold: true})` 让省略的 x/y/s/r 沿用上一帧，避免“只写 s 就跳回中心”。镜头表 `shots` 不受此开关影响。
+
+**动作**（`vk.motion`，`src/fx/motion.js`，纯函数）：
+
+- `gait({stride, duty, hip, leg, lift})` → `.at(d)`：给定走过的距离 d，返回两只脚（着地时世界 x 恒定 = 不滑步）与髋高；根的速度由步幅推出；`.rest(d)` 给出双脚着地的停步距离。配合 IK 腿：`rig.solveIK('legN', ankle, pose, root)`。
+- `mouth(seg, t)` 口型（M/A/E/O 四个 viseme，12 fps 步进）：优先用 `vk tts` 写入的响度/质心包络（`env`），否则用词时间。
+- `boilPoints(points, t, {fps, amp})` 线条沸腾；`follow / spring / drag` 跟随与弹簧（确定性固定步长积分）；`ribbon(anchor, t, {n, len, lag})` 不可伸长的飘带（每段等长，滞后于锚点的历史位置）+ `ribbonPath` 描边。
+
+示例：`examples/wusong/wusong-v2-scene.html`（与原片同一套 rig 与配音）。
+
+## 动态图形套件（`vk.mg`）与运动模糊
+
+从一支 15 s / 128 BPM / 8 个一小节场景的 Canvas 动态海报 reel 中提炼出的可复用能力（`src/fx/mg/`）。全部**按需启用**：
+`stripes` / `bars` 转场、`slam` 等文字特效与 `dotwave` 背景在页面第一次用到名字时才注册，不用它们的页面注册表（及 FX Gallery 的计数）与原来完全一致。
+完整示例：`examples/reel/reel.html` → `out/reel.mp4`（与参考原片的对照：`out/reel-original.mp4`、`out/reel-compare.png`）。
+
+**子帧运动模糊**（默认关）：每个输出帧 = 快门窗口内 N 个子时刻的平均（窗口结束于帧时刻，`t` 在 0 处截断）。
+
+```js
+vk.video({ motionBlur: { shutter: '1/40', samples: 4 } })   // shutter: '1/40' | '180deg' | '25ms' | 0.025 秒
+```
+```bash
+vk render page.html                          # 页面开了 motionBlur 就用；
+vk render page.html --shutter 1/60 --samples 6   # 命令行覆盖；--no-motion-blur / --shutter 0 关闭
+```
+`vk render` 在捕获管线里做：每帧按子时刻 seek N 次，ffmpeg `tmix` 等权平均后再编码（`info.frameT` 保持名义帧时刻，HUD 等不糊）。
+canvas 图层也可单独在页内模糊：`sc.canvas(draw, { motionBlur: true | 'video' | {shutter, samples} })`（预览即可见；`vk render` 管线模糊时自动跳过，不会糊两次）。
+`vk stills` / `vk contact` / `vk qa` 不做运动模糊。reel 示例 1080p 450 帧 8 核：无模糊 13.6 s，4 子帧 32.9 s。
+
+**画布绘制器**（`(g, local, info) => …`，用 `sc.paint([p1, p2], {z, blend, motionBlur})` 叠在一个 canvas 层上，坐标为舞台像素）：
+
+| 名称 | 作用 |
+|---|---|
+| `vk.accents.rings({every:1, delay, speed, max, colors})` | 每拍一圈扩散冲击波环（颜色轮换、随半径淡出）；`at`/`times` 改为场景内指定时刻 |
+| `vk.accents.streaks({at, n, dir:'x'|'y', reverse})` | 速度线：头 outCubic、尾 inOutCubic 追赶 |
+| `vk.accents.burst({every:.5, n, r0, spread, len})` | 放射线，每拍 / 半拍重新触发 |
+| `vk.accents.flash({every:1, amount, k})` | 每拍白闪（指数衰减） |
+| `vk.accents.orbit({n, r, ry, speed, kick})` · `plus({points, kick})` · `disc({r, at, pulse, dx, dy})` | 环绕圆点 · 旋转十字 · 弹出圆盘 |
+| `vk.mg.morphSeq({at, shapes, palettes, echoes, cut, counter, flash})` | 圆→方→三角→星，每拍一形（outBack）、描边回声、反向旋转内镂空、每拍换底色、轮廓数字、白闪 |
+| `vk.mg.dotwave(o)` / `bg:{type:'dotwave', hole:{w,h}}` | 点阵波浪背景 |
+| `vk.mg.converge({at, iris, star})` | 形状螺旋汇聚（inExpo）→ 纸色圆形展开 → 旋转星标 |
+| `vk.mg.hud(o)` / `vk.hud({title, meta, bars, duration})` | 裁切角标、REC 闪点、时间码 MM:SS:FF、BAR n/8、进度条；全片 canvas，`difference` 混合 |
+
+节拍类绘制器读取视频的 `BeatGrid`（`bpm`），与其它节拍工具一样提前一帧落拍；只取场景开始之后的拍。
+
+**节点**（像其它元素一样 `sc.add()`；尺寸为 720p 像素自动缩放，时间为场景内秒或 `'b:N'`）：
+
+| 名称 | 作用 |
+|---|---|
+| `vk.ui.ringCard({label, value, fillAt})` | 进度环卡片 + 数字滚动 |
+| `vk.ui.toggle({label, sub, click})` | 开关，滑块移动时挤压变形、颜色过渡 |
+| `vk.ui.equalizer({bars})` · `vk.ui.like({click})` | 均衡器 · 点赞（回弹 + 放射线） |
+| `vk.ui.chips([...], {colors})` | 胶囊标签错峰滑入 + 轻微浮动 |
+| `vk.ui.cursor({keys:[[t, x, y]…], clicks:[t…]})` | 光标路径（inOutCubic），点击缩小 + 涟漪；x/y ≤ 1 为画面比例 |
+| `vk.montage(words, {every:'b:0.5', palettes, counter, dots, flash})` | 半拍一词的关键词快切：每词一套配色、砸入（交替方向）、奇数描边 / 偶数硬投影、放射线、`0n / 08` 计数、进度点、白闪 |
+| `vk.lockup({title, sub, tagline, at, fadeOut})` | 汇聚收束 logo：形状汇聚 + 纸色圆展开 + 星标 + `mask-rise` 标题 + 高亮条 + 色点 + 淡出到墨色 |
+
+UI 组件可以直接放进 `vk.device(vk.col([...]), {type:'phone'})`。纯数学（`vk.mg.subTimes` / `coverBars` / `shapeOutline` / `morphState` / `dotwaveAt` / `letterDrop` / `slam` / `echoGhosts` / `cursorAt` / `toggleKnob` / `likePop` / `montageSlot` / `timecode` / `convergeAt` / `recentBeats` …）见 `src/fx/mg/math.js`，测试在 `test/mg.test.mjs`。
+
+## 3D：`vk.three`（three.js r186，可选）
+
+`dist/vidkit-three.js`（约 860 KB，可离线使用）是**独立的可选包**，里面打包了 three r186（`vendor/three/`，MIT）、所需 addons（GLTF/Draco/HDR/Font loaders、RoomEnvironment、RoundedBox/TextGeometry、BufferGeometryUtils/SkeletonUtils），以及 vidkit 的 3D 层和各模块。不加载这个文件的页面完全不受影响，核心 `dist/vidkit.js` 只多了一个 `video.waitFor()` 钩子。
+
+```html
+<script src="../dist/vidkit.js"></script>
+<script src="../dist/vidkit-three.js"></script>   <!-- 加载后才有 vk.three / sc.three / 风格包 three-tech -->
+```
+
+### 图层 API
+
+```js
+sc.three(setup, update, opts)        // setup({THREE, scene, camera, renderer, rand, load, assets, layer}) → 可返回 Promise / update / {update, camera}
+                                     // update(localT, info)：必须是 t 的纯函数（每个子帧样本调用一次）
+sc.three(module | [modules], opts)   // modules = vk.three.turntable(…) / vk.three.particles(…) / {setup, update}
+v.three(...)                         // 全片层（默认 z:'front'）；场景层默认 z:'back'（在文字后面）
+```
+
+`opts` 包括：`res`（内部分辨率比例，默认 **0.75**，输出仍按 dpr 全分辨率）、`aa`（抖动子帧数，兼作抗锯齿）、`motionBlur`（`{shutter, samples}`，默认继承 `vk.video({motionBlur})`）、`camera`（rig 函数或 `{pos, target, fov, roll}`）、`fov`、`background`（不设则透明，按预乘 alpha 叠进图层栈，辉光也会透出）、`assets {name: url}`、`seed`、`z`/`zIndex`/`rect`，以及 `post`：
+
+| post 键 | 默认 | 说明 |
+|---|---|---|
+| `exposure` · `tone` | 1 · `'aces'` | HDR 曝光 + ACES（three 的拟合版） |
+| `bloom {strength, threshold, knee, radius, clamp}` | .55 · 1 · .6 · 1 · 40 | 便宜的下采样/上采样泛光（13-tap Karis 预滤 + tent 上采样）。所有子帧**先在 HDR 里累加，再做一次泛光** |
+| `grade` | `'neutral'` | 预设 `teal-orange` `cool` `warm` `bleach` `mono` `cyber`，或 `{temperature, tint, lift, gamma, gain, contrast, saturation, shadows, highlights, split}` |
+| `vignette` · `grain` · `ca` | .18 · .02 · 0 | 暗角、胶片颗粒（带 dither）、色差 |
+| `dof {focus, aperture, maxBlur}` | 关 | 深度采样景深；turntable 会自动对焦到产品 |
+| `fade` · `fadeColor` | 0 | 渐隐到某个颜色（1 = 全黑） |
+
+所有 post 值都可以写成 `t => …`。
+
+**预加载与确定性**：`load.gltf/hdr/env/texture/image/font/json` 都会进 `video.waitFor()`，所以 `window.__ready`（也就是开始捕获）会等它们全部完成，接着编译 shader 并预热一帧。整条路径不读真实时钟：`AnimationMixer` 用 `vk.three.mixer(root, clips).at(t)` 按时间设置，`vk.three.frameIdx(t, fps)` 给出帧号，随机数只用种子 `rand`。所有 3D 状态都是 t 的纯函数，所以多个 worker 并行渲染得到的帧逐像素相同。`vk qa` 现在会再开一个全新页面（模拟另一个 worker），在若干时间点比较 three 层的像素哈希，输出 `[three] … identical across 2 workers`；不一致就算 ISSUE。
+
+**运动模糊**：three 层在层内做子帧累加，子帧时间来自 `motionBlurCfg`，再叠加 Halton 抖动作 AA，累加在泛光之前完成。`vk render --shutter … --samples …` 走管线模糊时，three 层按名义帧时间渲染一次，然后在 N 次管线子 seek 中保持像素不变，因此不会被模糊两次，3D 也只算一遍。`--shutter 0` 会同时关掉层内模糊。
+
+### 模块
+
+| 模块 | 说明 |
+|---|---|
+| `vk.three.turntable({product \| model, spin, angle, tilt, float, lid, sweeps, sweep:{every,…}, env, backdrop, floor, shadow, material, animate})` | 产品转台。环境有 `'studio'`（程序化影棚：顶灯箱 + 竖灯条 + 轮廓条 + 前灯箱 + 低位反光板，PMREM）、`'room'`（RoomEnvironment）、`'loft'`（随包的 Poly Haven CC0 HDRI，1k）或任意 `.hdr`。另有无缝弧形背景、带径向淡出的光面地板 + 镜像反射、模糊接触阴影、**灯条扫光**（有限距离的竖直灯条在材质 shader 里解析计算反射，带视差，平面上也会滑过）、DOF 自动对焦。`product` 可选 `'earbuds'` `'earbud'` `'phone'` `'bottle'`（程序化），也可以用 `model:'x.glb'`（自动缩放到 `height`，带动画就自动挂上 mixer） |
+| `vk.three.particles({n, targets, morph, beat, intensity, size, drift, twinkle, flare, position, scale})` | 5–20 万粒子，变形全部在顶点 shader 里完成。target 可以是 `galaxy` `sphere` `torus` `cloud`、`{text, font}`、`{draw(g,w,h)}`（2D canvas 画的 logo）、`{asset \| image}`（图片）。`morph:[{t, to, d, style:'converge'\|'burst'\|'swirl'\|'direct'}]` 带逐粒子错峰；`beat:{amp,k,every}` 跟随 `vk.video({bpm})` 的节拍网格（也可以传函数）；采用加色混合，`intensity` 按密度调整 |
+| `vk.three.materials.*` | `chrome` `metal` `gold` `titanium` `anodized` `glass`（transmission）`glassLite` `ceramic` `plastic` `matte` `rubber` `screen` |
+| `vk.three.product(name, o)` · `vk.three.studioScene(o)` · `vk.three.sweep()` | 单独取用产品、影棚场景、扫光注入 |
+
+### 镜头 rig（`vk.three.rig`，纯函数 `t → {pos, target, fov, roll}`）
+
+`orbit` · `dolly` · `push` · `fly({points, look, bank})`（向心 CatmullRom，按弧长匀速）· `crane` · `zoomScale`（对数距离，"powers of ten"）· `keys([{t, pos, target, fov, ease}])` · `seq([{t, rig, blend}])` · `shake({at, amp, rot, freq})` · `punch`（与 `vk.cam` 用同一个 punch 包络）· `add(base, ...mods)`；另有 `vk.three.path(points)` / `kf` / `rig.lerp`。纯数学函数（rig、路径、采样计划、ACES/调色、粒子目标、mask 采样）的测试在 `test/three.test.mjs`。
+
+### 风格包 `three-tech`（3D 科技）
+
+`styles/three-tech/` 由 `dist/vidkit-three.js` 注册，核心包里没有它。它提供近黑影棚、电光青 + 紫两种强调色、`cyber` 调色、扫描线片名、粒子 + 光环特效、96 bpm 合成器脉冲铺底，以及 `v.style.base.stage3d.{layer, turntable, particles}` 预设。样片 `out/styles/three-tech.mp4`，已收进画廊。style.json 新增两个可选字段：`requires`（需要额外加载的脚本，画廊卡片会显示）和 `poster`（`vk style sample` 截取海报帧的时间）。
+
+### 示例与性能
+
+- `examples/three-basics.html`（11 s）：粒子星系变文字、耳机转台 + 扫光、手机 orbit + DOF。
+- `examples/three-promo/three-promo.html`（24 s，1080p）：虚构耳机 "LUMEN Buds" 的宣传片。依次是粒子 logo 组装（zoomScale 推进 + 节拍脉冲 + burst + shake）、`bars` 覆盖转场、转台主镜头（开盖 + 两道扫光 + DOF）、CatmullRom 穿梭 + 浮尘、三色并排、crane 片尾。另有 three-tech 铺底 + edge-tts 中文旁白（`vk tts` 生成 `three-promo.vo.json`）+ 逐字字幕，运动模糊开启。
+  ```
+  vk render examples/three-promo/three-promo.html -o out/three-promo.mp4 --scale 1.5
+  ```
+
+**渲染耗时**（8 核，SwiftShader 无 GPU，beginframe，8 个 worker，层内运动模糊 4 个子帧，`res` .75）：
+
+| 片子 | 帧数 · 分辨率 | 帧阶段 | 每个 worker 每帧 render(t) + 捕获 | 总耗时 |
+|---|---|---|---|---|
+| `three-promo`（`--scale 1.5`） | 723 · 1920×1080 | 497 s（1.5 fps，墙钟 ≈ 0.69 s/帧） | 3.6 s + 0.77 s | 8 分 30 秒（含音频混音） |
+| `three-basics` | 330 · 1280×720 | 109 s（3.0 fps） | 1.66 s + 0.17 s | 1 分 56 秒 |
+| `three-tech` 样片 | 165 · 1280×720 | — | — | 64 s |
+
+每个 worker 启动时要做 PMREM、粒子目标采样和 shader 编译，这部分约 55 s（8 个 worker 同时启动时 CPU 被占满）。想加速可以调低 `res` 或 `motionBlur.samples`，或者用 `aa: 1`。
+
+### 限制
+
+- 只支持 WebGL2（SwiftShader 软渲染），不支持 WebGPU。
+- DOF 是单遍深度采样的近似，前景边缘可能有轻微光晕；扫光是解析灯条，不是真实的环境贴图更新。
+- 接触阴影每个输出帧渲染一次（取第一个子帧），不是每个子帧都渲染。
+- 没有随包提供 TextGeometry 用的 typeface 字体，文字建议用粒子文字或 DOM 叠加。
+- 地板反射是镜像克隆，不处理遮挡和粗糙度模糊。
+
 ## 字体许可
 
 全部随包字体均为 **SIL Open Font License 1.1**（允许随软件打包、嵌入、再分发；不可单独售卖；修改版不得使用保留字体名；用这些字体渲染出的视频不受限制）。详见 `fonts/LICENSES.md` 与 `fonts/OFL-1.1.txt`。
@@ -754,7 +1001,11 @@ sc.gl([                                                              // 场景�
 | Instrument Serif（Regular / Italic） | editorial 主题标题、引用 |
 | Ma Shan Zheng 马善政毛笔楷书 | `ink` 主题书法标题 |
 | Noto Serif SC 思源宋体（可变 200–900） | `ink` 主题正文、字幕 |
+| ZCOOL KuaiLe 站酷快乐体 | `crayon` 风格包手写标题 |
+| Archivo Black | `reel` 风格包 / `vk.mg` 海报大字、快切、logo 收束 |
 
 示例数据来源：`examples/data/co2.json` 摘自 Our World in Data《CO₂ and Greenhouse Gas Emissions》（github.com/owid/co2-data，基于 Global Carbon Project，CC BY 4.0，2026-09-29 获取）。`examples/assets/sample-screenshot.svg` 为合成占位图（画面标注"示例截图"）。
 
 音乐素材（`examples/assets/music/`，详见 `examples/mv/LICENSE-music.md`）：Kevin MacLeod（incompetech.com）《Voxel Revolution》《Wallpaper》节选，**CC BY 4.0**——使用或再发布成片时必须署名（示例片尾已署名）。MV 中的"人声"为 edge-tts 合成（微软在线服务，条款见 LICENSE-music.md）。
+
+第三方代码与素材（`vendor/`，详见 `vendor/LICENSES.md`）：three.js r186 及其 examples/jsm addons（MIT，© 2010-2026 three.js authors）；Google Draco 解码器（Apache-2.0）；Poly Haven《Photo Studio Loft Hall》HDRI（CC0，已降采样到 1k）。这些都只打包进可选的 `dist/vidkit-three.js`。
