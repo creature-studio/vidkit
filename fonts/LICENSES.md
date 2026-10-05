@@ -21,3 +21,10 @@ ZCOOL KuaiLe from github.com/google/fonts (ofl/zcoolkuaile) on 2026-10-03; Archi
 (ofl/archivoblack) on 2026-10-04.
 Sources: Noto Sans SC and JetBrains Mono were copied from the existing HTML-video toolkit; the others from the
 system's Google Fonts collection. Each font's license was checked in its OpenType `name` table (IDs 0/13/14).
+
+## Derived typeface JSON (`fonts/typeface/*.json`, `examples/ink-landscape/mashanzheng-subset.json`)
+
+Glyph outlines converted with `vk font3d` (opentype.js) into the three.js typeface format for `vk.three.text3d`.
+They are derivatives of the OFL fonts above and stay under the **SIL OFL 1.1**: `archivo-black.json` ← Archivo Black,
+`anton.json` ← Anton, `instrument-serif.json` ← Instrument Serif (Latin-1 + punctuation); the ink-landscape example ships a
+15-character subset of Ma Shan Zheng. Same names are kept for attribution (no Reserved Font Name applies to these fonts).
