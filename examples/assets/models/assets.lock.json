@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "note": "written by vk asset add — sha256 of the optimised file; verify with vk asset verify",
+  "assets": {
+    "robot": {
+      "file": "robot.glb",
+      "source": "https://github.com/mrdoob/three.js/blob/r186/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
+      "licence": "CC0-1.0",
+      "author": "Tomás Laulhé (Quaternius); modified by Don McCurdy",
+      "sha256": "7797a07b01a82ac7bbfc271b942799abc7592f12413c5e8a3298df3314a82ada",
+      "bytes": 220840,
+      "sourceSha256": "047f5e5fb3bb6d378bd1df16ca6137f2a596c99b3a1b5690b4020c05aaf6f319",
+      "sourceBytes": 463988,
+      "compression": "meshopt",
+      "meshes": 14,
+      "vertices": 7214,
+      "clips": [
+        "Dance",
+        "Death",
+        "Idle",
+        "Jump",
+        "No",
+        "Punch",
+        "Running",
+        "Sitting",
+        "Standing",
+        "ThumbsUp",
+        "Walking",
+        "WalkJump",
+        "Wave",
+        "Yes"
+      ],
+      "thumb": "robot.thumb.png"
+    }
+  }
+}

@@ -2,7 +2,7 @@
 // vk — vidkit CLI
 import path from 'node:path';
 import { PKG } from '../cli/lib.mjs';
-const cmds = { render: 'render', lint: 'lint', peek: 'peek', list: 'list', stills: 'stills', contact: 'contact', qa: 'qa', preview: 'preview', new: 'new', analyze: 'analyze', align: 'align', tts: 'tts', sync: 'sync', doctor: 'doctor', make: 'make', style: 'style' };
+const cmds = { render: 'render', lint: 'lint', peek: 'peek', list: 'list', stills: 'stills', contact: 'contact', qa: 'qa', preview: 'preview', new: 'new', analyze: 'analyze', align: 'align', tts: 'tts', sync: 'sync', doctor: 'doctor', make: 'make', style: 'style', adopt: 'adopt', asset: 'asset', font3d: 'font3d' };
 const [cmd, ...rest] = process.argv.slice(2);
 const HELP = `${PKG.name} ${PKG.version} — deterministic HTML/JS → video
 
@@ -39,6 +39,14 @@ style library (styles/<id>/):
                                   story (markdown/JSON scenes, narration, dialogue, actions) → styled narrated film page
   vk style   list | sample [id,…] | gallery [-o out/styles/index.html] [--shot png]
   vk style   extract ref.png [--id name] [--k 6] [-o dir]      k-means palette + grain estimate → starter pack
+
+3D / assets:
+  vk adopt   page.html|URL -o out.mp4 --duration s [--fps 30] [--size 1280x720] [--warmup 3] [--timers] [--canvas]
+                                  capture an existing realtime (rAF) demo on a frozen virtual clock — SEQUENTIAL ONLY
+  vk asset   add <url|file.glb|.gltf> [--name id] [--dir examples/assets/models] [--draco] [--licence CC0-1.0]
+                                  [--author …] [--source url] [--no-thumb]   compress (meshopt/Draco) + assets.lock.json + turntable
+  vk font3d  font.ttf [-o fonts/typeface/name.json] [--chars "…" | --chars-file story.txt | --latin]
+                                  font → three.js typeface JSON for vk.three.text3d (CJK: pass only the chars you need)
 
 audio (Phase 2 · Python toolchain: tools/setup-audio.sh):
   vk analyze music.mp3 [-o music.beats.json] [--backend auto|beat_this|librosa] [--rate 50] [--bands 8]
