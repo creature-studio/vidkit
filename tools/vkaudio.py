@@ -489,10 +489,41 @@ def tts(a):
         dur = ffprobe_duration(audio)
         words = [w for l in lines for w in l['words']]
         r = {'id': it['id'], 'text': text, 'file': os.path.basename(audio), 'duration': r3(dur), 'voice': voice, 'backend': backend, 'words': words, 'timing': how}
+        env = _mouth_env(audio)
+        if env:
+            r['env'] = env
         write_json(meta, r)
         results.append(r)
         log('[tts] %s %.2fs %d units (%.1fs) %s' % (it['id'], dur, len(words), time.time() - t0, text[:40]))
     print(json.dumps({'items': results}, ensure_ascii=False))
+
+
+def _mouth_env(audio, rate=50):
+    """Lip-sync envelope: per 1/rate s window, rms loudness (0..1, normalised to the clip's 95th percentile) and
+    spectral centroid (0..1 between the clip's 5th/95th voiced percentiles; low = rounded 'O', high = spread 'E'). Needs numpy; returns None without it."""
+    try:
+        import numpy as np
+    except Exception:
+        return None
+    sr = 16000
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', audio, '-ac', '1', '-ar', str(sr), '-f', 's16le', '-'], capture_output=True).stdout
+    x = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    hop = sr // rate
+    n = len(x) // hop
+    if n < 2:
+        return None
+    fr = x[:n * hop].reshape(n, hop) * np.hanning(hop)[None, :]
+    rms = np.sqrt((fr ** 2).mean(axis=1))
+    ref = np.percentile(rms, 95) or 1.0
+    rms = np.clip(rms / ref, 0, 1)
+    spec = np.abs(np.fft.rfft(fr, axis=1))
+    f = np.fft.rfftfreq(hop, 1.0 / sr)
+    band = f <= 4000
+    cen = (spec[:, band] * f[band][None, :]).sum(axis=1) / (spec[:, band].sum(axis=1) + 1e-9)
+    voiced = cen[rms > .25]
+    lo, hi = (np.percentile(voiced, 5), np.percentile(voiced, 95)) if len(voiced) > 4 else (0.0, 4000.0)
+    cen = (cen - lo) / max(1.0, hi - lo)   # relative to this voice: 0 = darkest (rounded), 1 = brightest (spread)
+    return {'rate': rate, 'rms': [round(float(v), 3) for v in rms], 'cen': [round(float(v), 3) for v in np.clip(cen, 0, 1)]}
 
 
 def _map_words_to_text(text, words):

@@ -44,7 +44,7 @@ export default async function tts(argv) {
     fs.writeFileSync(reqFile, JSON.stringify({ backend, voice: g.v, rate: g.ra, pitch: g.pi, outdir, force: !!opt.force, items: g.items.map(({ id, text }) => ({ id, text })) }));
     console.log(`[vk tts] ${g.items.length} line(s) · ${backend} · ${g.v} · rate ${g.ra} · pitch ${g.pi} → ${path.relative(process.cwd(), outdir)}/`);
     const r = JSON.parse((await vkaudio(['tts', reqFile])).trim().split('\n').pop());
-    r.items.forEach((it, i) => { const key = g.items[i].key; res.items.push(it); M.items[key] = { id: it.id, file: `${sub}/${it.file}`, duration: it.duration, voice: it.voice, rate: g.ra, pitch: g.pi, words: it.words, timing: it.timing }; });
+    r.items.forEach((it, i) => { const key = g.items[i].key; res.items.push(it); M.items[key] = { id: it.id, file: `${sub}/${it.file}`, duration: it.duration, voice: it.voice, rate: g.ra, pitch: g.pi, words: it.words, timing: it.timing, ...(it.env ? { env: it.env } : {}) }; });
     g.items.forEach(i => ['.mp3', '.wav', '.json'].forEach(e => keep.add(i.id + e)));
   }
   fs.writeFileSync(manifest, JSON.stringify(M, null, 1));

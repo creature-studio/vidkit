@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>武松打虎 · v2 打斗场景（镜头 + 动作重做）</title>
+</head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="lib/papercut.js"></script>
+<script src="lib/wusong-rig.js"></script>
+<script src="lib/tiger-rig.js"></script>
+<script src="lib/jingyang.js"></script>
+<script>
+// 《武松打虎》v2 fight scenes — the same story beats, voice lines (wusong.vo.json) and rigs as wusong.html, redone with
+// the phase-3 camera + motion tools:
+//   · sc.shots: full → medium-close → wide + punch-in on the impact, follow cam on the leap, a two-head close-up for
+//     the punches with punch-ins on the beat; every shot keeps the heads in frame (keepInFrame on rig points)
+//   · vk.motion.gait: foot-locked walk (root speed = stride rate, IK legs, planted feet never move) + IK-locked stances
+//     (feet stay put when clips change; steps are lifted arcs, never slides); the dodge is airborne
+//   · vertical overhead staff strike (staff straight up → chop down) instead of the diagonal swing
+//   · visible punches: wind-up above and in front of the face, fist travels down onto the tiger's brow in a close-up,
+//     the tiger's head is knocked down on each hit
+//   · secondary motion: hat ribbons lag behind the body (vk.motion.drag of the head's world motion)
+const v = vk.video({
+  format: '16:9', fps: 30, theme: 'ink', title: '武松打虎 · v2 打斗', transition: 'ink:1.0',
+  texture: { rice: { amount: .5, seed: 23, vignette: .26 } },
+  voice: { manifest: 'wusong.vo.json', voice: 'zh-CN-YunjianNeural', rate: '+4%', pitch: '-2Hz', lead: .4, tail: .6, gap: .25, maxChars: 18 },
+  karaoke: 'sweep',
+  mix: { lufs: -14, duck: -8 },
+  scoreOptions: { pad: [73.42, 110, 146.83], padGain: .012 },
+});
+WJ.defs(v);
+
+const { sm, clamp } = WJ;
+const R = n => Math.round(n * 10) / 10;
+const lerp = (a, b, u) => a + (b - a) * u;
+const K = (t, keys) => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) { const [t1, v1] = keys[i]; if (t <= t1) { const [t0, v0] = keys[i - 1]; return v0 + (v1 - v0) * sm((t - t0) / (t1 - t0 || 1)); } } return keys[keys.length - 1][1]; };
+const hop = (t, t0, t1, h) => { const u = (t - t0) / (t1 - t0); return u <= 0 || u >= 1 ? 0 : 4 * h * u * (1 - u); };
+function at(sc, i, phrase) {
+  const s = sc.voSegs && sc.voSegs[i]; if (!s) return 0; if (!phrase) return s.at;
+  const clean = phrase.replace(/[，。！？、：；“”《》\s—]/g, '');
+  if (!s.words) { const idx = s.text.replace(/[，。！？、：；“”《》\s—]/g, '').indexOf(clean); return s.at + Math.max(0, idx) / s.text.length * s.dur; }
+  const chars = s.words.map(w => w.w).join(''), idx = chars.indexOf(clean); if (idx < 0) return s.at;
+  let c = 0; for (const w of s.words) { if (c + w.w.length > idx) return s.at + w.t; c += w.w.length; } return s.at;
+}
+const WS_S = .5, TG_S = .72, GY = 590;
+const ANK = 16;                                  // ankle (foot bone origin) height above the sole, rig units
+const wsY = (gy, s = WS_S) => gy - WSR.SOLE * s;
+const tgY = (gy, s = TG_S) => gy - TGR.SOLE * s;
+const grassRow = (xs, gy, o = {}) => xs.map((x, i) => ({ x, y: (typeof gy === 'function' ? gy(x) : gy) + 6, n: o.n || 5, h: (o.h || 30) + (i % 3) * 8 }));
+function flyingStaff(W, o) {
+  const g = WJ.add(W.fx, `<g filter="url(#pc-shadow)"><g>${WS.P('M-6 -70 L6 -70 L7 70 L-7 70 Z', '#8a5a30', { step: 7 })}${WS.P('M-7 -40 L7 -40 L7 -30 L-7 -30 Z M-7 30 L7 30 L7 40 L-7 40 Z', '#b5342a', { amp: .3 })}${WS.P('M-6 -70 L-2 -80 L2 -71 L6 -79 L6 -70 Z', '#d9b27a', { amp: .5 })}</g></g>`);
+  const inner = g.firstElementChild;
+  return l => {
+    const a = l - o.t; if (a < 0) { WS.setOp(g, 0); return; }
+    const land = o.land, tt = Math.min(a, land);
+    const x = o.x + o.vx * tt, y = Math.min(o.floor, o.y + o.vy * tt + .5 * 1400 * tt * tt), rot = o.rot0 + (a < land ? o.spin * tt : o.spin * land);
+    WS.setOp(g, 1 - clamp((a - land - .8) / .6));
+    inner.setAttribute('transform', `translate(${R(x)} ${R(y)}) rotate(${R(rot)}) scale(${o.s || .5})`);
+  };
+}
+// v2 clip: vertical overhead strike. u = clip time: 0–.5 raise the staff straight up (arms forward-up), .5–.9 hold and
+// arch back (anticipation), .9–1.08 chop straight down to the front, impact at 1.08, then follow-through.
+const CHOP_IMPACT = 1.08;
+WSR.CLIPS.chop = u => {
+  const r = sm(u / .5), a = sm((u - .5) / .4), c = Math.pow(clamp((u - .9) / .18), 1.6), f = sm((u - 1.08) / .3);
+  return { staffW: 104 + 76 * r + 14 * a - 132 * c - 6 * f, grip: 95 - 25 * r, twoHand: r, twoGrip: 46, footW: 0, look: -.4 * r * (1 - c),
+    'root.y': 10 * r - 14 * a + 30 * c, chest: 2 - 8 * r - 8 * a + 40 * c, head: -4 - 14 * r - 4 * a + 22 * c,
+    upperArmN: -38 - 140 * r - 14 * a + 128 * c + 6 * f, foreArmN: -122 + 112 * r + 6 * a - 6 * c,
+    upperArmF: -20, foreArmF: -26, thighN: -34, shinN: 30, thighF: 26, shinF: 8 };
+};
+// ---- foot locking ----
+// IK both legs to ankle targets (world px) and keep the soles level (+ optional toe angles); mutates p
+function legsTo(ws, p, root, ank, toes = [0, 0]) {
+  let q = ws.rig.solveIK('legN', ank[0], p, root); q = ws.rig.solveIK('legF', ank[1], q, root);
+  q.footN = toes[0] - ws.worldRot('footN', { ...q, footN: 0 }); q.footF = toes[1] - ws.worldRot('footF', { ...q, footF: 0 });
+  Object.assign(p, q); return p;
+}
+// the ankles a pose would naturally put down (no locking) → stance anchors
+const ankles = (ws, p, root) => [ws.rig.point('footN', 0, 0, p, root), ws.rig.point('footF', 0, 0, p, root)];
+// step between two stances: foot i lifts and travels on an arc during its own window (one foot after the other)
+function stepAnk(A, B, l, t0, d = .26, lift = 22) {
+  return A.map((a, i) => { const u = sm((l - t0 - i * d) / d), b = B[i]; return [lerp(a[0], b[0], u), lerp(a[1], b[1], u) - lift * Math.sin(Math.PI * u)]; });
+}
+// hat ribbons trail the head's horizontal motion (secondary motion / follow-through)
+const ribbonDrag = (fx, l, flip) => vk.motion.drag(fx, l, { gain: .09, max: 38 }) * flip;
+
+/* ═══════════════ 1 一棒劈下 (v2) ═══════════════ */
+vk.scene('一棒劈下', 'auto', { vo: [{ text: '武松抡起哨棒，使尽平生气力，一棒劈下——', at: .2 }, { text: '咔嚓！正打在枯树上，哨棒折做两截！', at: 4.2 }], hold: 1.0 }, sc => {
+  const W = WJ.world(sc, { mood: 'night', moon: { x: 1080, y: 120, r: 36 }, ground: GY, farTop: 340, midTop: 460, midAmp: 90, seed: 5.9,
+    mist: [{ y: 480, h: 60, op: .45 }], pines: [{ x: 110, y: 480, h: 150, seed: 16, op: .45 }],
+    grass: grassRow([60, 170, 300, 1060, 1180], GY, { h: 30 }) });
+  const ws = WSR.wusong(W.actors), tg = TGR.tiger(W.actors);
+  const s = WS_S, TI = Math.max(2.6, at(sc, 0, '劈') + .15), CS = TI - CHOP_IMPACT, STOP = .12;
+  const tt = l => l < TI ? l : l < TI + STOP ? TI : l - STOP;              // hit-stop on the impact frame
+  // foot-locked walk: 2.25 strides from x 220, ending on a rest distance (both feet planted)
+  const G = vk.motion.gait({ stride: 160, duty: .62, hip: 178, leg: 185, lift: 26 });
+  const X0 = 220, WE = CS - .15, WS0 = Math.max(0, WE - 1.75), DIST = G.rest(360);
+  const dAt = l => DIST * sm(clamp((l - WS0) / (WE - WS0)) * .85 + .15 * clamp((l - WS0) / (WE - WS0)));
+  const XE = X0 + DIST * s, ankleY = GY - ANK * s;
+  const wsAct = ws.play([{ at: 0, clip: 'walk' }, { at: CS, clip: 'chop', local: true, blend: .15 }, { at: TI + .9, clip: 'startle', blend: .35 }, { at: TI + 2.3, clip: 'guard', blend: .5 }]);
+  const tgAct = tg.play([{ at: 0, clip: 'crouch' }, { at: CS + .4, clip: 'land', blend: .2 }, { at: TI + 1.0, clip: 'roar', blend: .3 }, { at: TI + 2.6, clip: 'crouch', blend: .5 }]);
+  const walking = l => l < WE;
+  const rootX = l => (walking(l) ? X0 + dAt(l) * s : XE);
+  const WR = l => (walking(l) ? { x: rootX(l), y: ankleY - (G.at(dAt(l)).hipY + 8) * s, scale: s, flip: 1 } : { x: XE, y: wsY(GY), scale: s, flip: 1 });
+  // stance the chop wants (its own leg angles, unlocked) and the walk's final planted feet
+  const raw = (l, root) => ws.pose(l, wsAct, root, { staff: 1 });
+  const STANCE = ankles(ws, raw(CS + .6, WR(CS + .6)), WR(CS + .6)).map(a => [a[0], ankleY]);
+  const REST = G.at(DIST).feet.map(f => [X0 + f.x * s, ankleY]);
+  const feetAt = l => {
+    if (walking(l)) { const g = G.at(dAt(l)); return { ank: g.feet.map(f => [X0 + f.x * s, ankleY - f.y * s]), toes: g.feet.map(f => f.angle) }; }
+    return { ank: stepAnk(REST, STANCE, l, WE, .24, 20), toes: [0, 0] };
+  };
+  const wsState = (l, extra = {}) => ({ staff: 1, wind: .4, ...extra,
+    edit: q => { if (walking(l)) q['root.y'] = 0; else q['root.y'] = (q['root.y'] || 0) * sm((l - WE) / .3); return q; },
+    post: (p, u) => { const F = feetAt(l); legsTo(ws, p, WR(l), F.ank, F.toes); p.ribbon += ribbonDrag(rootX, l, 1) + 14 * sm((l - TI) / .1) * (1 - sm((l - TI - .5) / .5)); } });
+  // impact point → where the dead bough is; break point on the staff
+  const tip = ws.point('staffBody', 0, 214, TI, wsAct, WR(TI), wsState(TI));
+  const tipB = ws.point('staffBody', 0, 150, TI, wsAct, WR(TI), wsState(TI));
+  const trunkX = Math.max(tip[0] + 70, 700);
+  W.props.insertAdjacentHTML('beforeend', WJ.tree(trunkX, GY + 6, 380, { seed: 5, lean: .06, color: '#2d2723', boughs: [
+    { at: (GY + 6 - tip[1] - 26) / 380, to: [tip[0] - 60, tip[1] + 10], bend: 6, w: 20, twigs: [[.55, -16, -40], [.9, -30, -24]] },
+    { at: .82, dx: 120, dy: -80, bend: 16, twigs: [[.6, 26, -36]] }, { at: .95, dx: -60, dy: -70, bend: 10 }] }));
+  vk.bake(W.props);
+  const fly = flyingStaff(W, { t: TI + STOP, x: tipB[0] + 30, y: tipB[1] - 10, vx: -240, vy: -680, rot0: -80, spin: -560, land: .8, floor: GY - 6, s: .5 });
+  sc.gl([vk.gl.particles({ seed: 21, burst: [{ t: TI, n: 30 }], x: tipB[0] + 10, y: tipB[1], angle: -90, spread: 200, speed: [200, 560], gravity: 1300, drag: .5, life: [.5, 1.0], size: [3, 7], shape: 'petal', color: '#6b4527', color2: '#c99a5a' })], { zIndex: 8 });
+  const TX = l => K(l, [[CS, 960], [TI + .2, 990], [TI + 2.6, 960]]);
+  const TR = l => ({ x: TX(l), y: tgY(GY), scale: TG_S, flip: -1 });
+  sc.on(l => {
+    const lt = tt(l);
+    ws.render(lt, wsAct, WR(lt), { ...wsState(lt), stub: l >= TI, face: l > CS + .3 && l < TI + 2 ? 'shout' : null });
+    tg.render(lt, tgAct, TR(lt), {});
+    fly(l);
+  });
+  // camera subjects from rig points: Wu Song's head (+ radius), the tiger's head
+  const wsSub = l => { const lt = tt(l); return { head: ws.point('head', 10, -62, lt, wsAct, WR(lt), wsState(lt)), headR: 62 * s * 1.2, feet: [rootX(lt), GY], facing: 1 }; };
+  const tgSub = l => { const lt = tt(l); return { head: tg.point('head', 20, -6, lt, tgAct, TR(lt), {}), headR: 60 * TG_S, feet: [TX(lt) - 80, GY], facing: -1 }; };
+  const both = l => { const a = wsSub(l), b = tgSub(l); return { head: [(a.head[0] + b.head[0]) / 2, Math.min(a.head[1], b.head[1])], headR: a.headR, feet: [(a.feet[0] + b.feet[0]) / 2, GY], facing: 0 }; };
+  sc.shots([
+    { t: 0, shot: 'full', s: 1.7, on: wsSub, follow: .35, lookroom: .12 },                // tracking the walk-in (feet in frame)
+    { t: CS + .1, shot: 'medium', s: 2.3, on: wsSub, lookroom: .06, offset: [0, 60] },   // cut in: the staff goes straight up, the shout
+    { t: CS + .7, shot: 'full', s: 1.45, on: wsSub, d: .28, lookroom: .3 },              // pull out just in time to see the chop + the bough
+    { t: TI, punch: .16, at: tip, d: .55 },                                              // punch-in on the impact
+    { t: TI + .95, shot: 'full', s: 1.2, on: both, d: .9 },                              // the tiger answers
+    { t: TI + 1.0, punch: .06, d: .8, at: l => tgSub(l).head },
+  ], { keep: [wsSub], margin: .05 });
+  sc.sfx(CS + .1, 'swish', .5); sc.sfx(TI - .16, 'swish', 1.1);
+  sc.sfx(TI, 'crack', 1.1); WS.stroke(sc, TI, 'cang', 1); sc.shake(TI, 14, .55);
+  WS.luogu(sc, TI + .45, 'hit', { gain: .8 });
+  sc.sfx(TI + STOP + .85, 'thud', .35);
+  sc.sfx(TI + 1.1, 'roarLong', .75); sc.shake(TI + 1.2, 5, 1.2);
+  for (let i = 0; i < 6; i++) { const dd = (i + .5) * G.stride / 2; let lt = WS0; for (; lt < WE && dAt(lt) < dd; lt += 1 / 60); if (lt < WE) sc.sfx(lt, 'step', .25); }
+  sc.maxT = Math.max(sc.maxT || 0, TI + 3);
+});
+
+/* ═══════════════ 2 骑虎挥拳 (v2) ═══════════════ */
+vk.scene('骑虎挥拳', 12.8, { vo: [{ text: '大虫又扑将过来，', at: .3 }, { text: '武松揪住它的顶花皮，使劲按将下去，', at: 2.0 }, { text: '抡起铁拳只顾打，打了五七十拳，', at: 5.4 }, { text: '那大虫再也动弹不得。', at: 9.0 }] }, sc => {
+  const W = WJ.world(sc, { mood: 'night', moon: { x: 220, y: 120, r: 36 }, ground: GY, farTop: 340, midTop: 460, midAmp: 90, seed: 9.1,
+    mist: [{ y: 480, h: 60, op: .45 }], pines: [{ x: 1180, y: 480, h: 160, seed: 18, op: .45 }],
+    grass: grassRow([40, 130, 1140, 1240], GY, { h: 30 }) });
+  const tg = TGR.tiger(W.actors), ws = WSR.wusong(W.actors);
+  const s = WS_S, TH = .3, P0 = .9, P1 = 1.7, J0 = 2.3, J1 = 2.9, PU0 = 3.4, PU1 = 9.3, DF = 9.6, BEAT = .42, NP = Math.round((PU1 - PU0) / BEAT);
+  const ankleY = GY - ANK * s;
+  // tiger: pounce, pinned, struggles; its head is knocked down by every punch
+  const tgAct = tg.play([{ at: 0, clip: 'crouch' }, { at: P0, clip: 'pounce', blend: .12 }, { at: P1, clip: 'land', blend: .1 }, { at: P1 + .4, clip: 'stand', blend: .3 },
+    { at: J1 - .05, clip: 'pinned', blend: .2 }, { at: J1 + .35, clip: 'struggle', blend: .3 }, { at: 7.2, clip: 'pinned', blend: 1.2 }, { at: DF, clip: 'defeated', blend: 1.4 }]);
+  const beat = l => clamp((l - PU0) / BEAT, 0, NP);
+  const hitW = l => { if (l < PU0 || l > PU1) return 0; const ph = beat(l) % 1; return Math.exp(-Math.pow((ph - .55) / .11, 2)); };
+  const knock = l => { if (l < PU0 || l > PU1 + .3) return 0; const ph = (beat(l) % 1) - .55; return ph < 0 ? 0 : Math.exp(-ph * 9) * (1 - Math.exp(-ph * 60)); };
+  const tx = l => K(l, [[P0, 870], [P1, 430]]);
+  const TR = l => ({ x: tx(l), y: tgY(GY) - hop(l, P0, P1, 240), scale: TG_S, flip: -1 });
+  const CF = { seat: ['neck', 20, -46], lift: 55 };     // he rides forward on the neck so the forehead is within arm's reach
+  // while Wu Song rides it the tiger fights to lift its head (so the fist can reach the brow); each punch knocks it down
+  const lift = l => CF.lift * sm((l - J1) / .5) * (1 - sm((l - DF) / 1.2));
+  const tst = l => ({ eyes: l > DF + .9 ? 'shut' : null, edit: q => { const k = knock(l); q.neck = (q.neck || 0) - lift(l) + 10 * k; q.head = (q.head || 0) - .4 * lift(l) + 16 * k; q.jaw = Math.min(1, (q.jaw || 0) + .4 * k); return q; } });
+  const TGP = l => tg.pose(l, tgAct, TR(l), tst(l));
+  const tpt = (bone, x, y, l) => tg.rig.point(bone, x, y, TGP(l), TR(l));
+  const headTop = l => tpt('head', -12, -44, l), brow = l => tpt('head', 22, -30, l), seat = l => tpt(CF.seat[0], CF.seat[1], CF.seat[2], l);
+  const ride = l => l >= J1 - .02;
+  // punches: lean back on the wind-up, drive forward on the hit; the near shoulder follows the chest (no rig recursion)
+  const punchW = l => sm((l - PU0 + .2) / .25) * (1 - sm((l - PU1) / .3));
+  const chestAt = (l, c0) => lerp(c0, lerp(-10, 30, hitW(l)), punchW(l));
+  const shoulder = l => { const r = WRt(l), th = chestAt(l, 26) * Math.PI / 180, f = r.flip; return [r.x + f * s * (132 * Math.sin(th) + 2 * Math.cos(th)), r.y + s * (-4 - 132 * Math.cos(th))]; };
+  // Wu Song: throw the stub, dive (airborne) under the pounce to the right, turn, leap onto its back, punch
+  const wsAct = ws.play([{ at: 0, clip: 'guard' }, { at: TH, clip: 'throw', blend: .15 }, { at: TH + .45, clip: 'guard', blend: .25 }, { at: P0 - .1, clip: 'jump', blend: .12 }, { at: P1 - .05, clip: 'guard', blend: .2 },
+    { at: J0, clip: 'jump', blend: .15 }, { at: J1 - .1, clip: 'ride', blend: .15 }, { at: PU0, clip: 'punch', blend: .25 }, { at: PU1 + .1, clip: 'ride', blend: .3 }, { at: DF + 1.2, clip: 'ride', blend: .3 }],
+    { ik: {
+        armF: l => (l >= J1 - .1 ? headTop(l) : null),
+        // fist: wind-up high and FORWARD of his own face (never hidden behind the head) → down onto the brow
+        armN: l => { if (l < PU0 - .2 || l > PU1 + .3) return null; const b = brow(l), sh = shoulder(l), up = [sh[0] - 200, sh[1] - 130]; const w = hitW(l); return [lerp(up[0], b[0], w), lerp(up[1], b[1] - 4, w)]; } },
+      ikWeight: { armF: l => sm((l - J1 + .15) / .2), armN: punchW } });
+  const D0 = P0 - .02, D1 = P1 - .05;                    // the dive: airborne from 430 → 720 (no ground contact → no sliding)
+  const wx = l => (l < D0 ? 430 : l < D1 ? lerp(430, 720, sm((l - D0) / (D1 - D0))) : 720);
+  const wflip = l => l < P1 + .1 ? 1 : l < P1 + .4 ? Math.cos(Math.PI * sm((l - P1 - .1) / .3)) : -1;
+  const grounded = l => l < D0 || (l >= D1 && l < J0);
+  const WRt = l => {
+    if (!ride(l)) {
+      if (l >= J0) { const u = sm((l - J0) / (J1 - J0)), st = seat(J1); return { x: lerp(720, st[0] + 4, u), y: lerp(wsY(GY), st[1] - 20, u) - hop(l, J0, J1, 90), scale: s, flip: -1 }; }
+      return { x: wx(l), y: wsY(GY) - hop(l, D0, D1, 120), scale: s, flip: wflip(l) };
+    }
+    const st = seat(l); return { x: st[0] + 4, y: st[1] - 20 + 4 * hitW(l), scale: s, flip: -1 };
+  };
+  // stance anchors: while grounded, the feet stay where they were put down (IK-locked); re-planted after landing / turning
+  const raw = l => ws.pose(l, wsAct, WRt(l), { staff: 0 });
+  const plant = l => ankles(ws, raw(l), WRt(l)).map(a => [a[0], ankleY]);
+  const A0 = plant(.05), A1 = plant(P1 + .5);
+  const feetAt = l => (l < D0 ? A0 : l >= D1 && l < J0 ? (l < P1 + .5 ? plant(Math.min(l, P1 + .1)) : A1) : null);
+  const rootXw = l => WRt(l).x;
+  const wst = l => ({ staff: l < TH + .25 ? 1 : 0, stub: true, wind: .4, farLeg: ride(l) ? 0 : 1,
+    edit: q => { const w = punchW(l); if (w > 0) { q.chest = chestAt(l, q.chest || 0); q.head = lerp(q.head || 0, lerp(-14, 10, hitW(l)), w); q['root.y'] = (q['root.y'] || 0) * (1 - w); } return q; },
+    face: (l > P0 && l < P1 + .3) || (l > PU0 && l < PU1) ? 'shout' : null,
+    post: p => { const F = grounded(l) ? feetAt(l) : null; if (F) legsTo(ws, p, WRt(l), F); p.ribbon += ribbonDrag(rootXw, l, -1); } });
+  const stubFly = flyingStaff(W, { t: TH + .25, x: 470, y: 380, vx: -520, vy: -520, rot0: 30, spin: -620, land: .8, floor: GY - 6, s: .42 });
+  sc.on(l => {
+    tg.render(l, tgAct, TR(l), tst(l));
+    ws.render(l, wsAct, WRt(l), wst(l));
+    stubFly(l);
+  });
+  // subjects: Wu Song's head, the tiger's head, and both heads together for the punching close-up
+  const wsSub = l => ({ head: ws.point('head', 10, -62, l, wsAct, WRt(l), wst(l)), headR: 62 * s * 1.2, feet: [WRt(l).x, GY], facing: l < P1 + .25 ? 1 : -1 });
+  const tgSub = l => ({ head: tpt('head', 20, -6, l), headR: 60 * TG_S, feet: [tx(l), GY], facing: -1 });
+  const pair = l => { const a = wsSub(l), b = tgSub(l); return { head: [(a.head[0] + b.head[0]) / 2, (a.head[1] + b.head[1]) / 2], headR: Math.max(70, Math.hypot(a.head[0] - b.head[0], a.head[1] - b.head[1]) * .5 + 20), feet: [(a.feet[0] + b.feet[0]) / 2, GY], facing: 0 }; };
+  const shots = [
+    { t: 0, shot: 'full', s: 1.6, on: wsSub, lookroom: .25 },
+    { t: P0 - .35, cam: { x: 640, y: 400, s: 1.08 }, d: .3 },                              // wide: the pounce sails over the dive
+    { t: J0 - .1, shot: 'full', s: 1.5, on: wsSub, follow: .25, d: .25 },                          // follow the leap onto its back
+    { t: J1, punch: .1, d: .5 },
+    { t: PU0 - .35, shot: 'close', s: 2.1, on: pair, d: .4 },                                      // two-head close-up for the punches
+    { t: DF, shot: 'full', s: 1.3, on: pair, d: 1.6 },                                      // pull back: the tiger goes still
+  ];
+  for (let i = 0; i < NP; i++) if (i % 3 === 0 || i === NP - 1) shots.push({ t: PU0 + (i + .55) * BEAT, punch: i === NP - 1 ? .12 : .05, d: .3, at: l => brow(l) });
+  // keep box for Wu Song includes his hat + pom-pom (the head point alone let the wind-up lean crop the hat at the top)
+  const wsKeep = l => ({ ...wsSub(l), head: ws.point('head', 10, -90, l, wsAct, WRt(l), wst(l)), headR: 62 * s * 1.6 });
+  sc.shots(shots, { keep: [wsKeep, tgSub], margin: .05 });
+  // a small paper-dust burst where each punch lands (fixed per hit, from the rig point at that instant)
+  sc.gl(Array.from({ length: NP }, (_, i) => { const t = PU0 + (i + .55) * BEAT, b = brow(t); return vk.gl.particles({ seed: 40 + i, burst: [{ t, n: i === NP - 1 ? 22 : 9 }], x: b[0], y: b[1], angle: -120, spread: 150, speed: [120, 320], gravity: 700, drag: .6, life: [.25, .5], size: [3, 6], shape: 'petal', color: '#efe2c0', color2: '#d9a93e' }); }), { zIndex: 8 });
+  sc.sfx(TH + .1, 'swish', .6); sc.sfx(P0 - .4, 'growl', .7); sc.sfx(P0 + .05, 'swish', .9); sc.sfx(P1, 'thud', .8); sc.shake(P1 + .02, 9, .4);
+  sc.sfx(J0 + .05, 'swish', .7); WS.luogu(sc, J1 - .1, 'hit', { gain: 1 }); sc.shake(J1, 10, .5); sc.sfx(J1 + .3, 'roarLong', .7);
+  WS.jijifeng(sc, PU0 - .1, Math.round((PU1 - PU0) / (60 / 200)), { bpm: 200, gain: .55 });
+  for (let i = 0; i < NP; i++) { const t = PU0 + (i + .55) * BEAT; sc.sfx(t, 'thud', .55 + .1 * (i % 2)); if (i % 3 === 0) sc.shake(t, 3 + (i === 0 ? 5 : 0), .2); }
+  sc.shake(PU1 - .2, 10, .5);
+  WS.luogu(sc, PU1 + .1, 'hit', { gain: 1 });
+  sc.sfx(DF + .2, 'growl', .4);
+});
+</script>
+</body>
+</html>
