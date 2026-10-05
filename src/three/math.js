@@ -5,6 +5,7 @@
 import { getEase } from '../core/ease.js';
 import { punchEnv } from '../core/camera.js';
 import { mulberry32, noise1 } from '../core/random.js';
+import { unknownName } from '../core/strict.js';
 import { subTimes } from '../fx/mg/math.js';
 
 export const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -51,7 +52,8 @@ export const GRADES = {
   cyber: { temperature: -.12, tint: .12, contrast: 1.1, saturation: 1.15, shadows: [.015, 0, .045], highlights: [0, .035, .045], split: 1 },
 };
 export function gradeParams(g = {}) {
-  const base = typeof g === 'string' ? GRADES[g] || {} : g.preset ? { ...(GRADES[g.preset] || {}), ...g } : g;
+  const known = n => GRADES[n] || (unknownName('grades', n, Object.keys(GRADES)), {});
+  const base = typeof g === 'string' ? known(g) : g.preset ? { ...known(g.preset), ...g } : g;
   const w = whiteBalance(base.temperature || 0, base.tint || 0);
   return { wb: w, lift: base.lift || [0, 0, 0], gamma: base.gamma || [1, 1, 1], gain: base.gain || [1, 1, 1], contrast: base.contrast != null ? base.contrast : 1, saturation: base.saturation != null ? base.saturation : 1, shadows: base.shadows || [0, 0, 0], highlights: base.highlights || [0, 0, 0], split: base.split || 0 };
 }

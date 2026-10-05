@@ -11,6 +11,7 @@ import { RoundedBoxGeometry } from '../../vendor/three/examples/jsm/geometries/R
 import { TextGeometry } from '../../vendor/three/examples/jsm/geometries/TextGeometry.js';
 import * as BufferGeometryUtils from '../../vendor/three/examples/jsm/utils/BufferGeometryUtils.js';
 import * as M from './math.js';
+import { unknownName } from '../core/strict.js';
 import { makeLayerClass, applyCam, getThree } from './layer.js';
 import { makeMaterials, makeSweep } from './materials.js';
 import { makeProducts } from './products.js';
@@ -53,7 +54,7 @@ vk.three = {
   THREE, version: THREE.REVISION, Layer: ThreeLayer,
   layer: (target, a, b, c) => (target.video && target.el ? target.three(a, b, c) : target.three(a, b, c)),
   // modules
-  turntable, particles, product: (name, o) => PRODUCTS[name](o || {}), products: PRODUCTS, materials: MAT, sweep: () => makeSweep(THREE), studioScene: o => studioScene(THREE, o),
+  turntable, particles, product: (name, o) => (PRODUCTS[name] || unknownName('products', name, Object.keys(PRODUCTS), { fatal: true }))(o || {}), products: PRODUCTS, materials: MAT, sweep: () => makeSweep(THREE), studioScene: o => studioScene(THREE, o),
   // camera rigs (pure: t → {pos, target, fov, roll}); apply(camera, state)
   rig: { ...M.rig, apply: applyCam, lerp: M.lerpCam },
   path: M.crPath, kf: M.kfAt, targets: { galaxy: M.galaxy, sphere: M.sphere, torus: M.torus, cloud: M.cloud, sampleMask: M.sampleMask }, morphAt: M.morphAt,

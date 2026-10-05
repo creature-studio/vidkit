@@ -6,6 +6,7 @@
 // Pure function of t: spin / float / lid / sweep are evaluated from the layer time; the contact shadow is re-rendered
 // once per output frame (from the frame's first sample) and only depends on that time.
 import { getEase } from '../core/ease.js';
+import { unknownName } from '../core/strict.js';
 const D2R = Math.PI / 180;
 const BLUR = `uniform sampler2D tSrc; uniform vec2 uDir; varying vec2 vUv;
 void main(){ vec4 s = texture2D(tSrc, vUv) * .2270270; for (int i = 1; i < 5; i++) { float fi = float(i); float w = i == 1 ? .1945946 : i == 2 ? .1216216 : i == 3 ? .0540540 : .0162162; s += (texture2D(tSrc, vUv + uDir * fi) + texture2D(tSrc, vUv - uDir * fi)) * w; } gl_FragColor = s; }`;
@@ -75,8 +76,8 @@ export function makeTurntable(THREE, MAT, PRODUCTS, makeSweep) {
         const box = new THREE.Box3().setFromObject(prod), sz = box.getSize(new THREE.Vector3()), k = (o.height || 1.2) / Math.max(1e-6, sz.y);
         prod.scale.multiplyScalar(k); const b2 = new THREE.Box3().setFromObject(prod), c = b2.getCenter(new THREE.Vector3()); prod.position.sub(new THREE.Vector3(c.x, b2.min.y, c.z));
         if (g.animations && g.animations.length) { mod.mixer = new THREE.AnimationMixer(prod); g.animations.forEach(a => mod.mixer.clipAction(a).play()); }
-      } else prod = (PRODUCTS[o.product || 'earbuds'] || PRODUCTS.earbuds)(o.productOptions || {});
-      if (o.material) { const mk = typeof o.material === 'string' ? MAT[o.material] : null; const m = mk ? mk(o.materialOptions || {}) : o.material; prod.traverse(x => { if (x.isMesh && !/screen|led|lens/.test(x.name)) x.material = m; }); }
+      } else prod = (PRODUCTS[o.product || 'earbuds'] || (unknownName('products', o.product, Object.keys(PRODUCTS)), PRODUCTS.earbuds))(o.productOptions || {});
+      if (o.material) { const mk = typeof o.material === 'string' ? MAT[o.material] || unknownName('threeMaterials', o.material, Object.keys(MAT), { fatal: true }) : null; const m = mk ? mk(o.materialOptions || {}) : o.material; prod.traverse(x => { if (x.isMesh && !/screen|led|lens/.test(x.name)) x.material = m; }); }
       const pivot = mod.pivot = new THREE.Group(); pivot.add(prod); stage.add(pivot); mod.product = prod;
       const S = mod.sweep = makeSweep(THREE); S.applyAll(prod);
       prod.traverse(x => { x.layers.enable(2); });

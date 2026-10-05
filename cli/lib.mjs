@@ -31,6 +31,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
 export function startServer({ inject = null, extra = null, port = 0, host = '127.0.0.1' } = {}) {
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x'), p = decodeURIComponent(u.pathname);
+    if (p.startsWith('/__vk/cache/')) return cacheEndpoint(req, res, p.slice(12));
     if (extra && extra(req, res, p)) return;
     fs.readFile(p, (err, buf) => {
       if (err) { res.writeHead(404); res.end('not found'); return; }
@@ -49,6 +50,21 @@ export function modeParams(opt, params = {}, { strict = true } = {}) {
   if (off) params.strict = '0'; else if (strict || opt.strict) params.strict = '1';
   if (opt.draft) params.draft = '1';
   return params;
+}
+// vk.three start-up cache (src/three/cache.js): content-hash keyed blobs, shared by all workers and runs
+export const CACHE_DIR = process.env.VK_CACHE_DIR || path.join(os.homedir(), '.cache', 'vidkit');
+function cacheEndpoint(req, res, key) {
+  const H = { 'x-vk-cache': '1', 'cache-control': 'no-store' };
+  if (!/^[a-z0-9_-]{8,80}$/i.test(key)) { res.writeHead(400, H); res.end(); return; }
+  const f = path.join(CACHE_DIR, key + '.bin');
+  if (req.method === 'PUT') {
+    const parts = []; req.on('data', d => parts.push(d)); req.on('end', () => {
+      try { fs.mkdirSync(CACHE_DIR, { recursive: true }); const tmp = f + '.' + process.pid + '.tmp'; fs.writeFileSync(tmp, Buffer.concat(parts)); fs.renameSync(tmp, f); res.writeHead(204, H); } catch (e) { res.writeHead(500, H); }
+      res.end();
+    });
+    return;
+  }
+  fs.readFile(f, (err, buf) => { if (err) { res.writeHead(404, H); res.end(); return; } res.writeHead(200, { ...H, 'content-type': 'application/octet-stream' }); res.end(buf); });
 }
 export function pageUrl(port, abs, params = {}) {
   const q = new URLSearchParams(params);

@@ -4,7 +4,7 @@ import { GLTFLoader } from '../../vendor/three/examples/jsm/loaders/GLTFLoader.j
 import { DRACOLoader } from '../../vendor/three/examples/jsm/loaders/DRACOLoader.js';
 import { HDRLoader } from '../../vendor/three/examples/jsm/loaders/HDRLoader.js';
 import { FontLoader } from '../../vendor/three/examples/jsm/loaders/FontLoader.js';
-import { makeEnv } from './env.js';
+import { cachedEnv } from './env.js';
 
 export const BUILTIN = { loft: 'vendor/hdri/studio_loft_1k.hdr' };
 export function makeLoader(THREE, renderer, base) {
@@ -23,7 +23,7 @@ export function makeLoader(THREE, renderer, base) {
     // equirectangular HDR (RGBE) → DataTexture (linear, half float)
     hdr(u) { if (!hdr) hdr = new HDRLoader(); return once('h:' + abs(u), () => new Promise((res, rej) => hdr.load(abs(u), t => { t.mapping = THREE.EquirectangularReflectionMapping; res(t); }, undefined, e => rej(new Error('[vk.three] hdr ' + u))))); },
     // prefiltered (PMREM) environment: 'studio' | 'room' | 'loft' | url.hdr | {procedural studio options} | equirect texture
-    env(spec = 'studio', o = {}) { const key = 'e:' + (typeof spec === 'string' ? spec : JSON.stringify(spec && !spec.isTexture ? spec : spec && spec.uuid)) + JSON.stringify(o); return once(key, () => makeEnv(THREE, renderer, spec, o, u => L.hdr(u))); },
+    env(spec = 'studio', o = {}) { const key = 'e:' + (typeof spec === 'string' ? spec : JSON.stringify(spec && !spec.isTexture ? spec : spec && spec.uuid)) + JSON.stringify(o); return once(key, () => { const P = window.__vkThreeProf, t0 = performance.now(); return cachedEnv(THREE, renderer, spec, o, u => L.hdr(u)).then(r => { if (P) P.env += performance.now() - t0; return r; }); }); },
     texture(u, o = {}) {
       return once('t:' + abs(u) + (o.srgb === false ? ':lin' : ''), () => new Promise((res, rej) => new THREE.TextureLoader().load(abs(u), t => { t.colorSpace = o.srgb === false ? THREE.NoColorSpace : THREE.SRGBColorSpace; t.anisotropy = 4; res(t); }, undefined, () => rej(new Error('[vk.three] texture ' + u)))));
     },

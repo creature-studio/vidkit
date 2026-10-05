@@ -3,6 +3,8 @@
 //   'room'    three's RoomEnvironment (neutral interior)
 //   'loft'    bundled Poly Haven "Photo Studio Loft Hall" HDRI (CC0, vendor/hdri/studio_loft_1k.hdr)
 //   any .hdr URL (equirectangular) or a loaded equirect texture
+import { unknownName } from '../core/strict.js';
+import { cacheKey, cacheGet, cachePut } from './cache.js';
 import { RoomEnvironment } from '../../vendor/three/examples/jsm/environments/RoomEnvironment.js';
 
 export function studioScene(THREE, o = {}) {
@@ -26,11 +28,42 @@ export function studioScene(THREE, o = {}) {
   if (o.accent) light(.5, 6, -3.5, 2, -7, o.accentI || 6, o.accent);      // coloured kicker
   return s;
 }
+export const ENV_NAMES = ['studio', 'room', 'loft'];
+// PMREM is deterministic GPU work done by every capture worker (and every layer that asks): share one texture per
+// renderer and keep the prefiltered half-float pixels on disk (src/three/cache.js) keyed by everything they depend on
+const SHARED = new WeakMap();
+export function cachedEnv(THREE, renderer, spec = 'studio', o = {}, loadHDR) {
+  const key = typeof spec === 'string' ? spec : JSON.stringify(spec && !spec.isTexture ? spec : spec && spec.uuid);
+  const map = SHARED.get(renderer) || SHARED.set(renderer, new Map()).get(renderer), k = key + JSON.stringify(o);
+  if (!map.has(k)) map.set(k, envFromCache(THREE, renderer, spec, o, loadHDR));
+  return map.get(k);
+}
+async function envFromCache(THREE, renderer, spec, o, loadHDR) {
+  const P = window.__vkThreeProf;
+  // cacheable: the procedural studio (+ options), RoomEnvironment and the bundled HDRI; other URLs / textures are not
+  const ok = spec == null || spec === 'studio' || spec === 'room' || spec === 'loft' || (typeof spec === 'object' && !spec.isTexture);
+  if (!ok) return makeEnv(THREE, renderer, spec, o, loadHDR);
+  const gl = renderer.getContext(), dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  const key = await cacheKey({ kind: 'pmrem', v: 1, rev: THREE.REVISION, spec: spec == null ? 'studio' : spec, o, code: [makeEnv, studioScene].map(String), gl: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER) });
+  const hit = await cacheGet(key);
+  if (hit && hit.arrays.px) {
+    const { w, h } = hit.meta, tex = new THREE.DataTexture(hit.arrays.px, w, h, THREE.RGBAFormat, THREE.HalfFloatType);
+    Object.assign(tex, { mapping: THREE.CubeUVReflectionMapping, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, colorSpace: THREE.LinearSRGBColorSpace, flipY: false, name: 'PMREM.cubeUv' });
+    tex.needsUpdate = true; if (P) P.envCached++;
+    return tex;
+  }
+  const tex = await makeEnv(THREE, renderer, spec, o, loadHDR), rt = tex.renderTarget;
+  if (rt && rt.width && rt.height) {
+    try { const px = new Uint16Array(rt.width * rt.height * 4); renderer.readRenderTargetPixels(rt, 0, 0, rt.width, rt.height, px); cachePut(key, { w: rt.width, h: rt.height }, { px }); } catch (e) { }
+  }
+  return tex;
+}
 export function makeEnv(THREE, renderer, spec = 'studio', o = {}, loadHDR) {
   const pm = new THREE.PMREMGenerator(renderer);
   const done = rt => { pm.dispose(); return rt.texture; };
   if (spec && spec.isTexture) { spec.mapping = THREE.EquirectangularReflectionMapping; return Promise.resolve(done(pm.fromEquirectangular(spec))); }
   if (spec === 'room') { const r = new RoomEnvironment(); const t = done(pm.fromScene(r, .04)); return Promise.resolve(t); }
   if (spec === 'studio' || !spec || typeof spec === 'object') { const sc = studioScene(THREE, typeof spec === 'object' ? spec : o); const t = done(pm.fromScene(sc, o.blur != null ? o.blur : .02)); sc.traverse(x => { if (x.geometry) x.geometry.dispose(); if (x.material) x.material.dispose(); }); return Promise.resolve(t); }
+  if (typeof spec === 'string' && /^[a-z][\w-]*$/i.test(spec) && !ENV_NAMES.includes(spec)) unknownName('envs', spec, ENV_NAMES, { fatal: true });   // not a path/URL either
   return loadHDR(spec).then(tex => { const t = done(pm.fromEquirectangular(tex)); return t; });
 }

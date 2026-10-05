@@ -7,6 +7,9 @@
 // styles: 'converge' (scatter cloud mid-way, then lock in), 'burst' (explode outward then re-form), 'swirl' (spin
 // around the y axis while re-forming), 'direct' (straight lerp). Per-particle stagger makes the morph ripple.
 import * as M from './math.js';
+import { unknownName } from '../core/strict.js';
+import { cacheKey, cacheGet, cachePut, bytesKey } from './cache.js';
+const TARGET_TYPES = ['galaxy', 'sphere', 'torus', 'cloud', 'text', 'logo', 'image'];
 
 const VS = `attribute vec3 aA, aB, cA, cB; attribute vec4 aR;
 uniform float uP, uT, uStyle, uSpinA, uSpinB, uSize, uPx, uBeat, uBeatAmp, uDrift, uStagger, uBurst, uSwirl, uScatter, uFlare, uMinPx, uAlpha, uTwinkle;
@@ -54,17 +57,26 @@ export function makeParticles(THREE) {
     return { data: g.getImageData(0, 0, w, h).data, w, h };
   }
   const lin = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
-  function build(spec, n, rand, ctx) {
+  // phase 1 (cheap, no randomness): normalise the spec and rasterise text / logo / image masks
+  function prep(spec, ctx) {
     if (typeof spec === 'string') spec = { type: spec };
     const type = spec.type || (spec.text != null ? 'text' : spec.draw ? 'logo' : spec.image || spec.asset ? 'image' : 'galaxy');
+    if (!TARGET_TYPES.includes(type)) unknownName('targets', type, TARGET_TYPES, { fatal: true });
+    let px = null;
+    if (!['galaxy', 'sphere', 'torus', 'cloud'].includes(type)) {
+      const img = spec.asset ? ctx.assets[spec.asset] : spec.image;
+      px = type === 'text' ? rasterText(spec) : type === 'logo' ? rasterDraw(spec) : rasterImage({ ...spec, image: img && img.image ? img.image : img });
+    }
+    return { spec, type, px };
+  }
+  // phase 2 (the expensive part: sampling n points, consumes the shared seeded stream)
+  function build({ spec, type, px }, n, rand) {
     let r;
     if (type === 'galaxy') r = M.galaxy(n, { ...spec, colors: spec.colors && spec.colors.map(c => (typeof c === 'string' ? lin(c).map(x => x * (spec.gain || 1.6)) : c)) }, rand);
     else if (type === 'sphere') r = M.sphere(n, spec, rand);
     else if (type === 'torus') r = M.torus(n, spec, rand);
     else if (type === 'cloud') r = M.cloud(n, spec, rand);
     else {
-      const img = spec.asset ? ctx.assets[spec.asset] : spec.image;
-      const px = type === 'text' ? rasterText(spec) : type === 'logo' ? rasterDraw(spec) : rasterImage({ ...spec, image: img && img.image ? img.image : img });
       r = M.sampleMask(px.data, px.w, px.h, n, { width: spec.width || 7, depth: spec.depth, edge: spec.edge != null ? spec.edge : (type === 'image' ? 0 : .6), by: spec.by || (type === 'image' ? 'both' : 'alpha'), color: spec.color && !Array.isArray(spec.color) ? lin(spec.color).map(x => x * (spec.gain || 1.5)) : spec.color, gain: spec.gain || 1.4 }, rand);
       if (spec.colors) { const c0 = lin(spec.colors[0]), c1 = lin(spec.colors[1]), W = spec.width || 7, g = spec.gain || 1.5; for (let i = 0; i < n; i++) { const u = M.clamp01(r.pos[i * 3] / W + .5); for (let j = 0; j < 3; j++) r.col[i * 3 + j] = (c0[j] + (c1[j] - c0[j]) * u) * g; } }
     }
@@ -80,12 +92,28 @@ export function makeParticles(THREE) {
   }
   return function particles(o = {}) {
     const n = o.n || 100000, mod = { o, targets: {} };
-    mod.setup = ctx => {
+    mod.setup = async ctx => {
       const rand = M.mulberry32(o.seed || 21);
-      for (const [k, s] of Object.entries(o.targets || { galaxy: 'galaxy' })) mod.targets[k] = build(s, n, rand, ctx);
+      const P = window.__vkThreeProf, t0 = performance.now();
+      const preps = Object.entries(o.targets || { galaxy: 'galaxy' }).map(([k, s]) => [k, prep(s, ctx)]);
+      // disk cache (src/three/cache.js): keyed by the specs, the rasterised masks' pixels and the sampling code
+      const key = await cacheKey({ kind: 'particles', v: 1, n, seed: o.seed || 21, rev: THREE.REVISION, code: [prep, build, M.galaxy, M.sphere, M.torus, M.cloud, M.sampleMask, M.mulberry32].map(String),
+        targets: await Promise.all(preps.map(async ([k, p]) => [k, p.type, { ...p.spec, image: undefined, draw: undefined }, p.px ? [p.px.w, p.px.h, await bytesKey(p.px.data)] : null])) });
+      const hit = await cacheGet(key);
+      let R;
+      if (hit && hit.arrays.R) {
+        for (const [k, p] of preps) mod.targets[k] = { pos: new THREE.BufferAttribute(hit.arrays['p:' + k], 3), col: new THREE.BufferAttribute(hit.arrays['c:' + k], 3), spin: p.spec.spin || 0, spec: p.spec };
+        R = hit.arrays.R; if (P) P.targetsCached++;
+      } else {
+        for (const [k, p] of preps) mod.targets[k] = build(p, n, rand);
+        R = new Float32Array(n * 4); for (let i = 0; i < n * 4; i++) R[i] = rand();
+        const arrays = { R }; for (const [k] of preps) { arrays['p:' + k] = mod.targets[k].pos.array; arrays['c:' + k] = mod.targets[k].col.array; }
+        cachePut(key, {}, arrays);
+      }
+      if (P) P.targets += performance.now() - t0;
+      for (const k of o.morph || []) if (!mod.targets[k.to]) unknownName('targets', k.to, Object.keys(mod.targets), { fatal: true });   // morph to a key of o.targets
       const first = mod.targets[(o.morph && o.morph[0] && o.morph[0].to) || Object.keys(mod.targets)[0]];
-      const geo = mod.geometry = new THREE.BufferGeometry(), R = new Float32Array(n * 4);
-      for (let i = 0; i < n * 4; i++) R[i] = rand();
+      const geo = mod.geometry = new THREE.BufferGeometry();
       geo.setAttribute('position', first.pos); geo.setAttribute('aA', first.pos); geo.setAttribute('aB', first.pos); geo.setAttribute('cA', first.col); geo.setAttribute('cB', first.col);
       geo.setAttribute('aR', new THREE.BufferAttribute(R, 4));
       geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);

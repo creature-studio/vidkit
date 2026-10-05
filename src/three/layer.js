@@ -12,6 +12,9 @@ import { makeLoader, loadAssets } from './loaders.js';
 import { motionBlurCfg } from '../fx/mg/math.js';
 
 const D2R = Math.PI / 180, cores = new WeakMap();
+// cold-start profile (ms) of this page's three layers: window.__vkThreeProf {setup, env, targets, idle, compile, warm}
+export const PROF = (window.__vkThreeProf = window.__vkThreeProf || { setup: 0, env: 0, envCached: 0, targets: 0, targetsCached: 0, idle: 0, compile: 0, warm: 0 });
+const now = () => performance.now();
 let warned = false;
 export function getThree(THREE, video) {
   let c = cores.get(video); if (c) return c;
@@ -49,6 +52,8 @@ export function makeLayerClass(THREE, env) {
       const r = this.rect = o.rect ? o.rect.slice() : [0, 0, video.W, video.H], dpr = core.dpr;
       this.ow = Math.max(1, Math.round(r[2] * dpr * (o.outScale || 1))); this.oh = Math.max(1, Math.round(r[3] * dpr * (o.outScale || 1)));
       this.res = o.res != null ? o.res : o.resolution != null ? o.resolution : .75;
+      // draft (vk peek/render --draft, vk.video({draft:true})): cheap preview — low internal res, 1 sample, no DOF / bloom
+      this.draft = !!video.draft; if (this.draft) this.res = Math.min(this.res, .35);
       this.iw = Math.max(2, Math.round(this.ow * this.res)); this.ih = Math.max(2, Math.round(this.oh * this.res));
       const c = this.el = document.createElement('canvas'); c.className = 'vk-canvas vk-three' + (o.class ? ' ' + o.class : '');
       c.width = this.ow; c.height = this.oh;
@@ -63,9 +68,10 @@ export function makeLayerClass(THREE, env) {
         else if (video.mbPipeline && Q.get('mbs')) cfg = { shutter: +Q.get('mbs'), samples: +(Q.get('mbn') || 4) };
         else if (mbo === true || mbo === 'video' || mbo == null) cfg = video.cfg.motionBlur || (mbo === true ? {} : null);
       }
-      this.mb = cfg ? motionBlurCfg(cfg, video.fps) : null;
+      this.mb = cfg && !this.draft ? motionBlurCfg(cfg, video.fps) : null;
       if (this.mb && o.samples) this.mb.samples = Math.max(2, o.samples);
-      this.aa = o.aa != null ? o.aa : 1;
+      this.aa = this.draft ? 1 : o.aa != null ? o.aa : 1;
+      this.capture = Q.get('render') === '1';   // under vk render / peek / qa every capture seeks first
       this.scene = new THREE.Scene();
       if (o.background != null && o.background !== 'transparent') this.scene.background = new THREE.Color(o.background);
       this.camera = new THREE.PerspectiveCamera(o.fov || 35, this.iw / this.ih, o.near || .05, o.far || 200);
@@ -80,12 +86,14 @@ export function makeLayerClass(THREE, env) {
       this.load = makeLoader(THREE, this.renderer, env.base);
       const assets = loadAssets(this.load, o.assets);
       assets.catch(() => { });
+      if (PROF.ctor == null) PROF.ctor = now();
       if (video.waitFor) video.waitFor(() => assets.then(a => this.init(a)));
       else console.warn('[vk.three] this dist/vidkit.js has no video.waitFor (rebuild it): capture may not wait for 3D assets');
     }
     async init(assets) {
       const T = this.THREE, v = this.video;
-      const ctx = this.ctx = { THREE: T, scene: this.scene, camera: this.camera, renderer: this.renderer, rand: mulberry32(this.o.seed || 1), load: this.load, assets, layer: this, video: v, W: v.W, H: v.H, iw: this.iw, ih: this.ih, add: (...x) => this.scene.add(...x) };
+      const ctx = this.ctx = { draft: this.draft, THREE: T, scene: this.scene, camera: this.camera, renderer: this.renderer, rand: mulberry32(this.o.seed || 1), load: this.load, assets, layer: this, video: v, W: v.W, H: v.H, iw: this.iw, ih: this.ih, add: (...x) => this.scene.add(...x) };
+      let t0 = now(); if (PROF.start == null) PROF.start = t0;
       for (const m of this.modules) {
         let r = m.setup ? await m.setup(ctx) : null;
         if (typeof r === 'function') r = { update: r };
@@ -93,25 +101,40 @@ export function makeLayerClass(THREE, env) {
         if (r && r.update) this.updaters.push(r.update);
         if (r && r.camera) { this.camera = ctx.camera = r.camera; }
       }
+      PROF.setup += now() - t0; t0 = now();
       await this.load.idle();
-      this.post.size(this.iw, this.ih, !!(this.o.post && this.o.post.dof));
-      this.renderer.compile(this.scene, this.camera);
+      PROF.idle += now() - t0; t0 = now();
+      this.post.size(this.iw, this.ih, this.useDof());
+      // compile every material's program up front; compileAsync lets the GL driver build them in parallel (KHR_parallel_shader_compile)
+      if (this.renderer.compileAsync && this.renderer.extensions.has('KHR_parallel_shader_compile')) await this.renderer.compileAsync(this.scene, this.camera); else this.renderer.compile(this.scene, this.camera);   // (SwiftShader has no parallel compile: compileAsync would only warn)
+      PROF.compile += now() - t0; t0 = now();
       this.ready = true;
       // warm-up: run the whole pipeline once (compiles the post shaders, uploads every buffer) and forget the pixels
-      this.draw(0, { t: this.sc ? this.sc.start : 0, frameT: this.sc ? this.sc.start : 0, fps: v.fps, W: v.W, H: v.H, beats: v.beats, video: v, scene: this.sc, p: 0 }, true);
-      this.lastKey = null;
+      // …at a tiny internal size: programs and buffers do not depend on it, the fill cost does (150k additive particles
+      // filling the frame cost seconds per sample on SwiftShader, and the GPU queue would execute it before the first capture)
+      const tw = now(), IW = this.iw, IH = this.ih, k = Math.min(1, 64 / Math.max(IW, IH));
+      this.iw = Math.max(2, Math.round(IW * k)); this.ih = Math.max(2, Math.round(IH * k));
+      try { this.draw(0, { t: this.sc ? this.sc.start : 0, frameT: this.sc ? this.sc.start : 0, fps: v.fps, W: v.W, H: v.H, beats: v.beats, video: v, scene: this.sc, p: 0 }, true); } finally { this.iw = IW; this.ih = IH; }
+      // drain the GL queue (PMREM, uploads, program links) now, inside __ready, instead of inside the first capture
+      try { const gl = this.renderer.getContext(); this.renderer.setRenderTarget(null); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); } catch (e) { }
+      this.lastKey = null; (PROF.warms = PROF.warms || []).push([this.sc ? this.sc.index : -1, Math.round(now() - tw)]);
+      PROF.warm += now() - t0; PROF.end = now();
     }
+    useDof() { return !this.draft && !!(this.o.post && this.o.post.dof); }
     params(lt) {
       const P = { ...POST_DEFAULTS, ...(this.o.post || {}) }, out = {};
       for (const k in P) out[k] = fv(P[k], lt);
       out.bloom = out.bloom === false ? null : { ...POST_DEFAULTS.bloom, ...(out.bloom === true ? {} : out.bloom || {}) };
       for (const k in out.bloom) out.bloom[k] = fv(out.bloom[k], lt);
       out.grade = gradeParams(out.grade || 'neutral');
+      if (this.draft) { out.bloom = null; out.dof = false; }
       if (out.dof) { const d = out.dof === true ? {} : out.dof; out.dof = { focus: fv(d.focus, lt) || this.camera.position.length(), aperture: d.aperture != null ? fv(d.aperture, lt) : 6, maxBlur: d.maxBlur != null ? d.maxBlur : 14 }; }
       return out;
     }
     render(local, info) {
       if (!this.ready || !this.core.ok) return;
+      // the page's own first render at __ready: a capture run seeks every frame it needs, so skip the (possibly heavy) GL work
+      if (this.capture && this.video.booting) return;
       const inLayer = !!this.mb || this.aa > 1, fT = info.frameT != null ? info.frameT : info.t;
       // in-layer blur / AA renders the nominal frame (pipeline sub-seeks then reuse it); otherwise follow t exactly
       const lt = inLayer ? local - (info.t - fT) : local;
@@ -124,7 +147,7 @@ export function makeLayerClass(THREE, env) {
       const t0 = performance.now(), T = this.THREE, R = this.renderer, cam = this.camera, post = this.post;
       const fps = info.fps || this.video.fps, plan = samplePlan(lt, this.mb, this.aa), n = plan.length;
       const fT = info.frameT != null ? info.frameT : info.t, fi = frameIdx(fT, fps);
-      post.size(this.iw, this.ih, !!(this.o.post && this.o.post.dof));
+      post.size(this.iw, this.ih, this.useDof());
       const RT = post.rts;
       for (const s of plan) {
         const sub = { ...info, t: fT + (s.t - lt), local: s.t, frameT: fT, frameLocal: lt, frameIdx: fi, sub: s.k, samples: n, dt: n > 1 ? (plan[n - 1].t - plan[0].t) / (n - 1) : 0, layer: this, camera: cam, scene: this.scene, THREE: T, warm };
@@ -142,7 +165,7 @@ export function makeLayerClass(THREE, env) {
       if (!warm) {
         const g = this.g; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, this.ow, this.oh);
         g.drawImage(this.core.canvas, 0, this.core.canvas.height - this.oh, this.ow, this.oh, 0, 0, this.ow, this.oh);
-        const ms = performance.now() - t0, S = this.core.stats; this.stats.frames++; this.stats.samples += n; this.stats.ms += ms; this.stats.last = ms;
+        const ms = performance.now() - t0, S = this.core.stats; if (!PROF.draws) PROF.draws = []; if (PROF.draws.length < 12) PROF.draws.push([this.sc ? this.sc.index : -1, +lt.toFixed(3), Math.round(ms), n]); this.stats.frames++; this.stats.samples += n; this.stats.ms += ms; this.stats.last = ms;
         S.frames++; S.samples += n; S.ms += ms;
       }
     }

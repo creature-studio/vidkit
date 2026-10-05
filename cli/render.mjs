@@ -2,6 +2,7 @@
 //   [--workers cores] [--from 0 --to 10] [--crf 18] [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
 //   [--lufs -14|off] [--duck -10] [--no-voice]   audio: page music (vk.video({music, musicStart})) + vo: clips + SFX score, ducked + loudnorm
 //   [--capture beginframe|screenshot] [--gpu soft|swiftshader|off] [--no-cache] [--timing] [--chunk frames] [--x264-threads n]
+//   [--strict (default) | --no-strict] [--draft]   draft: half-size output, fast x264, vk.three layers at res .35 / aa 1 / no DOF
 //   [--shutter 1/40 --samples 4]  sub-frame motion blur: every output frame = mean of N captures at sub-times inside the
 //                                  shutter window (trailing, ending at the frame time); --shutter 0 turns a page's vk.video({motionBlur}) off
 //   capture: beginframe (default) = chrome-headless-shell, one BeginFrame + screenshot per video frame (cli/capture.mjs);
@@ -9,7 +10,7 @@
 import { mixAudio } from './mix.mjs';
 import { openWorker, resolveMode } from './capture.mjs';
 import { motionBlurCfg, subTimes } from '../src/fx/mg/math.js';
-import { parseArgs, startServer, pageUrl, launch, probeInfo, run, ffprobeLine, tmpdir, fs, path, os, spawn } from './lib.mjs';
+import { parseArgs, modeParams, startServer, pageUrl, launch, probeInfo, run, ffprobeLine, tmpdir, fs, path, os, spawn } from './lib.mjs';
 
 // default worker count: beginframe workers are CPU-bound (one frame in flight each) → one per core;
 // the screenshot path waits on vsync-paced capture, the old default was min(4, cores - 1)
@@ -21,12 +22,13 @@ export default async function render(argv) {
   const opt = parseArgs(argv), T0 = Date.now();
   const input = opt._[0]; if (!input) throw new Error('usage: vk render page.html -o out.mp4 [options]');
   const abs = path.resolve(input); if (!fs.existsSync(abs)) throw new Error('not found ' + abs);
-  const fps = +(opt.fps || 30), scale = +(opt.scale || 1), crf = +(opt.crf || 18), preset = opt.preset || 'medium';
+  const fps = +(opt.fps || 30), scale = +(opt.scale || (opt.draft ? .5 : 1)), crf = +(opt.crf || (opt.draft ? 26 : 18)), preset = opt.preset || (opt.draft ? 'veryfast' : 'medium');
   const type = opt.png ? 'png' : 'jpeg', quality = +(opt.quality || 95);
   const out = path.resolve(opt.out || abs.replace(/\.html?$/i, '') + '.mp4');
   const { server, port } = await startServer();
   const mode = resolveMode(opt.capture);
   const params = { render: '1', fps: String(fps) }; if (opt.format) params.format = opt.format; if (opt.cache === false || opt.noCache) params.cache = '0';
+  modeParams(opt, params);
   const probeBrowser = await launch();
   const info = await probeInfo(probeBrowser, pageUrl(port, abs, { ...params, cache: '0' }));   // timeline/audio only: skip the static-layer bakes
   await probeBrowser.close();
