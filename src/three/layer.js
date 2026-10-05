@@ -8,6 +8,7 @@
 // and the 3D work is done once per frame instead of N times.
 import { samplePlan, frameIdx, gradeParams, mulberry32 } from './math.js';
 import { Post } from './post.js';
+import { LookChain, needsDepth, needsNormals } from './look.js';
 import { makeLoader, loadAssets } from './loaders.js';
 import { motionBlurCfg } from '../fx/mg/math.js';
 
@@ -104,7 +105,7 @@ export function makeLayerClass(THREE, env) {
       PROF.setup += now() - t0; t0 = now();
       await this.load.idle();
       PROF.idle += now() - t0; t0 = now();
-      this.post.size(this.iw, this.ih, this.useDof());
+      this.post.size(this.iw, this.ih, this.useDof(), this.lookDepth());
       // compile every material's program up front; compileAsync lets the GL driver build them in parallel (KHR_parallel_shader_compile)
       if (this.renderer.compileAsync && this.renderer.extensions.has('KHR_parallel_shader_compile')) await this.renderer.compileAsync(this.scene, this.camera); else this.renderer.compile(this.scene, this.camera);   // (SwiftShader has no parallel compile: compileAsync would only warn)
       PROF.compile += now() - t0; t0 = now();
@@ -121,6 +122,14 @@ export function makeLayerClass(THREE, env) {
       PROF.warm += now() - t0; PROF.end = now();
     }
     useDof() { return !this.draft && !!(this.o.post && this.o.post.dof); }
+    // NPR look chain (post.look or the layer's look option; src/three/look.js) — null when the layer has none
+    lookSpec(lt) { const P = this.o.post || {}; let s = P.look !== undefined ? P.look : this.o.look; if (typeof s === 'function' && !s.type) s = s(lt); return s || null; }
+    lookChain(lt) {
+      const s = this.lookSpec(lt); if (!s) return null;
+      if (!this.look) this.look = new LookChain(this.THREE, this.renderer);
+      return this.look.setSpec(s).length ? this.look : null;
+    }
+    lookDepth() { const s = this.lookSpec(0); if (!s) return false; if (!this.look) this.look = new LookChain(this.THREE, this.renderer); return needsDepth(this.look.setSpec(s)); }
     params(lt) {
       const P = { ...POST_DEFAULTS, ...(this.o.post || {}) }, out = {};
       for (const k in P) out[k] = fv(P[k], lt);
@@ -147,7 +156,8 @@ export function makeLayerClass(THREE, env) {
       const t0 = performance.now(), T = this.THREE, R = this.renderer, cam = this.camera, post = this.post;
       const fps = info.fps || this.video.fps, plan = samplePlan(lt, this.mb, this.aa), n = plan.length;
       const fT = info.frameT != null ? info.frameT : info.t, fi = frameIdx(fT, fps);
-      post.size(this.iw, this.ih, this.useDof());
+      const look = this.lookChain(lt), lp = look ? look.passes : null;
+      post.size(this.iw, this.ih, this.useDof(), !!lp && needsDepth(lp));
       const RT = post.rts;
       for (const s of plan) {
         const sub = { ...info, t: fT + (s.t - lt), local: s.t, frameT: fT, frameLocal: lt, frameIdx: fi, sub: s.k, samples: n, dt: n > 1 ? (plan[n - 1].t - plan[0].t) / (n - 1) : 0, layer: this, camera: cam, scene: this.scene, THREE: T, warm };
@@ -161,7 +171,8 @@ export function makeLayerClass(THREE, env) {
         if (n > 1) post.accumulate(s.k, s.w);
       }
       const p = this.params(lt); p.seed = fi;
-      post.finish(n > 1 ? RT.acc.texture : RT.scene.texture, p, this.ow, this.oh, cam);
+      const L = look ? { chain: look, t: lt, w: this.draft ? this.iw : this.ow, h: this.draft ? this.ih : this.oh, normal: needsNormals(lp) ? post.normals(this.scene, cam) : null } : null;
+      post.finish(n > 1 ? RT.acc.texture : RT.scene.texture, p, this.ow, this.oh, cam, L);
       if (!warm) {
         const g = this.g; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, this.ow, this.oh);
         g.drawImage(this.core.canvas, 0, this.core.canvas.height - this.oh, this.ow, this.oh, 0, 0, this.ow, this.oh);

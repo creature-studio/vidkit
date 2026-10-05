@@ -109,14 +109,25 @@ export class Post {
     const r = new T.WebGLRenderTarget(w, h, o); return r;
   }
   // allocate targets for an internal size iw×ih (scene, accumulation, dof, bloom chain)
-  size(iw, ih, dof) {
-    if (this.rts && this.rts.iw === iw && this.rts.ih === ih && this.rts.dof === !!dof) return;
+  // depthTex: keep the scene depth as a texture (DOF, and looks with outline / edges / mist)
+  size(iw, ih, dof, depthTex) {
+    if (this.rts && this.rts.iw === iw && this.rts.ih === ih && this.rts.dof === !!dof && this.rts.depthTex === !!depthTex) return;
     if (this.rts) this.dispose();
-    const R = this.rts = { iw, ih, dof: !!dof, scene: this.rt(iw, ih, dof ? 'tex' : true), acc: this.rt(iw, ih), dofRT: dof ? this.rt(iw, ih) : null, down: [], up: [] };
+    const R = this.rts = { iw, ih, dof: !!dof, depthTex: !!depthTex, scene: this.rt(iw, ih, dof || depthTex ? 'tex' : true), acc: this.rt(iw, ih), dofRT: dof ? this.rt(iw, ih) : null, down: [], up: [] };
     let w = Math.max(1, iw >> 1), h = Math.max(1, ih >> 1);
     for (let i = 0; i < (this.o.levels || 6) && Math.min(w, h) >= 4; i++) { R.down.push(this.rt(w, h)); R.up.push(this.rt(w, h)); w = Math.max(1, w >> 1); h = Math.max(1, h >> 1); }
   }
-  dispose() { const R = this.rts; if (!R) return; [R.scene, R.acc, R.dofRT, ...R.down, ...R.up].forEach(t => t && t.dispose()); this.rts = null; }
+  dispose() { const R = this.rts; if (!R) return; [R.scene, R.acc, R.dofRT, R.normal, ...R.down, ...R.up].forEach(t => t && t.dispose()); this.rts = null; }
+  // view-space normals of the scene (looks that ask for normals: true), rendered once per output frame
+  normals(scene, cam) {
+    const T = this.T, R = this.rts;
+    if (!R.normal) R.normal = new T.WebGLRenderTarget(R.iw, R.ih, { type: T.UnsignedByteType, format: T.RGBAFormat, depthBuffer: true, stencilBuffer: false, generateMipmaps: false, minFilter: T.NearestFilter, magFilter: T.NearestFilter });
+    if (!this.nmat) this.nmat = new T.MeshNormalMaterial();
+    const bg = scene.background, ov = scene.overrideMaterial; scene.background = null; scene.overrideMaterial = this.nmat;
+    this.r.setRenderTarget(R.normal); this.r.setClearColor(0x8080ff, 1); this.r.clear(true, true, false); this.r.render(scene, cam);
+    scene.background = bg; scene.overrideMaterial = ov; this.r.setClearColor(0x000000, 0);
+    return R.normal.texture;
+  }
   pass(material, target) { this.quad.material = material; this.r.setRenderTarget(target); this.r.render(this.qscene, this.cam); }
   // add the scene RT into the accumulator (k = 0: copy)
   accumulate(k, w) {
@@ -124,7 +135,8 @@ export class Post {
     this.quad.material = m; this.r.setRenderTarget(R.acc); this.r.render(this.qscene, this.cam);
   }
   // HDR source texture → (dof) → bloom → composite into the canvas viewport (0, 0, ow, oh)
-  finish(src, p, ow, oh, cam) {
+  // look (optional): {chain, t, w, h, normal} → the composite goes to the chain's target and the NPR passes draw the canvas
+  finish(src, p, ow, oh, cam, look) {
     const R = this.rts, T = this.T; let color = src;
     if (p.dof && R.dofRT) {
       const u = this.dof.uniforms; u.tSrc.value = color; u.tDepth.value = R.scene.depthTexture; u.uTexel.value.set(1 / R.iw, 1 / R.ih);
@@ -153,6 +165,12 @@ export class Post {
     u.uWB.value.set(...g.wb); u.uLift.value.set(...g.lift); u.uGamma.value.set(...g.gamma); u.uGain.value.set(...g.gain); u.uSh.value.set(...g.shadows); u.uHi.value.set(...g.highlights);
     u.uSplit.value = g.split; u.uContrast.value = g.contrast; u.uSat.value = g.saturation; u.uRes.value.set(ow, oh);
     u.uFade.value = p.fade || 0; u.uFadeColor.value.set(...(p.fadeColor || [0, 0, 0])); u.uAlphaBloom.value = p.alphaBloom;
+    if (look) {
+      const L = look.chain; L.size(look.w, look.h); u.uRes.value.set(look.w, look.h);
+      this.quad.material = this.comp; this.r.setRenderTarget(L.rts.a); this.r.render(this.qscene, this.cam);
+      L.run(L.rts.a.texture, { t: look.t, seed: p.seed, depth: R.scene.depthTexture || null, dw: R.iw, dh: R.ih, normal: look.normal || null, near: cam.near, far: cam.far, persp: !!cam.isPerspectiveCamera, ow, oh });
+      return;
+    }
     this.quad.material = this.comp; this.r.setRenderTarget(null); this.r.setViewport(0, 0, ow, oh); this.r.setScissorTest(false);
     this.r.render(this.qscene, this.cam);
   }
