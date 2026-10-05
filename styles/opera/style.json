@@ -1,0 +1,42 @@
+{
+  "id": "opera", "order": 4,
+  "name": "重彩装饰",
+  "en": "Decorative opera colour (Havoc in Heaven)",
+  "description": "《大闹天宫》式重彩装饰：石青石绿与朱红金黄的饱和平涂、粗墨线、描金纹样、层叠祥云与天宫殿宇，匾额题字，京剧锣鼓。",
+  "tags": ["chinese", "decorative", "bold", "opera"],
+  "theme": {
+    "extends": "ink",
+    "label": "重彩装饰（石青 · 朱红 · 金）",
+    "modes": { "light": { "bg": "#1e5a7a", "fg": "#fff4d6", "muted": "#f0d9a0", "surface": "#173f57", "line": "#e9b949", "accent": "#d8342a", "accent2": "#e9b949", "onAccent": "#fff4d6" } },
+    "caption": { "bg": "rgba(26,22,40,.85)", "fg": "#fff4d6", "karaoke": "#e9b949", "border": ".14em solid #d8342a" }
+  },
+  "palette": {
+    "sky0": "#1f6f8f", "sky1": "#5fb3b0", "dusk0": "#c9493a", "dusk1": "#f0a85a", "dawn0": "#3f8fae", "dawn1": "#f2c36a", "night0": "#1a2a5a", "night1": "#2f5a8a",
+    "sun": "#e8402f", "moon": "#fff1c8", "star": "#ffe9a8", "cloud": "#f7f1e1", "cloud2": "#9fd3c7", "cloudLine": "#2a160e",
+    "far": "#2f7f7a", "mid": "#1f5f6a", "trunk": "#6a2a1a", "leaf": "#2f8f5a", "leaf2": "#e9b949",
+    "wall": "#d8342a", "roof": "#2f6f8f", "door": "#e9b949", "water": "#3f9fb0", "water2": "#8fd0c8",
+    "ground": "#f7f1e1", "ground2": "#9fd3c7", "flower": "#e8402f", "ink": "#2a160e", "accent": "#d8342a", "gold": "#e9b949", "paper": "#fff4d6"
+  },
+  "hues": {
+    "skin": "#f6d2a8", "black": "#2a160e", "white": "#fff7e6", "cream": "#f7ecd0", "red": "#d8342a", "deepred": "#9a1e1a", "gold": "#e9b949", "yellow": "#f4cf3a",
+    "blue": "#2a6fb0", "green": "#2f9a6a", "teal": "#1f8a8a", "brown": "#7a3a1a", "orange": "#f08a2a", "pink": "#f08aa0", "purple": "#7a3a9a", "grey": "#7a8a8a",
+    "ink": "#2a160e", "mouth": "#b0201a", "cheek": "#f07a6a"
+  },
+  "material": "decor",
+  "P": { "line": "#2a160e", "gold": "#e9b949", "ornament": 1 },
+  "video": { "texture": { "grain": { "amount": 0.04 } } },
+  "transitions": { "default": "cloud:0.8", "soft": "fade:0.5", "strong": "flash:0.4", "list": ["cloud", "flash", "iris", "zoom-in"] },
+  "typography": { "title": "palace plaque (匾额): blue board, gold frame, gold brush characters, red ribbon tassels", "subtitle": "deep indigo caption bar, cream text, red rule", "seal": "gold-on-red roundel", "fonts": ["Ma Shan Zheng", "Noto Serif SC"] },
+  "sound": {
+    "voice": { "voice": "zh-CN-YunjianNeural", "rate": "+6%" },
+    "sfx": { "hit": [["op-bangu", 1], ["op-nao", 0.6]], "big": [["op-daluo", 0.9], ["op-nao", 0.7]], "swish": [["whoosh", 0.5]], "title": [["op-daluo", 0.8], ["op-nao", 0.6]], "step": [["op-bangu", 0.3]], "pop": [["op-xiaoluo", 0.7]], "transition": [["op-nao", 0.5]] },
+    "music": "京剧锣鼓 急急风: 板鼓 sixteenths + 铙钹 + 小锣 + 大锣 on the downbeat, 132 bpm",
+    "scoreOptions": { "pad": [110, 164.81, 220], "padGain": 0.008 }
+  },
+  "pacing": { "scene": 4.5, "hold": 0.8, "transition": 0.8, "beat": "亮相: strike a pose and hold on 仓 (大锣); fast moves between" },
+  "camera": { "push": 0.02, "punch": 0.12, "establish": "wide", "dialog": "medium-wide", "action": "full", "notes": "frontal, symmetrical staging; snap punch-ins on 亮相 poses; clouds parallax" },
+  "characters": { "material": "decor", "conventions": "saturated flat colour, heavy dark contour, gold ornament dots on robes, opera make-up cheeks" },
+  "effects": { "signature": "golden radiance: rotating gilded rays + gold sparks (亮相 flash)", "list": ["rays", "sparks", "clouds"] },
+  "demo": { "setting": "palace dusk clouds", "setting2": "palace day clouds", "look": { "hairStyle": "cap", "hair": "black", "cloth": "yellow", "cloth2": "red", "trim": "green", "pants": "red", "shoe": "black", "sash": "red", "scarf": "red" }, "title": "重彩", "sub": "Havoc in Heaven" },
+  "qa": ["every shape has the dark contour", "palette limited to 石青 / 石绿 / 朱红 / 金 / cream", "clouds are scrolled 祥云 with curls, not fluffy blobs", "symmetric, frontal staging for titles", "gold ornaments do not cover faces"]
+}

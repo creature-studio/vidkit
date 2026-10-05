@@ -29,6 +29,17 @@ import { alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, pl
 import * as synth from './audio/synth.js';
 import { bakeStats, collectRefs, filterRegion } from './runtime/bake.js';
 import { gl, particleSystem } from './fx/gl/index.js';
+import * as CAM from './core/camera.js';
+import { motion } from './fx/motion.js';
+import { puppet, puppetBones } from './styles/puppet.js';
+import { style as makeStyle, registerStyle, listStyles, STYLES, Style, ROLES, material, MATERIALS, color, geom, parseSetting } from './styles/index.js';
+import { PACKS } from './styles/packs.js';
+import * as STYLE_KIT from './styles/kit.js';
+import { bed as musicBed, scaleNotes, SCALES } from './styles/sound.js';
+import { STYLE_TRANSITIONS, installStyleTransitions } from './styles/transitions.js';
+import { film } from './styles/film.js';
+import { parseStory } from './styles/story.js';
+import { mg, accents, ui, montage, lockup, hudLayer } from './fx/mg/index.js';
 
 export const version = '0.2.0';
 let current = null;
@@ -37,7 +48,13 @@ const env = { base: (() => { try { return new URL('../', import.meta.url).href; 
 export const vk = {
   version,
   // ---- authoring ----
-  video(cfg) { current = new Video(cfg, env); return current; },
+  // cfg.style: a style pack id / combination (see vk.style) — supplies theme, texture, transition, push … defaults
+  video(cfg = {}) {
+    const S = cfg.style ? makeStyle(cfg.style) : null;
+    current = new Video(S ? S.videoCfg(cfg) : cfg, env);
+    if (S) S.install(current);
+    return current;
+  },
   get current() { return current; },
   scene(...a) { if (!current) throw new Error('[vk] call vk.video({...}) first'); return current.scene(...a); },
   ...A,
@@ -79,10 +96,29 @@ export const vk = {
   rig: Object.assign(def => createRig(def), { create: createRig, solve2BoneIK, blink: rigBlink, blend: blendPose, valueAt, mat, rootMatrix }),
   // WebGL effects (fx/gl): vk.gl.layer / paper / inkBleed / inkWash / particles / shader / boil / paperCut …; vk.particles = pure particle system
   gl: Object.assign({}, gl, { stats: () => current && gl.core(current).stats }), particles: Object.assign(o => particleSystem(o), { presets: gl.presets }),
+  // camera shot maths (core/camera.js) — also used by sc.shots(list, o)
+  cam: { SHOTS: CAM.SHOTS, frameShot: CAM.frameShot, keepInFrame: CAM.keepInFrame, clampView: CAM.clampView, punchEnv: CAM.punchEnv, smoothFollow: CAM.smoothFollow, headBox: CAM.headBox, shotCamera: CAM.shotCamera, normKeys: CAM.normKeys, subjectHeight: CAM.subjectHeight },
+  // reusable motion (fx/motion.js): gait/foot locking, lip-sync visemes, line boil, follow-through
+  motion,
+  // generic profile puppet on vk.rig, drawn in a style's character material
+  puppet: Object.assign((parent, o = {}) => puppet(parent, { video: current, ...o, style: o.style ? (o.style.colour ? o.style : makeStyle(o.style).charView) : current && current.style ? current.style.charView : undefined }), puppetBones),
+  // style packs (styles/<id>/): vk.style('ink') → Style; vk.style.list(); vk.style.register(json, runtimeFactory)
+  style: Object.assign(spec => makeStyle(spec), {
+    list: listStyles, get: id => STYLES[id], get packs() { return STYLES; }, ROLES, Style, parseSetting, material, MATERIALS,
+    kit: STYLE_KIT, bed: musicBed, scaleNotes, SCALES, transitions: STYLE_TRANSITIONS, installTransitions: installStyleTransitions,
+    register: (data, make) => registerStyle(data, typeof make === 'function' ? make(vk) : make || {}),
+  }),
+  // story → styled narrated film (styles/film.js); vk make generates pages that call this
+  film: Object.assign((story, o) => film(vk, story, o), { parse: parseStory }),
+  // motion-graphics pack (fx/mg): maths + painters, beat accents, UI micro-interactions, keyword montage, lockup, HUD
+  mg, accents, ui, montage, lockup, hud: o => hudLayer(current, o),
+  geom, color,
   MusicInfo, alignToCues, chunkCues, mapWords, estimateSpeech, voSegments, voKey, planVoice, speakingAt, synth,
   Video, Scene,
   _setEnv(e) { Object.assign(env, e); },
 };
 // blocks & charts registered in the registry are exposed as vk.<name> (terminal, cards, bar, line, …)
 Object.entries(registry.blocks).forEach(([n, f]) => { if (!(n in vk)) vk[n] = f; });
+// built-in style packs (styles/<id>/style.json + style.js), registered after vk exists (pack factories receive vk)
+PACKS.forEach(p => registerStyle(p.data, p.make(vk)));
 export default vk;

@@ -13,7 +13,11 @@ must not be used for modified versions). Rendering them into videos places no re
 | `InstrumentSerif-Regular.ttf`, `InstrumentSerif-Italic.ttf` | Instrument Serif | © 2022 The Instrument Serif Project Authors | editorial theme display / quotes |
 | `MaShanZheng-Regular.ttf` | Ma Shan Zheng 马善政毛笔楷书 | © 2018 The Ma Shan Zheng Project Authors (github.com/googlefonts/mashanzheng) | brush calligraphy titles (`ink` theme: vertical titles, chapter titles, seals) |
 | `NotoSerifSC-VF.ttf` | Noto Serif SC 思源宋体 (variable wght 200–900) | © 2017-2024 Adobe (http://www.adobe.com/) | serif body / captions (`ink` theme) |
+| `ArchivoBlack-Regular.ttf` | Archivo Black | © 2017 The Archivo Black Project Authors (github.com/Omnibus-Type/ArchivoBlack) | heavy poster display (`reel` style pack, `vk.mg` kinetic type, montage, lockup) |
+| `ZCOOLKuaiLe-Regular.ttf` | ZCOOL KuaiLe 站酷快乐体 | © 2018 The ZCOOL KuaiLe Project Authors (github.com/googlefonts/zcool-kuaile) | hand-lettered titles (`crayon` style pack) |
 
-Ma Shan Zheng and Noto Serif SC were downloaded from github.com/google/fonts (ofl/mashanzheng, ofl/notoserifsc) on 2026-09-29.
+Ma Shan Zheng and Noto Serif SC were downloaded from github.com/google/fonts (ofl/mashanzheng, ofl/notoserifsc) on 2026-09-29;
+ZCOOL KuaiLe from github.com/google/fonts (ofl/zcoolkuaile) on 2026-10-03; Archivo Black from github.com/google/fonts
+(ofl/archivoblack) on 2026-10-04.
 Sources: Noto Sans SC and JetBrains Mono were copied from the existing HTML-video toolkit; the others from the
 system's Google Fonts collection. Each font's license was checked in its OpenType `name` table (IDs 0/13/14).

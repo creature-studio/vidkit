@@ -1,0 +1,47 @@
+{
+  "id": "papercut", "order": 2,
+  "name": "剪纸",
+  "en": "Paper-cut (Shanghai Animation Film Studio)",
+  "description": "上美厂剪纸片：彩纸层层叠贴，剪刀毛边、镂空纹样、纸片投影，宣纸底色，锣鼓点配乐。",
+  "tags": ["chinese", "paper", "flat", "folk"],
+  "theme": {
+    "extends": "ink",
+    "label": "剪纸（宣纸底 · 朱红 · 马善政毛笔字）",
+    "modes": { "light": { "bg": "#e9dfc8", "fg": "#2a1d17", "muted": "#5a4636", "surface": "#f2e9d4", "line": "#b9a382", "accent": "#c0392b", "accent2": "#2f5d50", "onAccent": "#fbf3e2" } },
+    "caption": { "bg": "rgba(242,233,212,.92)", "fg": "#2a1d17", "karaoke": "#c0392b", "border": ".14em solid #c0392b" }
+  },
+  "palette": {
+    "sky0": "#efe4c9", "sky1": "#e6d6b2", "dusk0": "#f0c9a0", "dusk1": "#e9dcc0", "dawn0": "#f3d9b8", "dawn1": "#ece2c8", "night0": "#2b3346", "night1": "#4a5266",
+    "sun": "#c9332a", "moon": "#f4ead2", "star": "#f4ead2", "cloud": "#f7f0de",
+    "far": "#a9b59a", "mid": "#6f8a63", "trunk": "#5b3a24", "leaf": "#3f6b4a", "leaf2": "#5d8a54",
+    "wall": "#e9d7b0", "roof": "#2f3a3c", "door": "#7a2a1e", "water": "#7fa8a0", "water2": "#a9c7bd",
+    "ground": "#b99a62", "ground2": "#9a7a48", "flower": "#c9332a", "accent": "#c0392b", "ink": "#2a1d17", "paper": "#e9dfc8"
+  },
+  "hues": {
+    "skin": "#efc9a0", "black": "#2a1d17", "white": "#fbf3e2", "cream": "#f2e2bf", "red": "#c0392b", "deepred": "#8e2a22", "gold": "#d9a43c", "yellow": "#e3b341",
+    "blue": "#2f5d7c", "green": "#3f6b4a", "teal": "#2f5d50", "brown": "#6b4429", "orange": "#d4692b", "pink": "#e38a8a", "purple": "#6b3f6b", "grey": "#7d7466",
+    "ink": "#2a1d17", "mouth": "#8e2a22", "cheek": "#e0786a"
+  },
+  "material": "cut",
+  "P": { "cutAmp": 0.9, "seed": 4, "shadow": [3, 5, 3, 0.35], "ornament": 1, "line": "#2a1d17" },
+  "video": { "texture": { "rice": { "amount": 0.42, "seed": 23, "vignette": 0.24 } }, "fadeOut": 0.6 },
+  "transitions": { "default": "tear:0.8", "soft": "wash:0.9", "strong": "tear:0.6", "list": ["tear", "wash", "ink", "iris"] },
+  "typography": {
+    "title": "brush calligraphy on a red cut-paper banner, gold cut edge",
+    "subtitle": "theme caption bar: paper with a red left rule (Noto Serif SC)",
+    "seal": "red square seal, 2×2 characters",
+    "fonts": ["Ma Shan Zheng", "Noto Serif SC"]
+  },
+  "sound": {
+    "voice": { "voice": "zh-CN-YunjianNeural", "rate": "+4%", "pitch": "-2Hz" },
+    "sfx": { "hit": [["op-bangu", 1], ["op-naoMute", 0.7]], "big": [["op-daluo", 0.8], ["op-nao", 0.6]], "swish": [["rustle", 0.8]], "title": [["op-daluo", 0.7], ["op-nao", 0.5]], "step": [["bangzi", 0.25]], "pop": [["op-xiaoluo", 0.6]], "transition": [["rustle", 0.6]] },
+    "music": "锣鼓经 (板鼓 + 小锣 + 铙钹) at 96 bpm, sparse; 大锣 on titles",
+    "scoreOptions": { "pad": [73.42, 110, 146.83], "padGain": 0.01 }
+  },
+  "pacing": { "scene": 5, "hold": 1.0, "transition": 0.8, "beat": "action lands on a 锣鼓 hit; holds before strikes" },
+  "camera": { "push": 0.015, "punch": 0.12, "establish": "wide", "dialog": "medium", "action": "medium-wide", "notes": "slow pushes; punch-in on hits; mostly side-on staging (paper layers read in profile)" },
+  "characters": { "material": "cut", "conventions": "profile view, flat paper pieces jointed at the limbs (rig = separate cut pieces), cut-out ornaments on robes, lifted drop shadow, black-paper hair, rosy cheek patch" },
+  "effects": { "signature": "paper confetti burst (cut-paper flakes) + lifted shadow pop", "list": ["burst", "petals", "stamp"] },
+  "demo": { "setting": "mountain dusk pine", "setting2": "village day", "look": { "hairStyle": "twinbuns", "cloth": "red", "cloth2": "deepred", "trim": "gold", "pants": "teal", "sash": "gold", "scarf": "gold" }, "title": "剪纸", "sub": "Paper-cut" },
+  "qa": ["edges show scissor wobble (no perfectly smooth vectors)", "every character piece has the lifted paper shadow", "no gradients on character pieces (flat paper colour only)", "joints overlap (no gaps between cut pieces when limbs bend)", "rice-paper grain visible on the background", "red seal/banner contrast readable over the background"]
+}

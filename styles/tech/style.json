@@ -1,0 +1,37 @@
+{
+  "id": "tech", "order": 5,
+  "name": "科技宣传",
+  "en": "Tech promo (dark)",
+  "description": "深色产品宣传片：深蓝底、发光网格地面、电光蓝强调色、Archivo 粗体大标题 + 等宽小字，扁平矢量人物，鼓点 + 合成器铺底。",
+  "tags": ["promo", "product", "flat", "modern"],
+  "theme": { "extends": "tech-blue", "label": "科技宣传（深色）", "mode": "dark" },
+  "palette": {
+    "sky0": "#070b1a", "sky1": "#121a3a", "dusk0": "#0b1024", "dusk1": "#2a2a5e", "dawn0": "#0b1024", "dawn1": "#1d2f63", "night0": "#05070f", "night1": "#0e1530",
+    "sun": "#3355ff", "moon": "#7c93ff", "star": "#9aa6cc", "cloud": "#1a2347",
+    "far": "#141c3d", "mid": "#1c2650", "trunk": "#2a3358", "leaf": "#3355ff", "leaf2": "#7c93ff",
+    "wall": "#1c2650", "roof": "#2a3358", "door": "#7c93ff", "water": "#16204a", "water2": "#22306a",
+    "ground": "#0a0f22", "ground2": "#0d1430", "flower": "#7c93ff", "grid": "#3355ff", "accent": "#3355ff", "accent2": "#7c93ff", "ink": "#0b1020", "paper": "#ffffff"
+  },
+  "hues": {
+    "skin": "#f2c6a4", "black": "#1b2140", "white": "#f3f5ff", "cream": "#dfe5ff", "red": "#ff4d6a", "deepred": "#c2334f", "gold": "#ffc94d", "yellow": "#ffd75e",
+    "blue": "#3355ff", "lightblue": "#7c93ff", "green": "#28d39b", "teal": "#1fb8c9", "brown": "#6b4a3a", "orange": "#ff8a3d", "pink": "#ff7ab6", "purple": "#8a5cff", "grey": "#5a648c", "navy": "#1b2140",
+    "ink": "#0b1020", "mouth": "#9c2f45", "cheek": "#ff9a9a"
+  },
+  "material": "flat",
+  "P": { "ornament": 0 },
+  "video": { "texture": { "grain": { "amount": 0.05 }, "vignette": { "amount": 0.2 } } },
+  "transitions": { "default": "push-left:0.6", "soft": "fade:0.4", "strong": "zoom-through:0.7", "list": ["push-left", "wipe-left", "iris", "zoom-in", "split-open", "zoom-through"] },
+  "typography": { "title": "Archivo 900 hero word, accent underline bar that wipes in, JetBrains Mono kicker", "subtitle": "black caption bar, white Noto Sans SC, red karaoke", "seal": "pill badge (vk.badge)", "fonts": ["Archivo", "Noto Sans SC", "JetBrains Mono"] },
+  "sound": {
+    "voice": { "voice": "zh-CN-YunxiNeural", "rate": "+6%" },
+    "sfx": { "hit": [["kick", 0.9]], "big": [["kick", 1], ["chime", 0.5, 880]], "swish": [["whoosh", 0.6]], "title": [["kick", 0.9], ["chime", 0.4, 1320]], "step": [["tick", 0.25]], "pop": [["pop", 0.8]], "transition": [["whoosh", 0.5]] },
+    "music": "four-on-the-floor kick + off-beat hats + saw bass on A minor, 112 bpm, sine pad",
+    "scoreOptions": { "pad": [110, 164.81, 220], "padGain": 0.02 }
+  },
+  "pacing": { "scene": 4.5, "hold": 0.8, "transition": 0.6, "beat": "fast cuts on the beat; every scene has one headline" },
+  "camera": { "push": 0.03, "punch": 0.08, "establish": "wide", "dialog": "medium", "action": "medium-wide", "notes": "steady push-ins, punch on the kick, whip pans between scenes" },
+  "characters": { "material": "flat", "conventions": "clean flat vector, no outline, back-side limbs one shade darker; brand colours on clothes" },
+  "effects": { "signature": "electric ring pulse + spark burst (additive particles)", "list": ["pulse", "sparks", "grid"] },
+  "demo": { "setting": "city night", "setting2": "city night", "look": { "hairStyle": "short", "hair": "black", "cloth": "blue", "cloth2": "blue", "trim": "white", "pants": "navy", "shoe": "white", "sash": "lightblue" }, "title": "TECH", "sub": "Dark product promo" },
+  "qa": ["one accent colour per frame (electric blue), everything else navy / white", "headline readable in < 1 s (≥ 64 px, high contrast)", "grid floor converges to a single vanishing point", "no text inside 5 % safe margin", "cuts land on beats"]
+}

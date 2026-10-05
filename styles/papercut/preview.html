@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>剪纸 · vidkit style pack preview</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="../demo.js"></script>
+<script>
+// ?style=papercut,ink.world etc. overrides the pack (combination preview)
+const q = new URLSearchParams(location.search).get('style');
+vkStyleDemo(q ? q.split(',') : 'papercut');
+</script>
+</body>
+</html>

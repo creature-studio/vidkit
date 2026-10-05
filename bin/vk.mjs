@@ -2,7 +2,7 @@
 // vk — vidkit CLI
 import path from 'node:path';
 import { PKG } from '../cli/lib.mjs';
-const cmds = { render: 'render', stills: 'stills', contact: 'contact', qa: 'qa', preview: 'preview', new: 'new', analyze: 'analyze', align: 'align', tts: 'tts', sync: 'sync', doctor: 'doctor' };
+const cmds = { render: 'render', stills: 'stills', contact: 'contact', qa: 'qa', preview: 'preview', new: 'new', analyze: 'analyze', align: 'align', tts: 'tts', sync: 'sync', doctor: 'doctor', make: 'make', style: 'style' };
 const [cmd, ...rest] = process.argv.slice(2);
 const HELP = `${PKG.name} ${PKG.version} — deterministic HTML/JS → video
 
@@ -20,6 +20,13 @@ usage:
                                                                    seek-order QA + text snapshot
   vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]      dev server: live reload + scrubber
   vk new     video.html [--format 9:16] [--theme bold]             scaffold a page
+             (vk new --style ink --story story.md -o dir/  → same as vk make)
+
+style library (styles/<id>/):
+  vk make    --style <id>[,<id>.chars…] --story story.md -o examples/<slug>/ [--name slug] [--tts] [--render] [--force]
+                                  story (markdown/JSON scenes, narration, dialogue, actions) → styled narrated film page
+  vk style   list | sample [id,…] | gallery [-o out/styles/index.html] [--shot png]
+  vk style   extract ref.png [--id name] [--k 6] [-o dir]      k-means palette + grain estimate → starter pack
 
 audio (Phase 2 · Python toolchain: tools/setup-audio.sh):
   vk analyze music.mp3 [-o music.beats.json] [--backend auto|beat_this|librosa] [--rate 50] [--bands 8]
@@ -32,5 +39,5 @@ audio (Phase 2 · Python toolchain: tools/setup-audio.sh):
   vk doctor                       check the audio toolchain
 `;
 if (!cmd || cmd === '-h' || cmd === '--help' || !cmds[cmd]) { console.log(HELP); process.exit(cmd && !cmds[cmd] && cmd !== '-h' && cmd !== '--help' ? 1 : 0); }
-try { const m = await import(`../cli/${cmds[cmd]}.mjs`); await m.default(rest); if (cmd !== 'preview') process.exit(0); }
+try { const name = cmd === 'new' && rest.includes('--story') ? 'make' : cmds[cmd]; const m = await import(`../cli/${name}.mjs`); await m.default(rest); if (cmd !== 'preview') process.exit(0); }
 catch (e) { console.error('[vk] ' + (e && e.message || e)); process.exit(1); }
