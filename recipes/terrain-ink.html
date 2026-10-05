@@ -1,0 +1,29 @@
+<!--
+vk-recipe
+id: terrain-ink
+title: Ink-wash terrain (vk.three.terrain + look)
+tags: [ink, three, terrain, look]
+modules: [vk.three.terrain, vk.three.look]
+styles: [ink, three-tech]
+cost: high
+renderCost: high
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>recipe · terrain + ink look</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script src="../dist/vidkit-three.js"></script>
+<script>
+const v = vk.video({ fps: 30, theme: 'ink' });
+vk.scene('mount', 4, { bg: '#e6e6da' }, sc => {
+  sc.three(vk.three.terrain({ type: 'mountains', colors: 'ink', scatter: [{ shape: 'pine', n: 80, maxH: .55 }] }), {
+    background: 0xe6e6da,
+    camera: vk.three.rig.orbit({ radius: 11, height: 4, from: -12, to: 14, dur: 4 }),
+    post: { look: { preset: 'ink', mist: { density: .55 } } },
+  });
+  sc.add(vk.label('RECIPE · terrain + look', { at: .2 }), vk.h2('水墨山地', { at: .35 }));
+});
+</script>
+</body>
+</html>

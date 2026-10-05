@@ -1,0 +1,300 @@
+{
+  "id": "mao-xian",
+  "order": 27,
+  "name": "像素冒险岛，16色方块云",
+  "en": "像素冒险岛，16色方块云",
+  "description": "像素冒险岛，16色方块云 — scaffolded from base \"pixel\" via keyword match. Hand-tune palette/hooks; generation is scaffolding + peek checks, not magic.",
+  "tags": [
+    "retro",
+    "game",
+    "8-bit",
+    "playful",
+    "scaffolded",
+    "from-prompt"
+  ],
+  "theme": {
+    "extends": "bold",
+    "label": "像素（Sweetie-16 调色板）",
+    "modes": {
+      "dark": {
+        "bg": "#1a1c2c",
+        "fg": "#f4f4f4",
+        "muted": "#94b0c2",
+        "surface": "#333c57",
+        "line": "#566c86",
+        "accent": "#ffcd75",
+        "accent2": "#41a6f6",
+        "onAccent": "#1a1c2c"
+      }
+    },
+    "mode": "dark",
+    "caption": {
+      "bg": "#1a1c2c",
+      "fg": "#f4f4f4",
+      "karaoke": "#ffcd75",
+      "radius": 0,
+      "border": ".16em solid #f4f4f4"
+    }
+  },
+  "palette": {
+    "sky0": "#41a6f6",
+    "sky1": "#73eff7",
+    "dusk0": "#5d275d",
+    "dusk1": "#ef7d57",
+    "dawn0": "#3b5dc9",
+    "dawn1": "#ffcd75",
+    "night0": "#1a1c2c",
+    "night1": "#29366f",
+    "sun": "#ffcd75",
+    "moon": "#f4f4f4",
+    "star": "#f4f4f4",
+    "cloud": "#f4f4f4",
+    "far": "#3b5dc9",
+    "mid": "#257179",
+    "trunk": "#5d275d",
+    "leaf": "#38b764",
+    "leaf2": "#a7f070",
+    "wall": "#f4f4f4",
+    "roof": "#b13e53",
+    "door": "#5d275d",
+    "water": "#3b5dc9",
+    "water2": "#41a6f6",
+    "ground": "#38b764",
+    "ground2": "#5d275d",
+    "flower": "#b13e53",
+    "ink": "#1a1c2c",
+    "accent": "#ffcd75",
+    "paper": "#f4f4f4"
+  },
+  "hues": {
+    "skin": "#ffcd75",
+    "black": "#1a1c2c",
+    "white": "#f4f4f4",
+    "cream": "#f4f4f4",
+    "red": "#b13e53",
+    "deepred": "#5d275d",
+    "gold": "#ffcd75",
+    "yellow": "#ffcd75",
+    "blue": "#3b5dc9",
+    "lightblue": "#41a6f6",
+    "green": "#38b764",
+    "teal": "#257179",
+    "brown": "#5d275d",
+    "orange": "#ef7d57",
+    "pink": "#ef7d57",
+    "purple": "#5d275d",
+    "grey": "#566c86",
+    "navy": "#29366f",
+    "ink": "#1a1c2c",
+    "mouth": "#b13e53",
+    "cheek": "#ef7d57",
+    "eyeW": "#f4f4f4"
+  },
+  "material": "pixel",
+  "P": {
+    "line": "#1a1c2c",
+    "ornament": 0,
+    "pixel": 4
+  },
+  "video": {
+    "fadeOut": 0.3
+  },
+  "transitions": {
+    "default": "pixel:0.6",
+    "soft": "dip:0.4",
+    "strong": "pixel:0.4",
+    "list": [
+      "pixel",
+      "dip",
+      "blinds",
+      "iris"
+    ]
+  },
+  "typography": {
+    "title": "chunky Archivo 900 with a hard 2-step drop shadow, pixelated by the scene filter; blinking ▼ prompt",
+    "subtitle": "dialogue box: navy panel with a white 4 px border",
+    "seal": "8-bit star badge",
+    "fonts": [
+      "Archivo",
+      "JetBrains Mono"
+    ]
+  },
+  "sound": {
+    "voice": {
+      "voice": "zh-CN-XiaoyiNeural",
+      "rate": "+8%"
+    },
+    "sfx": {
+      "hit": [
+        [
+          "chipHit",
+          1
+        ]
+      ],
+      "big": [
+        [
+          "chipJump",
+          0.9,
+          330
+        ],
+        [
+          "chip",
+          0.6,
+          990,
+          0.08
+        ],
+        [
+          "chip",
+          0.6,
+          1320,
+          0.16
+        ]
+      ],
+      "swish": [
+        [
+          "chipNoise",
+          0.8
+        ]
+      ],
+      "title": [
+        [
+          "chip",
+          0.8,
+          660
+        ],
+        [
+          "chip",
+          0.8,
+          990,
+          0.09
+        ]
+      ],
+      "step": [
+        [
+          "chipNoise",
+          0.4
+        ]
+      ],
+      "pop": [
+        [
+          "chip",
+          0.7,
+          880
+        ]
+      ],
+      "transition": [
+        [
+          "chipJump",
+          0.5,
+          220
+        ]
+      ]
+    },
+    "music": "square-wave arpeggios + triangle bass + noise hats, C major pentatonic, 140 bpm",
+    "scoreOptions": {}
+  },
+  "pacing": {
+    "scene": 4,
+    "hold": 0.6,
+    "transition": 0.6,
+    "beat": "snappy, game-like: actions on 8th notes; text appears letter by letter"
+  },
+  "camera": {
+    "push": 0,
+    "punch": 0,
+    "establish": "wide",
+    "dialog": "full",
+    "action": "wide",
+    "notes": "side-scroller: locked zoom, pans only (integer zoom looks best); shake instead of punch-ins"
+  },
+  "characters": {
+    "material": "pixel",
+    "conventions": "flat fills from the 16-colour palette, thick dark outline (paint-order stroke), no gradients; pixelated together with the scene"
+  },
+  "effects": {
+    "signature": "8-bit coin/star burst (square sparks) + screen shake",
+    "list": [
+      "coins",
+      "shake",
+      "blink"
+    ]
+  },
+  "demo": {
+    "setting": "field day clouds",
+    "setting2": "forest day",
+    "look": {
+      "hairStyle": "cap",
+      "hair": "red",
+      "cloth": "red",
+      "cloth2": "red",
+      "trim": "yellow",
+      "pants": "blue",
+      "shoe": "brown",
+      "sash": "yellow"
+    },
+    "title": "PIXEL",
+    "sub": "16-colour pixel art"
+  },
+  "qa": [
+    "every frame uses only the 16 palette colours (plus pixel-filter mixes)",
+    "pixel grid fixed to the screen (filter on the whole scene, not per object)",
+    "text ≥ 3 'pixels' thick after pixelation",
+    "no smooth zooms (punch = shake)",
+    "outline on every character piece"
+  ],
+  "schemaVersion": 2,
+  "fonts": [
+    "Archivo",
+    "JetBrains Mono"
+  ],
+  "motion": {
+    "grammar": "snappy, game-like: actions on 8th notes; text appears letter by letter",
+    "pacing": {
+      "scene": 4,
+      "hold": 0.6,
+      "transition": 0.6,
+      "beat": "snappy, game-like: actions on 8th notes; text appears letter by letter"
+    },
+    "camera": {
+      "push": 0,
+      "punch": 0,
+      "establish": "wide",
+      "dialog": "full",
+      "action": "wide",
+      "notes": "side-scroller: locked zoom, pans only (integer zoom looks best); shake instead of punch-ins"
+    },
+    "transitions": {
+      "default": "pixel:0.6",
+      "soft": "dip:0.4",
+      "strong": "pixel:0.4",
+      "list": [
+        "pixel",
+        "dip",
+        "blinds",
+        "iris"
+      ]
+    }
+  },
+  "look": null,
+  "materials": {
+    "world": "pixel",
+    "chars": "pixel"
+  },
+  "lineage": {
+    "parents": [
+      "pixel"
+    ],
+    "weights": [
+      1
+    ],
+    "note": "vk style new --from \"像素冒险岛，16色方块云\" → base pixel"
+  },
+  "renderCost": {
+    "tier": "low",
+    "modules": [
+      "svg",
+      "filter"
+    ],
+    "notes": "pixelate SVG filter"
+  }
+}

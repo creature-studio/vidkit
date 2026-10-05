@@ -96,11 +96,21 @@ Assets: `vk asset add model.glb --licence CC0-1.0` (meshopt + assets.lock.json +
 `vk font3d font.ttf --chars "只用到的字" -o fonts/typeface/x.json` · existing realtime three.js demo:
 `vk adopt demo.html -o out.mp4 --duration 10` (virtual clock; SEQUENTIAL ONLY — not seekable, no parallel workers).
 
-## Styles (starting points)
-`vk.video({ style: 'reel' })` applies a style pack's theme, textures, default transition, camera push and sound; you
-still write the scenes. Packs: `vk list styles`; each has a `qa[]` checklist (`vk list styles <id>`) — review your
-peek sheet against it. Mix: `style: ['ink', 'papercut.chars']`. Override anything (theme, transition, texture) per
-video or scene.
+## Styles (open system · schema v2)
+Packs live in `styles/<id>/` (`style.json` + `style.js` + `preview.html`) and load at **runtime** via ES modules
+(`styles/boot.mjs` / CLI HTML inject) — adding a pack does **not** require rebuilding `dist/vidkit.js`.
+Schema: `docs/style.schema.json` (palette, fonts, motion grammar, look chain, materials, sound, qa[], lineage,
+renderCost). `vk.video({ style: 'reel' })` still works once packs are registered.
+
+- List / gallery: `vk style list` · `vk style gallery` (cards show lineage + render cost + recipe tags)
+- Scaffold: `vk style new --from "水墨远山" --id shan-mo` or `--ref shot.png` → fills v2 schema, copies a base runtime, runs
+  `vk peek` (honest: scaffolding + checks, **not** magic look transfer). Prefer `--id` for CJK prompts (auto-slug is lossy).
+- Mix / fork: `vk style mix ink neon --w .6` (colour/param lerp + look-chain concat, writes lineage) · `vk style fork ink`
+- Role mix at video time: `style: ['ink', 'papercut.chars']`. QA checklist: `vk list styles <id>`.
+
+## Recipes (`recipes/*.html`)
+@RECIPES@
+Each recipe HTML starts with `<!-- vk-recipe … -->` front-matter (`tags`, `modules`, `cost`). Gallery lists them.
 
 ## Commands
 ```text
@@ -110,6 +120,11 @@ vk peek page.html [--at 0,2.5,5 | --every 1] [--draft] [--json] [-o dir]
 vk list [kind] [name] [--json]     registry: kinds → names → full schema of one entry
 vk qa page.html                    layout / caption / determinism QA at fixed steps
 vk render page.html -o out.mp4 [--draft] [--scale 1.5] [--srt]
+vk studio [page.html|dir] [--port 3210] [--no-open]  Studio UI + HTTP API (GET /api/state · POST /api/seek {t|frame|scene}
+                                   · GET /api/frame?t= · POST /api/render {from,to,draft,wait}); details: AGENTS.md › Studio API
+vk style new --from "…" | --ref img.png [--id slug]   scaffold v2 pack + peek loop
+vk style mix a b --w .6 | fork <id>                   interpolate / lineage
+vk style gallery [-o out/styles/index.html]           lineage + cost cards
 ```
 peek.json: `{ ok, issues: [{severity: error|warn, code, message, t, hint, el?}], stills: [{t, file, scene}], sheet,
 timings, duration, scenes: [{name, start, dur}], warnings, lint }`. Fix every `error`; read every `warn` (a warn at

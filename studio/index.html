@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vidkit Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%237c5cff'/><path d='M12 9l11 7-11 7z' fill='white'/></svg>">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<div id="app" class="app">
+  <!-- ======== top bar ======== -->
+  <header class="topbar">
+    <div class="brand"><span class="logo">▶</span><b>vidkit</b><span class="brand-sub">Studio · 工作室</span></div>
+    <button class="tb-btn" id="btn-open" title="Open composition · 打开 (Ctrl+K)"><i class="ic">⌕</i><span id="cur-name">—</span><kbd>Ctrl K</kbd></button>
+    <div class="tb-spacer"></div>
+    <label class="toggle" title="Draft preview + render · 草稿 (D)"><input type="checkbox" id="tg-draft"><span class="sw"></span>Draft 草稿</label>
+    <label class="toggle" title="Strict mode: unknown names / Math.random in render(t) throw · 严格模式"><input type="checkbox" id="tg-strict" checked><span class="sw"></span>Strict</label>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-lint" title="vk lint (Shift+L)">✓ Lint<span class="badge" id="lint-badge" hidden></span></button>
+    <button class="tb-btn" id="btn-peek" title="vk peek: stills + contact sheet + checks (P)">◉ Peek</button>
+    <button class="tb-btn primary" id="btn-render" title="vk render → MP4 (R)">● Render 渲染</button>
+    <button class="tb-btn icon" id="btn-help" title="Keyboard shortcuts · 快捷键 (?)">?</button>
+  </header>
+
+  <!-- ======== left: compositions + scenes ======== -->
+  <aside class="left panel" id="left">
+    <div class="panel-h">Compositions <span class="zh">作品</span><span class="count" id="comp-count"></span></div>
+    <div class="search"><input id="comp-filter" placeholder="Filter… 筛选" spellcheck="false"></div>
+    <div class="comp-list" id="comp-list"></div>
+    <div class="panel-h">Scenes <span class="zh">场景</span><span class="count" id="scene-count"></span></div>
+    <div class="scene-list" id="scene-list"></div>
+  </aside>
+
+  <!-- ======== center: viewer + transport ======== -->
+  <main class="center">
+    <div class="viewer-bar">
+      <span class="vb-title" id="vb-title"></span>
+      <div class="tb-spacer"></div>
+      <span class="vb-stat" id="vb-fps" title="preview frames rendered per second (render(t) calls / s)"></span>
+      <div class="seg" id="zoom-seg" title="Preview size">
+        <button data-z="fit" class="on">Fit</button><button data-z="0.25">25%</button><button data-z="0.5">50%</button><button data-z="1">100%</button>
+      </div>
+      <button class="vb-btn" id="btn-safe" title="Safe area · 安全区 (S)">⊡</button>
+      <button class="vb-btn" id="btn-checker" title="Checkerboard backdrop (T)">▦</button>
+      <button class="vb-btn" id="btn-reload" title="Reload preview · 重新载入">↻</button>
+    </div>
+    <div class="viewer" id="viewer">
+      <div class="stage-wrap" id="stage-wrap">
+        <iframe id="preview" title="preview" tabindex="-1"></iframe>
+        <div class="safe-ov" id="safe-ov" hidden></div>
+      </div>
+      <div class="v-overlay" id="v-loading"><div class="spinner"></div><div id="v-loading-text">Loading composition… 载入中</div></div>
+      <div class="v-error" id="v-error" hidden></div>
+    </div>
+    <div class="transport">
+      <div class="tr-group">
+        <button class="tr-btn" id="tr-start" title="Jump to start (A / Home)">⏮</button>
+        <button class="tr-btn" id="tr-prev" title="Previous frame (←)">◀︎|</button>
+        <button class="tr-btn play" id="tr-play" title="Play / Pause (Space)">▶</button>
+        <button class="tr-btn" id="tr-next" title="Next frame (→)">|▶︎</button>
+        <button class="tr-btn" id="tr-end" title="Jump to end (E / End)">⏭</button>
+      </div>
+      <div class="timecode" id="timecode" title="Go to time (G)"><span id="tc-time">0:00.00</span><span class="tc-sep">/</span><span id="tc-dur">0:00.00</span><span class="tc-frame" id="tc-frame">f 0</span></div>
+      <div class="tb-spacer"></div>
+      <div class="tr-group">
+        <button class="tr-btn small" id="tr-in" title="Set In point (I)">[ In</button>
+        <button class="tr-btn small" id="tr-out" title="Set Out point (O)">Out ]</button>
+        <span class="range-lbl" id="range-lbl"></span>
+        <button class="tr-btn small" id="tr-loop" title="Loop (L toggles speed; this toggles loop)">⟲ Loop</button>
+        <select id="tr-rate" title="Playback rate"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+        <button class="tr-btn" id="tr-mute" title="Mute (M)">🔊</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ======== right: inspector ======== -->
+  <aside class="right panel" id="right">
+    <div class="tabs" id="tabs">
+      <button data-tab="props" class="on">Props 属性</button><button data-tab="render">Render 渲染<span class="badge" id="render-badge" hidden></span></button><button data-tab="checks">Checks 检查</button>
+    </div>
+    <div class="tab-body" id="tab-props"></div>
+    <div class="tab-body" id="tab-render" hidden></div>
+    <div class="tab-body" id="tab-checks" hidden></div>
+  </aside>
+
+  <!-- ======== bottom: timeline ======== -->
+  <section class="timeline" id="timeline">
+    <div class="tl-bar">
+      <span class="tl-title">Timeline <span class="zh">时间线</span></span>
+      <span class="tl-info" id="tl-info"></span>
+      <div class="tb-spacer"></div>
+      <button class="vb-btn" id="tl-zout" title="Zoom out (-)">−</button>
+      <input type="range" id="tl-zoom" min="0" max="100" value="0" title="Zoom (+ / − / 0)">
+      <button class="vb-btn" id="tl-zin" title="Zoom in (+)">+</button>
+      <button class="vb-btn" id="tl-zfit" title="Fit (0)">Fit</button>
+    </div>
+    <div class="tl-body">
+      <div class="tl-labels" id="tl-labels"></div>
+      <div class="tl-scroll" id="tl-scroll">
+        <div class="tl-content" id="tl-content">
+          <div class="tl-ruler" id="tl-ruler"></div>
+          <div class="tl-tracks" id="tl-tracks"></div>
+          <div class="tl-range" id="tl-range-l"></div><div class="tl-range" id="tl-range-r"></div>
+          <div class="tl-playhead" id="tl-playhead"><div class="ph-head"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- quick switcher -->
+<div class="modal" id="qs" hidden><div class="qs-box"><input id="qs-input" placeholder="Open composition… 打开作品 (↑↓ Enter)" spellcheck="false"><div class="qs-list" id="qs-list"></div></div></div>
+<!-- shortcuts -->
+<div class="modal" id="help" hidden><div class="help-box"><div class="help-h">Keyboard shortcuts · 快捷键<button class="x" data-close>×</button></div><div class="help-grid" id="help-grid"></div></div></div>
+<!-- video player for finished renders -->
+<div class="modal" id="player" hidden><div class="player-box"><div class="help-h"><span id="player-title"></span><button class="x" data-close>×</button></div><video id="player-video" controls></video></div></div>
+<div class="toasts" id="toasts"></div>
+<audio id="music" preload="auto"></audio>
+<script type="module" src="studio.js"></script>
+</body>
+</html>

@@ -1,43 +1,296 @@
 {
-  "id": "shadow", "order": 3,
+  "id": "shadow",
+  "order": 3,
   "name": "皮影",
   "en": "Shadow puppet",
   "description": "皮影戏：油灯照亮的幕布，半透明染色驴皮人物、镂刻花纹、操纵签子，灯火微颤；梆子与锣鼓。",
-  "tags": ["chinese", "folk", "theatre", "backlit"],
+  "tags": [
+    "chinese",
+    "folk",
+    "theatre",
+    "backlit"
+  ],
   "theme": {
     "extends": "ink",
     "label": "皮影（暖光幕布 · 赭红 · 毛笔字）",
-    "modes": { "light": { "bg": "#2a1408", "fg": "#f6dfb4", "muted": "#d9b98a", "surface": "#3a1d0c", "line": "#7a4a22", "accent": "#d9482b", "accent2": "#e9b04a", "onAccent": "#fff3dc" } },
+    "modes": {
+      "light": {
+        "bg": "#2a1408",
+        "fg": "#f6dfb4",
+        "muted": "#d9b98a",
+        "surface": "#3a1d0c",
+        "line": "#7a4a22",
+        "accent": "#d9482b",
+        "accent2": "#e9b04a",
+        "onAccent": "#fff3dc"
+      }
+    },
     "mode": "light",
-    "caption": { "bg": "rgba(30,14,6,.82)", "fg": "#f6dfb4", "karaoke": "#e9b04a", "border": ".14em solid #d9482b" }
+    "caption": {
+      "bg": "rgba(30,14,6,.82)",
+      "fg": "#f6dfb4",
+      "karaoke": "#e9b04a",
+      "border": ".14em solid #d9482b"
+    }
   },
   "palette": {
-    "screen": "#f3c77a", "screen2": "#e39a45", "edge": "#2a1206", "sky0": "#f3c77a", "sky1": "#e39a45", "dusk0": "#f0b866", "dusk1": "#d9843a", "night0": "#d9a45a", "night1": "#a8632a", "dawn0": "#f3cf8a", "dawn1": "#e3a352",
-    "sun": "#d9482b", "moon": "#f8e6bd", "star": "#7a3a18", "cloud": "#7a3a18",
-    "far": "#a8582a", "mid": "#7a3a18", "trunk": "#4a2410", "leaf": "#3f6b3a", "leaf2": "#8a3a1e",
-    "wall": "#c76a2a", "roof": "#3a2412", "door": "#8a2a14", "water": "#5a7a6a", "water2": "#7a9a8a",
-    "ground": "#3a1d0c", "ground2": "#2a1206", "flower": "#c0301e", "ink": "#2a1206", "accent": "#d9482b", "paper": "#f3c77a"
+    "screen": "#f3c77a",
+    "screen2": "#e39a45",
+    "edge": "#2a1206",
+    "sky0": "#f3c77a",
+    "sky1": "#e39a45",
+    "dusk0": "#f0b866",
+    "dusk1": "#d9843a",
+    "night0": "#d9a45a",
+    "night1": "#a8632a",
+    "dawn0": "#f3cf8a",
+    "dawn1": "#e3a352",
+    "sun": "#d9482b",
+    "moon": "#f8e6bd",
+    "star": "#7a3a18",
+    "cloud": "#7a3a18",
+    "far": "#a8582a",
+    "mid": "#7a3a18",
+    "trunk": "#4a2410",
+    "leaf": "#3f6b3a",
+    "leaf2": "#8a3a1e",
+    "wall": "#c76a2a",
+    "roof": "#3a2412",
+    "door": "#8a2a14",
+    "water": "#5a7a6a",
+    "water2": "#7a9a8a",
+    "ground": "#3a1d0c",
+    "ground2": "#2a1206",
+    "flower": "#c0301e",
+    "ink": "#2a1206",
+    "accent": "#d9482b",
+    "paper": "#f3c77a"
   },
   "hues": {
-    "skin": "#f0c890", "black": "#2a1206", "white": "#f8e6bd", "cream": "#f0d49a", "red": "#c8321e", "deepred": "#8a1e12", "gold": "#e9a830", "yellow": "#f0c040",
-    "blue": "#2a5a8a", "green": "#2f7a4a", "teal": "#1f6a6a", "brown": "#6a3a1a", "orange": "#e0702a", "pink": "#d86a6a", "purple": "#6a2a6a", "grey": "#6a5a4a",
-    "ink": "#2a1206", "mouth": "#8a1e12", "cheek": "#d0503a"
+    "skin": "#f0c890",
+    "black": "#2a1206",
+    "white": "#f8e6bd",
+    "cream": "#f0d49a",
+    "red": "#c8321e",
+    "deepred": "#8a1e12",
+    "gold": "#e9a830",
+    "yellow": "#f0c040",
+    "blue": "#2a5a8a",
+    "green": "#2f7a4a",
+    "teal": "#1f6a6a",
+    "brown": "#6a3a1a",
+    "orange": "#e0702a",
+    "pink": "#d86a6a",
+    "purple": "#6a2a6a",
+    "grey": "#6a5a4a",
+    "ink": "#2a1206",
+    "mouth": "#8a1e12",
+    "cheek": "#d0503a"
   },
   "material": "leather",
-  "P": { "alpha": 0.82, "line": "#3a1a08", "ornament": 1 },
-  "video": { "texture": { "grain": { "amount": 0.07 }, "vignette": { "amount": 0.5 } }, "fadeOut": 0.8 },
-  "transitions": { "default": "lamp:0.9", "soft": "fade:0.6", "strong": "lamp:0.6", "list": ["lamp", "fade", "iris"] },
-  "typography": { "title": "carved leather plaque: red dyed hide with tooled border, brush characters cut out (light shows through)", "subtitle": "dark translucent bar, warm cream text", "seal": "carved red hide roundel", "fonts": ["Ma Shan Zheng", "Noto Serif SC"] },
-  "sound": {
-    "voice": { "voice": "zh-CN-YunyeNeural", "rate": "+0%" },
-    "sfx": { "hit": [["bangzi", 1], ["op-naoMute", 0.6]], "big": [["op-daluo", 0.7], ["op-nao", 0.5]], "swish": [["rustle", 0.7]], "title": [["bangzi", 0.9], ["op-xiaoluo", 0.6]], "step": [["bangzi", 0.25, 1500]], "pop": [["op-xiaoluo", 0.5]], "transition": [["op-tanggu", 0.5]] },
-    "music": "秦腔-style 梆子 ostinato + 小锣 + 堂鼓 at 104 bpm; 大锣 on titles",
-    "scoreOptions": { "pad": [98, 146.83, 196], "padGain": 0.01 }
+  "P": {
+    "alpha": 0.82,
+    "line": "#3a1a08",
+    "ornament": 1
   },
-  "pacing": { "scene": 5, "hold": 1.0, "transition": 0.9, "beat": "puppets move in bursts on the 梆子; stillness between" },
-  "camera": { "push": 0.0, "punch": 0.05, "establish": "full", "dialog": "full", "action": "full", "notes": "the screen is a stage: mostly locked-off full shots; gentle punch-ins only (puppets are flat against the screen)" },
-  "characters": { "material": "leather", "conventions": "strict profile, translucent dyed hide pieces with dark tooled outlines and carved holes, rivets at joints, control rods from the neck and hands to below the frame" },
-  "effects": { "signature": "lamp flare: the lamp flickers up and a carved rosette spins onto the screen", "list": ["flare", "rosette", "smoke"] },
-  "demo": { "setting": "village night", "setting2": "garden night", "look": { "hairStyle": "cap", "hair": "black", "cloth": "red", "cloth2": "gold", "trim": "green", "pants": "blue", "shoe": "black", "sash": "gold" }, "title": "皮影", "sub": "Shadow puppet" },
-  "qa": ["screen glows warm in the centre and falls off to the edges (lamp)", "puppet colours are translucent (background light shows through)", "carved holes visible on costume pieces", "control rods visible, never crossing the face", "no camera moves that reveal the screen edge"]
+  "video": {
+    "texture": {
+      "grain": {
+        "amount": 0.07
+      },
+      "vignette": {
+        "amount": 0.5
+      }
+    },
+    "fadeOut": 0.8
+  },
+  "transitions": {
+    "default": "lamp:0.9",
+    "soft": "fade:0.6",
+    "strong": "lamp:0.6",
+    "list": [
+      "lamp",
+      "fade",
+      "iris"
+    ]
+  },
+  "typography": {
+    "title": "carved leather plaque: red dyed hide with tooled border, brush characters cut out (light shows through)",
+    "subtitle": "dark translucent bar, warm cream text",
+    "seal": "carved red hide roundel",
+    "fonts": [
+      "Ma Shan Zheng",
+      "Noto Serif SC"
+    ]
+  },
+  "sound": {
+    "voice": {
+      "voice": "zh-CN-YunyeNeural",
+      "rate": "+0%"
+    },
+    "sfx": {
+      "hit": [
+        [
+          "bangzi",
+          1
+        ],
+        [
+          "op-naoMute",
+          0.6
+        ]
+      ],
+      "big": [
+        [
+          "op-daluo",
+          0.7
+        ],
+        [
+          "op-nao",
+          0.5
+        ]
+      ],
+      "swish": [
+        [
+          "rustle",
+          0.7
+        ]
+      ],
+      "title": [
+        [
+          "bangzi",
+          0.9
+        ],
+        [
+          "op-xiaoluo",
+          0.6
+        ]
+      ],
+      "step": [
+        [
+          "bangzi",
+          0.25,
+          1500
+        ]
+      ],
+      "pop": [
+        [
+          "op-xiaoluo",
+          0.5
+        ]
+      ],
+      "transition": [
+        [
+          "op-tanggu",
+          0.5
+        ]
+      ]
+    },
+    "music": "秦腔-style 梆子 ostinato + 小锣 + 堂鼓 at 104 bpm; 大锣 on titles",
+    "scoreOptions": {
+      "pad": [
+        98,
+        146.83,
+        196
+      ],
+      "padGain": 0.01
+    }
+  },
+  "pacing": {
+    "scene": 5,
+    "hold": 1,
+    "transition": 0.9,
+    "beat": "puppets move in bursts on the 梆子; stillness between"
+  },
+  "camera": {
+    "push": 0,
+    "punch": 0.05,
+    "establish": "full",
+    "dialog": "full",
+    "action": "full",
+    "notes": "the screen is a stage: mostly locked-off full shots; gentle punch-ins only (puppets are flat against the screen)"
+  },
+  "characters": {
+    "material": "leather",
+    "conventions": "strict profile, translucent dyed hide pieces with dark tooled outlines and carved holes, rivets at joints, control rods from the neck and hands to below the frame"
+  },
+  "effects": {
+    "signature": "lamp flare: the lamp flickers up and a carved rosette spins onto the screen",
+    "list": [
+      "flare",
+      "rosette",
+      "smoke"
+    ]
+  },
+  "demo": {
+    "setting": "village night",
+    "setting2": "garden night",
+    "look": {
+      "hairStyle": "cap",
+      "hair": "black",
+      "cloth": "red",
+      "cloth2": "gold",
+      "trim": "green",
+      "pants": "blue",
+      "shoe": "black",
+      "sash": "gold"
+    },
+    "title": "皮影",
+    "sub": "Shadow puppet"
+  },
+  "qa": [
+    "screen glows warm in the centre and falls off to the edges (lamp)",
+    "puppet colours are translucent (background light shows through)",
+    "carved holes visible on costume pieces",
+    "control rods visible, never crossing the face",
+    "no camera moves that reveal the screen edge"
+  ],
+  "schemaVersion": 2,
+  "fonts": [
+    "Ma Shan Zheng",
+    "Noto Serif SC"
+  ],
+  "motion": {
+    "grammar": "puppets move in bursts on the 梆子; stillness between",
+    "pacing": {
+      "scene": 5,
+      "hold": 1,
+      "transition": 0.9,
+      "beat": "puppets move in bursts on the 梆子; stillness between"
+    },
+    "camera": {
+      "push": 0,
+      "punch": 0.05,
+      "establish": "full",
+      "dialog": "full",
+      "action": "full",
+      "notes": "the screen is a stage: mostly locked-off full shots; gentle punch-ins only (puppets are flat against the screen)"
+    },
+    "transitions": {
+      "default": "lamp:0.9",
+      "soft": "fade:0.6",
+      "strong": "lamp:0.6",
+      "list": [
+        "lamp",
+        "fade",
+        "iris"
+      ]
+    }
+  },
+  "look": null,
+  "materials": {
+    "world": "leather",
+    "chars": "leather"
+  },
+  "lineage": {
+    "parents": [],
+    "weights": [],
+    "note": "hand-authored"
+  },
+  "renderCost": {
+    "tier": "low",
+    "modules": [
+      "svg"
+    ],
+    "notes": "silhouette SVG"
+  }
 }

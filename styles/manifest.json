@@ -1,0 +1,532 @@
+{
+  "schemaVersion": 2,
+  "ids": [
+    "ink",
+    "papercut",
+    "papercut-fork",
+    "shadow",
+    "opera",
+    "tech",
+    "neon",
+    "ink-neon-mix",
+    "pixel",
+    "crayon",
+    "reel",
+    "three-tech",
+    "shan-mo",
+    "yu-hong",
+    "mao-xian"
+  ],
+  "packs": [
+    {
+      "id": "ink",
+      "name": "水墨",
+      "en": "Ink wash",
+      "tags": [
+        "chinese",
+        "ink",
+        "painterly",
+        "calm"
+      ],
+      "material": "ink",
+      "order": 1,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "medium",
+        "modules": [
+          "svg",
+          "gl.mist",
+          "gl.inkBleed"
+        ],
+        "notes": "ink washes + mist GL"
+      },
+      "fonts": [
+        "Ma Shan Zheng",
+        "Noto Serif SC"
+      ]
+    },
+    {
+      "id": "papercut",
+      "name": "剪纸",
+      "en": "Paper-cut (Shanghai Animation Film Studio)",
+      "tags": [
+        "chinese",
+        "paper",
+        "flat",
+        "folk"
+      ],
+      "material": "cut",
+      "order": 2,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "low",
+        "modules": [
+          "svg"
+        ],
+        "notes": "layered paper SVG"
+      },
+      "fonts": [
+        "Ma Shan Zheng",
+        "Noto Serif SC"
+      ]
+    },
+    {
+      "id": "papercut-fork",
+      "name": "剪纸 fork",
+      "en": "fork of papercut",
+      "tags": [
+        "chinese",
+        "paper",
+        "flat",
+        "folk",
+        "fork"
+      ],
+      "material": "cut",
+      "order": 2,
+      "requires": [],
+      "lineage": {
+        "parents": [
+          "papercut"
+        ],
+        "weights": [
+          1
+        ],
+        "note": "vk style fork papercut"
+      },
+      "renderCost": {
+        "tier": "low",
+        "modules": [
+          "svg"
+        ],
+        "notes": "layered paper SVG"
+      },
+      "fonts": [
+        "Ma Shan Zheng",
+        "Noto Serif SC"
+      ]
+    },
+    {
+      "id": "shadow",
+      "name": "皮影",
+      "en": "Shadow puppet",
+      "tags": [
+        "chinese",
+        "folk",
+        "theatre",
+        "backlit"
+      ],
+      "material": "leather",
+      "order": 3,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "low",
+        "modules": [
+          "svg"
+        ],
+        "notes": "silhouette SVG"
+      },
+      "fonts": [
+        "Ma Shan Zheng",
+        "Noto Serif SC"
+      ]
+    },
+    {
+      "id": "opera",
+      "name": "重彩装饰",
+      "en": "Decorative opera colour (Havoc in Heaven)",
+      "tags": [
+        "chinese",
+        "decorative",
+        "bold",
+        "opera"
+      ],
+      "material": "decor",
+      "order": 4,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "medium",
+        "modules": [
+          "svg",
+          "sfx"
+        ],
+        "notes": "decor + percussion"
+      },
+      "fonts": [
+        "Ma Shan Zheng",
+        "Noto Serif SC"
+      ]
+    },
+    {
+      "id": "tech",
+      "name": "科技宣传",
+      "en": "Tech promo (dark)",
+      "tags": [
+        "promo",
+        "product",
+        "flat",
+        "modern"
+      ],
+      "material": "flat",
+      "order": 5,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "low",
+        "modules": [
+          "svg"
+        ],
+        "notes": "flat promo SVG"
+      },
+      "fonts": [
+        "Archivo",
+        "Noto Sans SC",
+        "JetBrains Mono"
+      ]
+    },
+    {
+      "id": "neon",
+      "name": "赛博霓虹",
+      "en": "Cyber neon",
+      "tags": [
+        "cyberpunk",
+        "night",
+        "glow",
+        "synth"
+      ],
+      "material": "neon",
+      "order": 6,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "medium",
+        "modules": [
+          "svg",
+          "gl"
+        ],
+        "notes": "glow / bloom-ish overlays"
+      },
+      "fonts": [
+        "Archivo",
+        "JetBrains Mono",
+        "Noto Sans SC"
+      ]
+    },
+    {
+      "id": "ink-neon-mix",
+      "name": "水墨×赛博霓虹",
+      "en": "mix ink 40% + neon 60%",
+      "tags": [
+        "chinese",
+        "ink",
+        "painterly",
+        "calm",
+        "cyberpunk",
+        "night",
+        "glow",
+        "synth",
+        "mixed"
+      ],
+      "material": "neon",
+      "order": 7,
+      "requires": [],
+      "lineage": {
+        "parents": [
+          "ink",
+          "neon"
+        ],
+        "weights": [
+          0.4,
+          0.6
+        ],
+        "note": "vk style mix ink neon --w 0.6"
+      },
+      "renderCost": {
+        "tier": "medium",
+        "modules": [
+          "svg",
+          "gl.mist",
+          "gl.inkBleed",
+          "gl"
+        ],
+        "notes": "mix of ink + neon"
+      },
+      "fonts": [
+        "Archivo",
+        "JetBrains Mono",
+        "Noto Sans SC"
+      ]
+    },
+    {
+      "id": "pixel",
+      "name": "像素",
+      "en": "Pixel art (16-colour)",
+      "tags": [
+        "retro",
+        "game",
+        "8-bit",
+        "playful"
+      ],
+      "material": "pixel",
+      "order": 7,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "low",
+        "modules": [
+          "svg",
+          "filter"
+        ],
+        "notes": "pixelate SVG filter"
+      },
+      "fonts": [
+        "Archivo",
+        "JetBrains Mono"
+      ]
+    },
+    {
+      "id": "crayon",
+      "name": "蜡笔绘本",
+      "en": "Crayon picture book",
+      "tags": [
+        "kids",
+        "handmade",
+        "warm",
+        "storybook"
+      ],
+      "material": "crayon",
+      "order": 8,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "low",
+        "modules": [
+          "svg"
+        ],
+        "notes": "wobbly crayon fills"
+      },
+      "fonts": [
+        "ZCOOL KuaiLe",
+        "Noto Sans SC"
+      ]
+    },
+    {
+      "id": "reel",
+      "name": "动态海报",
+      "en": "Motion reel (poster)",
+      "tags": [
+        "motion",
+        "poster",
+        "kinetic",
+        "beat",
+        "flat",
+        "bold"
+      ],
+      "material": "flat",
+      "order": 9,
+      "requires": [],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "medium",
+        "modules": [
+          "svg",
+          "mg"
+        ],
+        "notes": "motion-graphics cover"
+      },
+      "fonts": [
+        "Archivo Black",
+        "Noto Sans SC",
+        "JetBrains Mono"
+      ]
+    },
+    {
+      "id": "three-tech",
+      "name": "3D 科技",
+      "en": "3D tech (WebGL product film)",
+      "tags": [
+        "promo",
+        "product",
+        "3d",
+        "webgl",
+        "three"
+      ],
+      "material": "neon",
+      "order": 10,
+      "requires": [
+        "dist/vidkit-three.js"
+      ],
+      "lineage": {
+        "parents": [],
+        "weights": [],
+        "note": "hand-authored"
+      },
+      "renderCost": {
+        "tier": "high",
+        "modules": [
+          "three",
+          "particles",
+          "turntable"
+        ],
+        "notes": "vk.three product film"
+      },
+      "fonts": [
+        "Archivo",
+        "Noto Sans SC",
+        "JetBrains Mono"
+      ]
+    },
+    {
+      "id": "shan-mo",
+      "name": "水墨远山，留白与淡雾",
+      "en": "水墨远山，留白与淡雾",
+      "tags": [
+        "chinese",
+        "ink",
+        "painterly",
+        "calm",
+        "scaffolded",
+        "from-prompt"
+      ],
+      "material": "ink",
+      "order": 21,
+      "requires": [],
+      "lineage": {
+        "parents": [
+          "ink"
+        ],
+        "weights": [
+          1
+        ],
+        "note": "vk style new --from \"水墨远山，留白与淡雾\" → base ink"
+      },
+      "renderCost": {
+        "tier": "medium",
+        "modules": [
+          "svg",
+          "gl.mist",
+          "gl.inkBleed"
+        ],
+        "notes": "ink washes + mist GL"
+      },
+      "fonts": [
+        "Ma Shan Zheng",
+        "Noto Serif SC"
+      ]
+    },
+    {
+      "id": "yu-hong",
+      "name": "赛博霓虹雨夜街头",
+      "en": "赛博霓虹雨夜街头",
+      "tags": [
+        "cyberpunk",
+        "night",
+        "glow",
+        "synth",
+        "scaffolded",
+        "from-prompt"
+      ],
+      "material": "neon",
+      "order": 26,
+      "requires": [],
+      "lineage": {
+        "parents": [
+          "neon"
+        ],
+        "weights": [
+          1
+        ],
+        "note": "vk style new --from \"赛博霓虹雨夜街头\" → base neon"
+      },
+      "renderCost": {
+        "tier": "medium",
+        "modules": [
+          "svg",
+          "gl"
+        ],
+        "notes": "glow / bloom-ish overlays"
+      },
+      "fonts": [
+        "Archivo",
+        "JetBrains Mono",
+        "Noto Sans SC"
+      ]
+    },
+    {
+      "id": "mao-xian",
+      "name": "像素冒险岛，16色方块云",
+      "en": "像素冒险岛，16色方块云",
+      "tags": [
+        "retro",
+        "game",
+        "8-bit",
+        "playful",
+        "scaffolded",
+        "from-prompt"
+      ],
+      "material": "pixel",
+      "order": 27,
+      "requires": [],
+      "lineage": {
+        "parents": [
+          "pixel"
+        ],
+        "weights": [
+          1
+        ],
+        "note": "vk style new --from \"像素冒险岛，16色方块云\" → base pixel"
+      },
+      "renderCost": {
+        "tier": "low",
+        "modules": [
+          "svg",
+          "filter"
+        ],
+        "notes": "pixelate SVG filter"
+      },
+      "fonts": [
+        "Archivo",
+        "JetBrains Mono"
+      ]
+    }
+  ]
+}

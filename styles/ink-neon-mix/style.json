@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 2,
+  "id": "ink-neon-mix",
+  "order": 7,
+  "name": "水墨×赛博霓虹",
+  "en": "mix ink 40% + neon 60%",
+  "description": "Mixed style: ink (w=0.40) + neon (w=0.60). vk style mix ink neon --w 0.6",
+  "tags": [
+    "chinese",
+    "ink",
+    "painterly",
+    "calm",
+    "cyberpunk",
+    "night",
+    "glow",
+    "synth",
+    "mixed"
+  ],
+  "theme": {
+    "extends": "tech-blue",
+    "label": "赛博霓虹（深紫 · 青 · 品红）",
+    "mode": "dark",
+    "modes": {
+      "dark": {
+        "bg": "#07040f",
+        "fg": "#f2eaff",
+        "muted": "#a99bd0",
+        "surface": "#140c26",
+        "line": "#3a2a5a",
+        "accent": "#ff2bd6",
+        "accent2": "#2bf0ff",
+        "onAccent": "#07040f"
+      }
+    },
+    "caption": {
+      "bg": "rgba(7,4,15,.82)",
+      "fg": "#f2eaff",
+      "karaoke": "#2bf0ff"
+    }
+  },
+  "palette": {
+    "sky0": "#605e60",
+    "sky1": "#696076",
+    "dusk0": "#635c66",
+    "dusk1": "#7e6381",
+    "dawn0": "#635e69",
+    "dawn1": "#746a8c",
+    "night0": "#565556",
+    "night1": "#655e70",
+    "sun": "#e12f91",
+    "moon": "#7bf1f6",
+    "star": "#908aba",
+    "cloud": "#766c83",
+    "far": "#4e4b58",
+    "mid": "#3b384e",
+    "near": "#3c4446",
+    "trunk": "#a82b93",
+    "leaf": "#31abb2",
+    "leaf2": "#bb41a5",
+    "wall": "#6a6573",
+    "roof": "#ae329a",
+    "door": "#2ba4ae",
+    "water": "#585964",
+    "water2": "#64dee3",
+    "ground": "#595758",
+    "ground2": "#56545c",
+    "flower": "#e12f91",
+    "ink": "#111119",
+    "paper": "#ece8ef",
+    "accent": "#e12f91",
+    "grid": "#ff2bd6",
+    "accent2": "#2bf0ff",
+    "body": "#0b0718"
+  },
+  "hues": {
+    "skin": "#f7d3dc",
+    "black": "#5750ab",
+    "white": "#f3edf6",
+    "cream": "#f6e2b6",
+    "red": "#e04158",
+    "deepred": "#d13166",
+    "gold": "#e9bf44",
+    "yellow": "#edd753",
+    "blue": "#497bcf",
+    "green": "#49ca85",
+    "teal": "#39b9bd",
+    "brown": "#ca803e",
+    "orange": "#e78e41",
+    "pink": "#ed57ba",
+    "purple": "#914cca",
+    "grey": "#8b83b4",
+    "ink": "#9e9ba9",
+    "mouth": "#d7376c",
+    "cheek": "#f057b8",
+    "lightblue": "#2bf0ff",
+    "magenta": "#ff2bd6",
+    "cyan": "#2bf0ff",
+    "eyeW": "#f2eaff"
+  },
+  "fonts": [
+    "Archivo",
+    "JetBrains Mono",
+    "Noto Sans SC"
+  ],
+  "motion": {
+    "grammar": "hits on the kick; glitch cuts; hold the neon sign one beat",
+    "pacing": {
+      "scene": 4.8,
+      "hold": 1,
+      "transition": 0.6699999999999999,
+      "beat": "hits on the kick; glitch cuts; hold the neon sign one beat"
+    },
+    "camera": {
+      "push": 0.023,
+      "punch": 0.084,
+      "establish": "wide",
+      "dialog": "medium",
+      "action": "medium-wide",
+      "notes": "slow push through the city; dutch tilt allowed; punch + glitch on hits"
+    },
+    "transitions": {
+      "default": "glitch:0.45",
+      "soft": "scan:0.5",
+      "strong": "glitch:0.3",
+      "list": [
+        "glitch",
+        "scan",
+        "flash",
+        "whip-left"
+      ]
+    }
+  },
+  "look": null,
+  "materials": {
+    "world": "neon",
+    "chars": "neon"
+  },
+  "sound": {
+    "voice": {
+      "voice": "zh-CN-YunxiNeural",
+      "rate": "+4%"
+    },
+    "sfx": {
+      "hit": [
+        [
+          "zap",
+          1
+        ],
+        [
+          "kick",
+          0.6
+        ]
+      ],
+      "big": [
+        [
+          "zap",
+          0.9
+        ],
+        [
+          "kick",
+          0.9
+        ],
+        [
+          "riser",
+          0.5
+        ]
+      ],
+      "swish": [
+        [
+          "whoosh",
+          0.6
+        ]
+      ],
+      "title": [
+        [
+          "zap",
+          0.7
+        ],
+        [
+          "snap",
+          0.5
+        ]
+      ],
+      "step": [
+        [
+          "tick",
+          0.2
+        ]
+      ],
+      "pop": [
+        [
+          "snap",
+          0.6
+        ]
+      ],
+      "transition": [
+        [
+          "zap",
+          0.5
+        ]
+      ]
+    },
+    "music": "minor saw arpeggio (A minor, 16ths) + kick + clap-hat, 118 bpm",
+    "scoreOptions": {
+      "pad": [
+        110,
+        130.81,
+        164.81
+      ],
+      "padGain": 0.015
+    }
+  },
+  "qa": [
+    "generous empty paper (留白): at least a third of the frame is plain paper",
+    "far layers lighter and softer than near layers (aerial perspective)",
+    "only one saturated accent (seal red)",
+    "brush outlines wobble; nothing looks vector-perfect",
+    "titles vertical, top-right or top-left, never centred over the subject",
+    "glows are coloured, never pure white blobs (bloom knee)",
+    "scanlines subtle (< 10 % darkening)",
+    "two neon hues + one accent max",
+    "contours continuous (no broken neon tubes on characters)",
+    "text legible through the glitch transition"
+  ],
+  "lineage": {
+    "parents": [
+      "ink",
+      "neon"
+    ],
+    "weights": [
+      0.4,
+      0.6
+    ],
+    "note": "vk style mix ink neon --w 0.6"
+  },
+  "renderCost": {
+    "tier": "medium",
+    "modules": [
+      "svg",
+      "gl.mist",
+      "gl.inkBleed",
+      "gl"
+    ],
+    "notes": "mix of ink + neon"
+  },
+  "material": "neon",
+  "P": {
+    "ink": "#1f2529",
+    "paper": "#e4e5d8",
+    "wash": 0.3,
+    "seed": 7,
+    "ornament": 0.6,
+    "body": "#0b0718"
+  },
+  "video": {
+    "texture": {
+      "rice": {
+        "amount": 0.55,
+        "seed": 4,
+        "vignette": 0.24
+      },
+      "grain": {
+        "amount": 0.06
+      },
+      "vignette": {
+        "amount": 0.35
+      }
+    },
+    "fadeOut": 0.8
+  },
+  "typography": {
+    "title": "neon tube sign: outlined Archivo letters in magenta with a cyan sub line, flicker on ignition, GL bloom halo",
+    "subtitle": "dark glass bar, cyan karaoke",
+    "seal": "cyan rounded tag",
+    "fonts": [
+      "Archivo",
+      "JetBrains Mono",
+      "Noto Sans SC"
+    ]
+  },
+  "characters": {
+    "material": "neon",
+    "conventions": "dark bodies with glowing coloured contours (one hue per garment), face lines only, no fills that glow"
+  },
+  "effects": {
+    "signature": "electric zap burst: additive sparks + bloom flash",
+    "list": [
+      "bloom",
+      "sparks",
+      "scanlines"
+    ]
+  },
+  "demo": {
+    "setting": "city night",
+    "setting2": "city night",
+    "look": {
+      "hairStyle": "short",
+      "hair": "purple",
+      "cloth": "cyan",
+      "cloth2": "cyan",
+      "trim": "magenta",
+      "pants": "purple",
+      "shoe": "magenta",
+      "sash": "magenta",
+      "scarf": "magenta"
+    },
+    "title": "NEON",
+    "sub": "赛博霓虹 · cyber neon"
+  },
+  "pacing": {
+    "scene": 4.8,
+    "hold": 1,
+    "transition": 0.6699999999999999,
+    "beat": "hits on the kick; glitch cuts; hold the neon sign one beat"
+  },
+  "camera": {
+    "push": 0.023,
+    "punch": 0.084,
+    "establish": "wide",
+    "dialog": "medium",
+    "action": "medium-wide",
+    "notes": "slow push through the city; dutch tilt allowed; punch + glitch on hits"
+  },
+  "transitions": {
+    "default": "glitch:0.45",
+    "soft": "scan:0.5",
+    "strong": "glitch:0.3",
+    "list": [
+      "glitch",
+      "scan",
+      "flash",
+      "whip-left"
+    ]
+  }
+}

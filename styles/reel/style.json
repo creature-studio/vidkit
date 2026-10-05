@@ -1,54 +1,362 @@
 {
-  "id": "reel", "order": 9,
+  "id": "reel",
+  "order": 9,
   "name": "动态海报",
   "en": "Motion reel (poster)",
   "description": "128 BPM 动态海报 / motion reel：纸白与墨黑底、粉 / 黄 / 青 / 紫四色平涂，Archivo Black 超粗大字 + 硬投影，彩条覆盖转场卡在小节线上，冲击波环 + 放射线 + 白闪做鼓点重音，合成鼓组（kick / hat / clap / whoosh / riser / 结尾和弦）。",
-  "tags": ["motion", "poster", "kinetic", "beat", "flat", "bold"],
+  "tags": [
+    "motion",
+    "poster",
+    "kinetic",
+    "beat",
+    "flat",
+    "bold"
+  ],
   "theme": {
-    "extends": "tech-blue", "label": "动态海报（纸白 / 墨黑 + 四色）", "mode": "light",
+    "extends": "tech-blue",
+    "label": "动态海报（纸白 / 墨黑 + 四色）",
+    "mode": "light",
     "modes": {
-      "light": { "bg": "#F4EFE6", "fg": "#0A0A12", "muted": "#6A6A78", "surface": "#FFFFFF", "line": "#D9D2C4", "accent": "#FF3B8B", "accent2": "#5B3BFF", "onAccent": "#0A0A12" },
-      "dark": { "bg": "#0A0A12", "fg": "#F4EFE6", "muted": "#9A9AB5", "surface": "#1A1A2E", "line": "#2A2A44", "accent": "#FFD23F", "accent2": "#25E1E8", "onAccent": "#0A0A12" },
-      "accent": { "bg": "#FF3B8B", "fg": "#0A0A12", "muted": "#3A1426", "surface": "#0A0A12", "line": "#FF7AB0", "accent": "#FFD23F", "accent2": "#F4EFE6", "onAccent": "#0A0A12" }
+      "light": {
+        "bg": "#F4EFE6",
+        "fg": "#0A0A12",
+        "muted": "#6A6A78",
+        "surface": "#FFFFFF",
+        "line": "#D9D2C4",
+        "accent": "#FF3B8B",
+        "accent2": "#5B3BFF",
+        "onAccent": "#0A0A12"
+      },
+      "dark": {
+        "bg": "#0A0A12",
+        "fg": "#F4EFE6",
+        "muted": "#9A9AB5",
+        "surface": "#1A1A2E",
+        "line": "#2A2A44",
+        "accent": "#FFD23F",
+        "accent2": "#25E1E8",
+        "onAccent": "#0A0A12"
+      },
+      "accent": {
+        "bg": "#FF3B8B",
+        "fg": "#0A0A12",
+        "muted": "#3A1426",
+        "surface": "#0A0A12",
+        "line": "#FF7AB0",
+        "accent": "#FFD23F",
+        "accent2": "#F4EFE6",
+        "onAccent": "#0A0A12"
+      }
     },
-    "chart": ["#FF3B8B", "#FFD23F", "#25E1E8", "#5B3BFF", "#0A0A12", "#F4EFE6"],
-    "fonts": { "display": "\"Archivo Black\",\"Noto Sans SC\",sans-serif", "condensed": "\"Archivo Black\",\"Noto Sans SC\",sans-serif" },
-    "weight": { "display": 900, "title": 900, "sub": 800 },
-    "tracking": { "display": "0em", "title": "0em" },
-    "radius": 28, "ease": "outExpo",
-    "marker": "rgba(255,210,63,.9)", "caret": "#FF3B8B",
-    "caption": { "bg": "#0A0A12", "fg": "#F4EFE6", "karaoke": "#FFD23F", "weight": 900 },
-    "fontsCheck": ["400 20px \"Archivo Black\""]
+    "chart": [
+      "#FF3B8B",
+      "#FFD23F",
+      "#25E1E8",
+      "#5B3BFF",
+      "#0A0A12",
+      "#F4EFE6"
+    ],
+    "fonts": {
+      "display": "\"Archivo Black\",\"Noto Sans SC\",sans-serif",
+      "condensed": "\"Archivo Black\",\"Noto Sans SC\",sans-serif"
+    },
+    "weight": {
+      "display": 900,
+      "title": 900,
+      "sub": 800
+    },
+    "tracking": {
+      "display": "0em",
+      "title": "0em"
+    },
+    "radius": 28,
+    "ease": "outExpo",
+    "marker": "rgba(255,210,63,.9)",
+    "caret": "#FF3B8B",
+    "caption": {
+      "bg": "#0A0A12",
+      "fg": "#F4EFE6",
+      "karaoke": "#FFD23F",
+      "weight": 900
+    },
+    "fontsCheck": [
+      "400 20px \"Archivo Black\""
+    ]
   },
   "palette": {
-    "sky0": "#F4EFE6", "sky1": "#EDE4D3", "dusk0": "#F4EFE6", "dusk1": "#FFD23F", "dawn0": "#F4EFE6", "dawn1": "#FFC9DD", "night0": "#0A0A12", "night1": "#1A1A2E",
-    "sun": "#FFD23F", "moon": "#F4EFE6", "star": "#FFD23F", "cloud": "#FFFFFF",
-    "far": "#25E1E8", "mid": "#FF3B8B", "trunk": "#5B3BFF", "leaf": "#FFD23F", "leaf2": "#25E1E8",
-    "wall": "#FF3B8B", "roof": "#0A0A12", "door": "#FFD23F", "water": "#25E1E8", "water2": "#5B3BFF",
-    "ground": "#0A0A12", "ground2": "#1A1A2E", "flower": "#FF3B8B", "grid": "#0A0A12", "accent": "#FF3B8B", "accent2": "#5B3BFF", "ink": "#0A0A12", "paper": "#F4EFE6",
-    "pink": "#FF3B8B", "yellow": "#FFD23F", "cyan": "#25E1E8", "violet": "#5B3BFF"
+    "sky0": "#F4EFE6",
+    "sky1": "#EDE4D3",
+    "dusk0": "#F4EFE6",
+    "dusk1": "#FFD23F",
+    "dawn0": "#F4EFE6",
+    "dawn1": "#FFC9DD",
+    "night0": "#0A0A12",
+    "night1": "#1A1A2E",
+    "sun": "#FFD23F",
+    "moon": "#F4EFE6",
+    "star": "#FFD23F",
+    "cloud": "#FFFFFF",
+    "far": "#25E1E8",
+    "mid": "#FF3B8B",
+    "trunk": "#5B3BFF",
+    "leaf": "#FFD23F",
+    "leaf2": "#25E1E8",
+    "wall": "#FF3B8B",
+    "roof": "#0A0A12",
+    "door": "#FFD23F",
+    "water": "#25E1E8",
+    "water2": "#5B3BFF",
+    "ground": "#0A0A12",
+    "ground2": "#1A1A2E",
+    "flower": "#FF3B8B",
+    "grid": "#0A0A12",
+    "accent": "#FF3B8B",
+    "accent2": "#5B3BFF",
+    "ink": "#0A0A12",
+    "paper": "#F4EFE6",
+    "pink": "#FF3B8B",
+    "yellow": "#FFD23F",
+    "cyan": "#25E1E8",
+    "violet": "#5B3BFF"
   },
   "hues": {
-    "skin": "#F6C7A8", "black": "#0A0A12", "white": "#F4EFE6", "cream": "#FFF6E8", "red": "#FF3B8B", "deepred": "#D81F6B", "gold": "#FFD23F", "yellow": "#FFD23F",
-    "blue": "#5B3BFF", "lightblue": "#25E1E8", "green": "#25E1E8", "teal": "#25E1E8", "brown": "#5A3A2E", "orange": "#FF8A3D", "pink": "#FF3B8B", "purple": "#5B3BFF", "grey": "#6A6A78", "navy": "#1A1A2E",
-    "ink": "#0A0A12", "mouth": "#A3164F", "cheek": "#FF9AC0"
+    "skin": "#F6C7A8",
+    "black": "#0A0A12",
+    "white": "#F4EFE6",
+    "cream": "#FFF6E8",
+    "red": "#FF3B8B",
+    "deepred": "#D81F6B",
+    "gold": "#FFD23F",
+    "yellow": "#FFD23F",
+    "blue": "#5B3BFF",
+    "lightblue": "#25E1E8",
+    "green": "#25E1E8",
+    "teal": "#25E1E8",
+    "brown": "#5A3A2E",
+    "orange": "#FF8A3D",
+    "pink": "#FF3B8B",
+    "purple": "#5B3BFF",
+    "grey": "#6A6A78",
+    "navy": "#1A1A2E",
+    "ink": "#0A0A12",
+    "mouth": "#A3164F",
+    "cheek": "#FF9AC0"
   },
   "material": "flat",
-  "P": { "ornament": 0 },
+  "P": {
+    "ornament": 0
+  },
   "video": {},
-  "transitions": { "default": "stripes:0.44", "soft": "fade:0.3", "strong": "bars:0.5", "list": ["stripes", "bars", "fade", "push-left", "zoom-through"] },
-  "cover": { "n": 6, "colors": ["#FFD23F", "#FF3B8B", "#25E1E8", "#5B3BFF", "#F4EFE6", "#0A0A12"], "stagger": 0.018 },
-  "typography": { "title": "Archivo Black slam-in (scale 2.8 → 1, 20° turn, outExpo) with echo ghosts and a hard 10 px offset shadow; letters drop with squash & stretch", "subtitle": "ink caption bar, paper Noto Sans SC 900, yellow karaoke", "seal": "pill chip in a palette colour (vk.ui.chips)", "fonts": ["Archivo Black", "Noto Sans SC", "JetBrains Mono"] },
+  "transitions": {
+    "default": "stripes:0.44",
+    "soft": "fade:0.3",
+    "strong": "bars:0.5",
+    "list": [
+      "stripes",
+      "bars",
+      "fade",
+      "push-left",
+      "zoom-through"
+    ]
+  },
+  "cover": {
+    "n": 6,
+    "colors": [
+      "#FFD23F",
+      "#FF3B8B",
+      "#25E1E8",
+      "#5B3BFF",
+      "#F4EFE6",
+      "#0A0A12"
+    ],
+    "stagger": 0.018
+  },
+  "typography": {
+    "title": "Archivo Black slam-in (scale 2.8 → 1, 20° turn, outExpo) with echo ghosts and a hard 10 px offset shadow; letters drop with squash & stretch",
+    "subtitle": "ink caption bar, paper Noto Sans SC 900, yellow karaoke",
+    "seal": "pill chip in a palette colour (vk.ui.chips)",
+    "fonts": [
+      "Archivo Black",
+      "Noto Sans SC",
+      "JetBrains Mono"
+    ]
+  },
   "sound": {
-    "voice": { "voice": "zh-CN-YunxiNeural", "rate": "+8%" },
-    "sfx": { "hit": [["reel-kick", 1]], "big": [["reel-kick", 1.2], ["reel-clap", 0.8]], "swish": [["reel-whoosh", 0.8]], "title": [["reel-kick", 1.1], ["reel-blip", 0.6, 660]], "step": [["reel-hat", 0.5]], "pop": [["reel-pop", 0.8]], "transition": [["reel-whoosh", 0.7]], "end": [["reel-kick", 1.4], ["reel-chord", 1]] },
+    "voice": {
+      "voice": "zh-CN-YunxiNeural",
+      "rate": "+8%"
+    },
+    "sfx": {
+      "hit": [
+        [
+          "reel-kick",
+          1
+        ]
+      ],
+      "big": [
+        [
+          "reel-kick",
+          1.2
+        ],
+        [
+          "reel-clap",
+          0.8
+        ]
+      ],
+      "swish": [
+        [
+          "reel-whoosh",
+          0.8
+        ]
+      ],
+      "title": [
+        [
+          "reel-kick",
+          1.1
+        ],
+        [
+          "reel-blip",
+          0.6,
+          660
+        ]
+      ],
+      "step": [
+        [
+          "reel-hat",
+          0.5
+        ]
+      ],
+      "pop": [
+        [
+          "reel-pop",
+          0.8
+        ]
+      ],
+      "transition": [
+        [
+          "reel-whoosh",
+          0.7
+        ]
+      ],
+      "end": [
+        [
+          "reel-kick",
+          1.4
+        ],
+        [
+          "reel-chord",
+          1
+        ]
+      ]
+    },
     "music": "128 bpm drum bed: kick on every beat, off-beat hats, claps on 2 & 4, whoosh into every cut, end chord (A minor add9)",
     "bpm": 128
   },
-  "pacing": { "scene": 1.875, "hold": 0.3, "transition": 0.44, "beat": "one idea per bar (128 bpm → 1.875 s); accents on every beat, cuts on the bar line" },
-  "camera": { "push": 0, "punch": 0.06, "establish": "wide", "dialog": "medium", "action": "medium", "notes": "the frame stays locked like a poster; energy comes from type, shapes and beat accents, not camera moves" },
-  "characters": { "material": "flat", "conventions": "flat vector in the four poster colours, no outline, hard ink shadow" },
-  "effects": { "signature": "shockwave rings + radial burst + white beat flash (vk.accents)", "list": ["rings", "burst", "flash", "streaks", "orbit", "plus", "dotwave", "morphSeq"] },
-  "demo": { "setting": "city day", "setting2": "field day", "look": { "hairStyle": "short", "hair": "black", "cloth": "pink", "cloth2": "pink", "trim": "yellow", "pants": "navy", "shoe": "white", "sash": "lightblue" }, "title": "REEL", "sub": "Motion poster · 128 BPM" },
-  "qa": ["max four accent colours + ink / paper, flat fills only", "display type ≥ 100 px at 1080p with a hard ink shadow or outline", "every cut lands on a bar line under the stripe cover", "a visible accent on every beat (ring, burst, flash or morph)", "no text inside the 5 % safe margin except HUD marks"]
+  "pacing": {
+    "scene": 1.875,
+    "hold": 0.3,
+    "transition": 0.44,
+    "beat": "one idea per bar (128 bpm → 1.875 s); accents on every beat, cuts on the bar line"
+  },
+  "camera": {
+    "push": 0,
+    "punch": 0.06,
+    "establish": "wide",
+    "dialog": "medium",
+    "action": "medium",
+    "notes": "the frame stays locked like a poster; energy comes from type, shapes and beat accents, not camera moves"
+  },
+  "characters": {
+    "material": "flat",
+    "conventions": "flat vector in the four poster colours, no outline, hard ink shadow"
+  },
+  "effects": {
+    "signature": "shockwave rings + radial burst + white beat flash (vk.accents)",
+    "list": [
+      "rings",
+      "burst",
+      "flash",
+      "streaks",
+      "orbit",
+      "plus",
+      "dotwave",
+      "morphSeq"
+    ]
+  },
+  "demo": {
+    "setting": "city day",
+    "setting2": "field day",
+    "look": {
+      "hairStyle": "short",
+      "hair": "black",
+      "cloth": "pink",
+      "cloth2": "pink",
+      "trim": "yellow",
+      "pants": "navy",
+      "shoe": "white",
+      "sash": "lightblue"
+    },
+    "title": "REEL",
+    "sub": "Motion poster · 128 BPM"
+  },
+  "qa": [
+    "max four accent colours + ink / paper, flat fills only",
+    "display type ≥ 100 px at 1080p with a hard ink shadow or outline",
+    "every cut lands on a bar line under the stripe cover",
+    "a visible accent on every beat (ring, burst, flash or morph)",
+    "no text inside the 5 % safe margin except HUD marks"
+  ],
+  "schemaVersion": 2,
+  "fonts": [
+    "Archivo Black",
+    "Noto Sans SC",
+    "JetBrains Mono"
+  ],
+  "motion": {
+    "grammar": "one idea per bar (128 bpm → 1.875 s); accents on every beat, cuts on the bar line",
+    "pacing": {
+      "scene": 1.875,
+      "hold": 0.3,
+      "transition": 0.44,
+      "beat": "one idea per bar (128 bpm → 1.875 s); accents on every beat, cuts on the bar line"
+    },
+    "camera": {
+      "push": 0,
+      "punch": 0.06,
+      "establish": "wide",
+      "dialog": "medium",
+      "action": "medium",
+      "notes": "the frame stays locked like a poster; energy comes from type, shapes and beat accents, not camera moves"
+    },
+    "transitions": {
+      "default": "stripes:0.44",
+      "soft": "fade:0.3",
+      "strong": "bars:0.5",
+      "list": [
+        "stripes",
+        "bars",
+        "fade",
+        "push-left",
+        "zoom-through"
+      ]
+    }
+  },
+  "look": null,
+  "materials": {
+    "world": "flat",
+    "chars": "flat"
+  },
+  "lineage": {
+    "parents": [],
+    "weights": [],
+    "note": "hand-authored"
+  },
+  "renderCost": {
+    "tier": "medium",
+    "modules": [
+      "svg",
+      "mg"
+    ],
+    "notes": "motion-graphics cover"
+  }
 }

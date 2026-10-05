@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vidkit.dev/schema/style.v2.json",
+  "title": "vidkit style pack v2",
+  "description": "Open style system: palette, fonts, motion grammar, look chain, materials, sound, qa, lineage. v1 packs migrate in place; vk.video({style}) stays sync once packs are registered (CLI inject / vk.style.load).",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "en", "description", "palette", "fonts", "motion", "materials", "sound", "qa"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+    "order": { "type": "number" },
+    "name": { "type": "string" },
+    "en": { "type": "string" },
+    "description": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "requires": { "type": "array", "items": { "type": "string" }, "description": "Extra scripts (e.g. dist/vidkit-three.js)" },
+    "palette": {
+      "type": "object",
+      "required": ["sky0", "sky1", "far", "mid", "ground", "ground2", "leaf", "trunk"],
+      "additionalProperties": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+    },
+    "fonts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Display / body / mono font family names used by the pack theme"
+    },
+    "motion": {
+      "type": "object",
+      "required": ["grammar", "pacing", "camera", "transitions"],
+      "properties": {
+        "grammar": { "type": "string", "description": "Human-readable motion rules (pacing / cuts / camera language)" },
+        "pacing": {
+          "type": "object",
+          "properties": {
+            "scene": { "type": "number" }, "hold": { "type": "number" }, "transition": { "type": "number" }, "beat": { "type": "string" }
+          }
+        },
+        "camera": { "type": "object" },
+        "transitions": {
+          "type": "object",
+          "properties": {
+            "default": { "type": "string" }, "soft": { "type": "string" }, "strong": { "type": "string" },
+            "list": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "look": {
+      "description": "Optional NPR look chain for vk.three (post.look). null = 2D-only pack.",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string" },
+        { "type": "array" },
+        {
+          "type": "object",
+          "properties": {
+            "preset": { "type": "string" },
+            "chain": { "type": "array" }
+          }
+        }
+      ]
+    },
+    "materials": {
+      "type": "object",
+      "required": ["world", "chars"],
+      "properties": {
+        "world": { "type": "string" },
+        "chars": { "type": "string" }
+      }
+    },
+    "sound": { "type": "object" },
+    "qa": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "lineage": {
+      "type": "object",
+      "required": ["parents", "weights", "note"],
+      "properties": {
+        "parents": { "type": "array", "items": { "type": "string" } },
+        "weights": { "type": "array", "items": { "type": "number" } },
+        "note": { "type": "string" }
+      }
+    },
+    "renderCost": {
+      "type": "object",
+      "properties": {
+        "tier": { "enum": ["low", "medium", "high", "extreme"] },
+        "modules": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      }
+    },
+    "theme": {},
+    "hues": { "type": "object" },
+    "material": { "type": "string", "description": "v1 alias of materials.chars (kept for vk.video compat)" },
+    "P": { "type": "object" },
+    "video": { "type": "object" },
+    "typography": { "type": "object" },
+    "pacing": { "type": "object", "description": "v1 mirror of motion.pacing" },
+    "camera": { "type": "object", "description": "v1 mirror of motion.camera" },
+    "transitions": { "type": "object", "description": "v1 mirror of motion.transitions" },
+    "characters": { "type": "object" },
+    "effects": { "type": "object" },
+    "demo": { "type": "object" },
+    "three": { "type": "object" },
+    "poster": { "type": "number" },
+    "cover": {},
+    "extracted": { "type": "object" }
+  }
+}

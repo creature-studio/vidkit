@@ -1,47 +1,333 @@
 {
-  "id": "three-tech", "order": 10, "poster": 1.75,
+  "id": "three-tech",
+  "order": 10,
+  "poster": 1.75,
   "name": "3D 科技",
   "en": "3D tech (WebGL product film)",
   "description": "three.js 实时 3D 产品片：近黑影棚、旋转台产品 + 灯条扫光、粒子聚合成 logo、电光青/紫强调色、HDR 泛光 + ACES 调色、细颗粒；Archivo 粗体标题 + 等宽小字，合成器脉冲铺底。需要同时加载 dist/vidkit-three.js。",
-  "tags": ["promo", "product", "3d", "webgl", "three"],
-  "requires": ["dist/vidkit-three.js"],
-  "theme": { "extends": "tech-blue", "label": "3D 科技（近黑 · 电光青 · 紫）", "mode": "dark",
-    "modes": { "dark": { "bg": "#05070d", "fg": "#eef3ff", "muted": "#8f9bbd", "surface": "#0d1220", "line": "#1f2a44", "accent": "#36d6ff", "accent2": "#9b6bff", "onAccent": "#05070d" } },
-    "caption": { "bg": "rgba(5,7,13,.78)", "fg": "#eef3ff", "karaoke": "#36d6ff" } },
+  "tags": [
+    "promo",
+    "product",
+    "3d",
+    "webgl",
+    "three"
+  ],
+  "requires": [
+    "dist/vidkit-three.js"
+  ],
+  "theme": {
+    "extends": "tech-blue",
+    "label": "3D 科技（近黑 · 电光青 · 紫）",
+    "mode": "dark",
+    "modes": {
+      "dark": {
+        "bg": "#05070d",
+        "fg": "#eef3ff",
+        "muted": "#8f9bbd",
+        "surface": "#0d1220",
+        "line": "#1f2a44",
+        "accent": "#36d6ff",
+        "accent2": "#9b6bff",
+        "onAccent": "#05070d"
+      }
+    },
+    "caption": {
+      "bg": "rgba(5,7,13,.78)",
+      "fg": "#eef3ff",
+      "karaoke": "#36d6ff"
+    }
+  },
   "palette": {
-    "sky0": "#05070d", "sky1": "#0b1222", "dusk0": "#070a14", "dusk1": "#16163a", "dawn0": "#070a14", "dawn1": "#132546", "night0": "#030409", "night1": "#0a0f1e",
-    "sun": "#36d6ff", "moon": "#9b6bff", "star": "#8fa3d6", "cloud": "#121a30",
-    "far": "#0e1528", "mid": "#151f3a", "trunk": "#1f2a44", "leaf": "#36d6ff", "leaf2": "#9b6bff",
-    "wall": "#151f3a", "roof": "#1f2a44", "door": "#9b6bff", "water": "#0f1830", "water2": "#182647",
-    "ground": "#07090f", "ground2": "#0b0f1a", "flower": "#9b6bff", "grid": "#36d6ff", "accent": "#36d6ff", "accent2": "#9b6bff", "ink": "#05070d", "paper": "#ffffff"
+    "sky0": "#05070d",
+    "sky1": "#0b1222",
+    "dusk0": "#070a14",
+    "dusk1": "#16163a",
+    "dawn0": "#070a14",
+    "dawn1": "#132546",
+    "night0": "#030409",
+    "night1": "#0a0f1e",
+    "sun": "#36d6ff",
+    "moon": "#9b6bff",
+    "star": "#8fa3d6",
+    "cloud": "#121a30",
+    "far": "#0e1528",
+    "mid": "#151f3a",
+    "trunk": "#1f2a44",
+    "leaf": "#36d6ff",
+    "leaf2": "#9b6bff",
+    "wall": "#151f3a",
+    "roof": "#1f2a44",
+    "door": "#9b6bff",
+    "water": "#0f1830",
+    "water2": "#182647",
+    "ground": "#07090f",
+    "ground2": "#0b0f1a",
+    "flower": "#9b6bff",
+    "grid": "#36d6ff",
+    "accent": "#36d6ff",
+    "accent2": "#9b6bff",
+    "ink": "#05070d",
+    "paper": "#ffffff"
   },
   "hues": {
-    "skin": "#f2c6a4", "black": "#11151f", "white": "#eef3ff", "cream": "#dfe7ff", "red": "#ff4d6a", "deepred": "#c2334f", "gold": "#ffcf6b", "yellow": "#ffd75e",
-    "blue": "#36d6ff", "lightblue": "#8fe6ff", "green": "#28d39b", "teal": "#1fc9c9", "brown": "#6b4a3a", "orange": "#ff8a3d", "pink": "#ff7ab6", "purple": "#9b6bff", "grey": "#56607a", "navy": "#11151f",
-    "ink": "#05070d", "mouth": "#9c2f45", "cheek": "#ff9a9a"
+    "skin": "#f2c6a4",
+    "black": "#11151f",
+    "white": "#eef3ff",
+    "cream": "#dfe7ff",
+    "red": "#ff4d6a",
+    "deepred": "#c2334f",
+    "gold": "#ffcf6b",
+    "yellow": "#ffd75e",
+    "blue": "#36d6ff",
+    "lightblue": "#8fe6ff",
+    "green": "#28d39b",
+    "teal": "#1fc9c9",
+    "brown": "#6b4a3a",
+    "orange": "#ff8a3d",
+    "pink": "#ff7ab6",
+    "purple": "#9b6bff",
+    "grey": "#56607a",
+    "navy": "#11151f",
+    "ink": "#05070d",
+    "mouth": "#9c2f45",
+    "cheek": "#ff9a9a"
   },
   "material": "neon",
-  "P": { "ornament": 0 },
-  "video": { "texture": { "grain": { "amount": 0.03 }, "vignette": { "amount": 0.12 } }, "motionBlur": { "shutter": "1/48", "samples": 4 } },
+  "P": {
+    "ornament": 0
+  },
+  "video": {
+    "texture": {
+      "grain": {
+        "amount": 0.03
+      },
+      "vignette": {
+        "amount": 0.12
+      }
+    },
+    "motionBlur": {
+      "shutter": "1/48",
+      "samples": 4
+    }
+  },
   "three": {
-    "post": { "exposure": 0.95, "grade": "cyber", "bloom": { "strength": 0.6, "threshold": 1.0 }, "vignette": 0.22, "grain": 0.025, "ca": 0.0012 },
-    "env": "studio", "envOptions": { "accent": "#36d6ff", "rimColor": "#9b6bff" },
-    "particles": { "colors": ["#36d6ff", "#9b6bff"], "n": 120000 },
-    "sweep": { "every": 3.2, "d": 1.4, "color": "#cfefff" },
-    "backdrop": { "top": "#03040a", "horizon": "#0d1424", "glow": "#1b2f55" }
+    "post": {
+      "exposure": 0.95,
+      "grade": "cyber",
+      "bloom": {
+        "strength": 0.6,
+        "threshold": 1
+      },
+      "vignette": 0.22,
+      "grain": 0.025,
+      "ca": 0.0012
+    },
+    "env": "studio",
+    "envOptions": {
+      "accent": "#36d6ff",
+      "rimColor": "#9b6bff"
+    },
+    "particles": {
+      "colors": [
+        "#36d6ff",
+        "#9b6bff"
+      ],
+      "n": 120000
+    },
+    "sweep": {
+      "every": 3.2,
+      "d": 1.4,
+      "color": "#cfefff"
+    },
+    "backdrop": {
+      "top": "#03040a",
+      "horizon": "#0d1424",
+      "glow": "#1b2f55"
+    }
   },
-  "transitions": { "default": "fade:0.5", "soft": "fade:0.4", "strong": "zoom-through:0.7", "cover": "bars", "list": ["fade", "zoom-through", "iris", "push-left"] },
-  "typography": { "title": "Archivo 900 hero word with a scanning light line, JetBrains Mono kicker with a cyan tick", "subtitle": "translucent near-black caption bar, white Noto Sans SC, cyan karaoke", "seal": "thin cyan outline pill", "fonts": ["Archivo", "Noto Sans SC", "JetBrains Mono"] },
+  "transitions": {
+    "default": "fade:0.5",
+    "soft": "fade:0.4",
+    "strong": "zoom-through:0.7",
+    "cover": "bars",
+    "list": [
+      "fade",
+      "zoom-through",
+      "iris",
+      "push-left"
+    ]
+  },
+  "typography": {
+    "title": "Archivo 900 hero word with a scanning light line, JetBrains Mono kicker with a cyan tick",
+    "subtitle": "translucent near-black caption bar, white Noto Sans SC, cyan karaoke",
+    "seal": "thin cyan outline pill",
+    "fonts": [
+      "Archivo",
+      "Noto Sans SC",
+      "JetBrains Mono"
+    ]
+  },
   "sound": {
-    "voice": { "voice": "zh-CN-YunxiNeural", "rate": "+4%" },
-    "sfx": { "hit": [["kick", 0.9]], "big": [["kick", 1], ["chime", 0.4, 1320]], "swish": [["whoosh", 0.6]], "title": [["kick", 0.8], ["chime", 0.35, 1760]], "step": [["tick", 0.2]], "pop": [["pop", 0.6]], "transition": [["whoosh", 0.55]] },
+    "voice": {
+      "voice": "zh-CN-YunxiNeural",
+      "rate": "+4%"
+    },
+    "sfx": {
+      "hit": [
+        [
+          "kick",
+          0.9
+        ]
+      ],
+      "big": [
+        [
+          "kick",
+          1
+        ],
+        [
+          "chime",
+          0.4,
+          1320
+        ]
+      ],
+      "swish": [
+        [
+          "whoosh",
+          0.6
+        ]
+      ],
+      "title": [
+        [
+          "kick",
+          0.8
+        ],
+        [
+          "chime",
+          0.35,
+          1760
+        ]
+      ],
+      "step": [
+        [
+          "tick",
+          0.2
+        ]
+      ],
+      "pop": [
+        [
+          "pop",
+          0.6
+        ]
+      ],
+      "transition": [
+        [
+          "whoosh",
+          0.55
+        ]
+      ]
+    },
     "music": "dark synth pulse: sub kick on 1/3, 16th hats, filtered saw arp on D minor, 96 bpm, airy pad",
-    "scoreOptions": { "pad": [73.42, 110, 146.83], "padGain": 0.022 }
+    "scoreOptions": {
+      "pad": [
+        73.42,
+        110,
+        146.83
+      ],
+      "padGain": 0.022
+    }
   },
-  "pacing": { "scene": 4, "hold": 0.8, "transition": 0.5, "beat": "slow reveals (light sweeps, particle assembly), cuts on the downbeat" },
-  "camera": { "push": 0, "punch": 0.04, "establish": "orbit", "dialog": "push", "action": "flythrough", "notes": "3D rigs (vk.three.rig): slow orbit + push-in on hero shots, CatmullRom flythrough between beats, crane reveal for the end card" },
-  "characters": { "material": "neon", "conventions": "no characters — the product is the hero; if needed, neon outline figures" },
-  "effects": { "signature": "particle field assembling into the logo with a bloom flare, then a strip-light sweep across the product", "list": ["particles", "sweep", "bloom", "flythrough"] },
-  "demo": { "setting": "city night", "title": "3D 科技", "sub": "three.js product film · vk.three" },
-  "qa": ["near-black backgrounds; one cyan + one violet accent, never more", "bloom halos stay soft: no clipped white blobs larger than the highlight itself", "headline readable in < 1 s over the 3D layer (≥ 64 px, darkened backdrop behind text)", "every 3D shot has a reflection or contact shadow grounding the product", "particles resolve into a crisp logo before the cut", "pixel hash identical across render workers (vk qa [three] line)"]
+  "pacing": {
+    "scene": 4,
+    "hold": 0.8,
+    "transition": 0.5,
+    "beat": "slow reveals (light sweeps, particle assembly), cuts on the downbeat"
+  },
+  "camera": {
+    "push": 0,
+    "punch": 0.04,
+    "establish": "orbit",
+    "dialog": "push",
+    "action": "flythrough",
+    "notes": "3D rigs (vk.three.rig): slow orbit + push-in on hero shots, CatmullRom flythrough between beats, crane reveal for the end card"
+  },
+  "characters": {
+    "material": "neon",
+    "conventions": "no characters — the product is the hero; if needed, neon outline figures"
+  },
+  "effects": {
+    "signature": "particle field assembling into the logo with a bloom flare, then a strip-light sweep across the product",
+    "list": [
+      "particles",
+      "sweep",
+      "bloom",
+      "flythrough"
+    ]
+  },
+  "demo": {
+    "setting": "city night",
+    "title": "3D 科技",
+    "sub": "three.js product film · vk.three"
+  },
+  "qa": [
+    "near-black backgrounds; one cyan + one violet accent, never more",
+    "bloom halos stay soft: no clipped white blobs larger than the highlight itself",
+    "headline readable in < 1 s over the 3D layer (≥ 64 px, darkened backdrop behind text)",
+    "every 3D shot has a reflection or contact shadow grounding the product",
+    "particles resolve into a crisp logo before the cut",
+    "pixel hash identical across render workers (vk qa [three] line)"
+  ],
+  "schemaVersion": 2,
+  "fonts": [
+    "Archivo",
+    "Noto Sans SC",
+    "JetBrains Mono"
+  ],
+  "motion": {
+    "grammar": "slow reveals (light sweeps, particle assembly), cuts on the downbeat",
+    "pacing": {
+      "scene": 4,
+      "hold": 0.8,
+      "transition": 0.5,
+      "beat": "slow reveals (light sweeps, particle assembly), cuts on the downbeat"
+    },
+    "camera": {
+      "push": 0,
+      "punch": 0.04,
+      "establish": "orbit",
+      "dialog": "push",
+      "action": "flythrough",
+      "notes": "3D rigs (vk.three.rig): slow orbit + push-in on hero shots, CatmullRom flythrough between beats, crane reveal for the end card"
+    },
+    "transitions": {
+      "default": "fade:0.5",
+      "soft": "fade:0.4",
+      "strong": "zoom-through:0.7",
+      "cover": "bars",
+      "list": [
+        "fade",
+        "zoom-through",
+        "iris",
+        "push-left"
+      ]
+    }
+  },
+  "look": null,
+  "materials": {
+    "world": "neon",
+    "chars": "neon"
+  },
+  "lineage": {
+    "parents": [],
+    "weights": [],
+    "note": "hand-authored"
+  },
+  "renderCost": {
+    "tier": "high",
+    "modules": [
+      "three",
+      "particles",
+      "turntable"
+    ],
+    "notes": "vk.three product film"
+  }
 }

@@ -3691,7 +3691,7 @@
      "description": "corner radius px"
     }
    },
-   "count": 14,
+   "count": 18,
    "entries": [
     {
      "name": "bold",
@@ -3784,6 +3784,42 @@
      "source": "builtin"
     },
     {
+     "name": "style:ink-neon-mix",
+     "description": "赛博霓虹（深紫 · 青 · 品红）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#07040f",
+      "fg": "#f2eaff",
+      "accent": "#ff2bd6",
+      "accent2": "#2bf0ff"
+     },
+     "fonts": {
+      "display": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:ink-neon-mix' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:mao-xian",
+     "description": "像素（Sweetie-16 调色板）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#1a1c2c",
+      "fg": "#f4f4f4",
+      "accent": "#ffcd75",
+      "accent2": "#41a6f6"
+     },
+     "fonts": {
+      "display": "\"Archivo\",\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:mao-xian' })",
+     "source": "builtin"
+    },
+    {
      "name": "style:neon",
      "description": "赛博霓虹（深紫 · 青 · 品红）",
      "params": {},
@@ -3835,6 +3871,24 @@
       "sans": "\"Noto Serif SC\",\"Songti SC\",\"STSong\",\"Noto Sans SC\",serif"
      },
      "example": "vk.video({ theme: 'style:papercut' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:papercut-fork",
+     "description": "剪纸（宣纸底 · 朱红 · 马善政毛笔字）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#e9dfc8",
+      "fg": "#2a1d17",
+      "accent": "#c0392b",
+      "accent2": "#2f5d50"
+     },
+     "fonts": {
+      "display": "\"Ma Shan Zheng\",\"STKaiti\",\"KaiTi\",\"Kaiti SC\",\"Noto Serif SC\",serif",
+      "sans": "\"Noto Serif SC\",\"Songti SC\",\"STSong\",\"Noto Sans SC\",serif"
+     },
+     "example": "vk.video({ theme: 'style:papercut-fork' })",
      "source": "builtin"
     },
     {
@@ -3925,6 +3979,24 @@
       "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
      },
      "example": "vk.video({ theme: 'style:three-tech' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:yu-hong",
+     "description": "赛博霓虹（深紫 · 青 · 品红）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#07040f",
+      "fg": "#f2eaff",
+      "accent": "#ff2bd6",
+      "accent2": "#2bf0ff"
+     },
+     "fonts": {
+      "display": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:yu-hong' })",
      "source": "builtin"
     },
     {
@@ -5176,7 +5248,7 @@
      "description": "compose roles: 'ink' (all) · ['ink','papercut.chars'] · {base, world, chars, type, motion, sound, fx}"
     }
    },
-   "count": 10,
+   "count": 15,
    "entries": [
     {
      "name": "crayon",
@@ -5242,6 +5314,84 @@
      ],
      "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
      "example": "vk.video({ style: 'ink' })",
+     "source": "builtin"
+    },
+    {
+     "name": "ink-neon-mix",
+     "description": "水墨×赛博霓虹 · mix ink 40% + neon 60% — Mixed style: ink (w=0.40) + neon (w=0.60). vk style mix ink neon --w 0.6",
+     "params": {},
+     "tags": [
+      "chinese",
+      "ink",
+      "painterly",
+      "calm",
+      "cyberpunk",
+      "night",
+      "glow",
+      "synth",
+      "mixed"
+     ],
+     "material": "neon",
+     "theme": "style:ink-neon-mix",
+     "transitions": {
+      "default": "glitch:0.45",
+      "soft": "scan:0.5",
+      "strong": "glitch:0.3"
+     },
+     "effects": [
+      "bloom",
+      "sparks",
+      "scanlines"
+     ],
+     "qa": [
+      "generous empty paper (留白): at least a third of the frame is plain paper",
+      "far layers lighter and softer than near layers (aerial perspective)",
+      "only one saturated accent (seal red)",
+      "brush outlines wobble; nothing looks vector-perfect",
+      "titles vertical, top-right or top-left, never centred over the subject",
+      "glows are coloured, never pure white blobs (bloom knee)",
+      "scanlines subtle (< 10 % darkening)",
+      "two neon hues + one accent max",
+      "contours continuous (no broken neon tubes on characters)",
+      "text legible through the glitch transition"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'ink-neon-mix' })",
+     "source": "builtin"
+    },
+    {
+     "name": "mao-xian",
+     "description": "像素冒险岛，16色方块云 · 像素冒险岛，16色方块云 — 像素冒险岛，16色方块云 — scaffolded from base \"pixel\" via keyword match. Hand-tune palette/hooks; generation is scaffolding + peek checks, not magic.",
+     "params": {},
+     "tags": [
+      "retro",
+      "game",
+      "8-bit",
+      "playful",
+      "scaffolded",
+      "from-prompt"
+     ],
+     "material": "pixel",
+     "theme": "style:mao-xian",
+     "transitions": {
+      "default": "pixel:0.6",
+      "soft": "dip:0.4",
+      "strong": "pixel:0.4"
+     },
+     "effects": [
+      "coins",
+      "shake",
+      "blink"
+     ],
+     "qa": [
+      "every frame uses only the 16 palette colours (plus pixel-filter mixes)",
+      "pixel grid fixed to the screen (filter on the whole scene, not per object)",
+      "text ≥ 3 'pixels' thick after pixelation",
+      "no smooth zooms (punch = shake)",
+      "outline on every character piece"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'mao-xian' })",
      "source": "builtin"
     },
     {
@@ -5342,6 +5492,41 @@
      ],
      "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
      "example": "vk.video({ style: 'papercut' })",
+     "source": "builtin"
+    },
+    {
+     "name": "papercut-fork",
+     "description": "剪纸 fork · fork of papercut — Fork of papercut. vk style fork papercut",
+     "params": {},
+     "tags": [
+      "chinese",
+      "paper",
+      "flat",
+      "folk",
+      "fork"
+     ],
+     "material": "cut",
+     "theme": "style:papercut-fork",
+     "transitions": {
+      "default": "tear:0.8",
+      "soft": "wash:0.9",
+      "strong": "tear:0.6"
+     },
+     "effects": [
+      "burst",
+      "petals",
+      "stamp"
+     ],
+     "qa": [
+      "edges show scissor wobble (no perfectly smooth vectors)",
+      "every character piece has the lifted paper shadow",
+      "no gradients on character pieces (flat paper colour only)",
+      "joints overlap (no gaps between cut pieces when limbs bend)",
+      "rice-paper grain visible on the background",
+      "red seal/banner contrast readable over the background"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'papercut-fork' })",
      "source": "builtin"
     },
     {
@@ -5451,6 +5636,41 @@
      "source": "builtin"
     },
     {
+     "name": "shan-mo",
+     "description": "水墨远山，留白与淡雾 · 水墨远山，留白与淡雾 — 水墨远山，留白与淡雾 — scaffolded from base \"ink\" via keyword match. Hand-tune palette/hooks; generation is scaffolding + peek checks, not magic.",
+     "params": {},
+     "tags": [
+      "chinese",
+      "ink",
+      "painterly",
+      "calm",
+      "scaffolded",
+      "from-prompt"
+     ],
+     "material": "ink",
+     "theme": "ink",
+     "transitions": {
+      "default": "ink:1.0",
+      "soft": "wash:1.2",
+      "strong": "ink:0.7"
+     },
+     "effects": [
+      "inkBleed",
+      "mist",
+      "inkDrops"
+     ],
+     "qa": [
+      "generous empty paper (留白): at least a third of the frame is plain paper",
+      "far layers lighter and softer than near layers (aerial perspective)",
+      "only one saturated accent (seal red)",
+      "brush outlines wobble; nothing looks vector-perfect",
+      "titles vertical, top-right or top-left, never centred over the subject"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'shan-mo' })",
+     "source": "builtin"
+    },
+    {
      "name": "tech",
      "description": "科技宣传 · Tech promo (dark) — 深色产品宣传片：深蓝底、发光网格地面、电光蓝强调色、Archivo 粗体大标题 + 等宽小字，扁平矢量人物，鼓点 + 合成器铺底。",
      "params": {},
@@ -5520,6 +5740,41 @@
      ],
      "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
      "example": "vk.video({ style: 'three-tech' })",
+     "source": "builtin"
+    },
+    {
+     "name": "yu-hong",
+     "description": "赛博霓虹雨夜街头 · 赛博霓虹雨夜街头 — 赛博霓虹雨夜街头 — scaffolded from base \"neon\" via keyword match. Hand-tune palette/hooks; generation is scaffolding + peek checks, not magic.",
+     "params": {},
+     "tags": [
+      "cyberpunk",
+      "night",
+      "glow",
+      "synth",
+      "scaffolded",
+      "from-prompt"
+     ],
+     "material": "neon",
+     "theme": "style:yu-hong",
+     "transitions": {
+      "default": "glitch:0.45",
+      "soft": "scan:0.5",
+      "strong": "glitch:0.3"
+     },
+     "effects": [
+      "bloom",
+      "sparks",
+      "scanlines"
+     ],
+     "qa": [
+      "glows are coloured, never pure white blobs (bloom knee)",
+      "scanlines subtle (< 10 % darkening)",
+      "two neon hues + one accent max",
+      "contours continuous (no broken neon tubes on characters)",
+      "text legible through the glitch transition"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'yu-hong' })",
      "source": "builtin"
     }
    ]

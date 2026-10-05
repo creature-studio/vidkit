@@ -28,15 +28,75 @@ export function parseArgs(argv, flags = []) {
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav', '.srt': 'text/plain; charset=utf-8' };
 // Serves the local filesystem by absolute path (file:// is unreliable for fonts/fetch/modules).
-export function startServer({ inject = null, extra = null, port = 0, host = '127.0.0.1' } = {}) {
+// Defer page scripts that call vk.video/style/film until styles/<id>/ packs are registered via ES modules.
+
+function pageNeedsStylePacks(html) {
+  if (/vkStyleDemo\s*\(|vk\.film\s*\(|vk\.style\s*\(\s*['"\`]/.test(html)) return true;
+  const re = /vk\.video\s*\(\s*\{/g; let m;
+  while ((m = re.exec(html))) {
+    let i = m.index + m[0].length - 1, depth = 0;
+    for (; i < html.length; i++) {
+      const c = html[i];
+      if (c === '{') depth++;
+      else if (c === '}') {
+        depth--;
+        if (depth === 0) {
+          const body = html.slice(m.index + m[0].length, i);
+          if (/\bstyle\s*:\s*(['"\`][\w.-]+['"\`]|\[|\{)/.test(body)) return true;
+          break;
+        }
+      }
+    }
+  }
+  return false;
+}
+export function styleBootInject(html, { stylesUrl = path.join(ROOT, 'styles') + '/' } = {}) {
+  if (!html || html.includes('data-vk-style-boot')) return html;
+  // Only pages that actually consume a style pack need the runtime loader. Plain vk.video({…}) demos stay untouched
+  // so existing examples stay bit-identical and we do not pay for loading every styles/<id>/.
+  // Particle morph `style: 'converge'` is NOT a pack — only inspect the vk.video({…}) config object.
+  if (!pageNeedsStylePacks(html)) return html;
+  const bootHref = path.join(ROOT, 'styles', 'boot.mjs');
+  let n = 0;
+  let out = html.replace(/<script(\s(?![^>]*\bsrc\b)[^>]*)?>([\s\S]*?)<\/script>/gi, (m, attrs, body) => {
+    if (/type\s*=\s*["']module["']/i.test(attrs || '')) return m;
+    if (/type\s*=\s*["']application\/json["']/i.test(attrs || '')) return m;
+    if (!/\bvk\.(video|style|film)\b|vkStyleDemo|style\s*:/.test(body)) return m;
+    n++;
+    return `<script type="application/json" id="vk-defer-${n}" data-vk-defer="1">${JSON.stringify(body)}</script>`;
+  });
+  if (!n && !/type\s*=\s*["']module["'][^>]*>[\s\S]*(vkStyleDemo|vk\.film|style\s*:)/.test(html)) return html;
+  const boot = `<script type="module" data-vk-style-boot="1">
+import { boot } from '${bootHref}';
+if (!window.vk) throw new Error('[vk.style] vidkit.js must load before style boot');
+await boot(window.vk, { stylesUrl: ${JSON.stringify(stylesUrl)} });
+for (const el of [...document.querySelectorAll('[data-vk-defer]')]) {
+  const s = document.createElement('script');
+  s.textContent = JSON.parse(el.textContent);
+  el.replaceWith(s);
+}
+</script>`;
+  if (/<\/body>/i.test(out)) out = out.replace(/<\/body>/i, boot + '</body>');
+  else out += boot;
+  return out;
+}
+export function startServer({ inject = null, extra = null, port = 0, host = '127.0.0.1', styles = true } = {}) {
+  const stylesUrl = path.join(ROOT, 'styles') + '/';
+  const userInject = inject;
+  const injectHtml = html => {
+    let h = styles ? styleBootInject(html, { stylesUrl }) : html;
+    if (userInject) h = userInject(h);
+    return h;
+  };
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x'), p = decodeURIComponent(u.pathname);
     if (p.startsWith('/__vk/cache/')) return cacheEndpoint(req, res, p.slice(12));
+
     if (extra && extra(req, res, p)) return;
     fs.readFile(p, (err, buf) => {
       if (err) { res.writeHead(404); res.end('not found'); return; }
       const ext = path.extname(p).toLowerCase();
-      if (inject && ext === '.html') buf = Buffer.from(inject(buf.toString()));
+      if (ext === '.html') buf = Buffer.from(injectHtml(buf.toString()));
       res.writeHead(200, { 'content-type': MIME[ext] || 'application/octet-stream', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
       res.end(buf);
     });

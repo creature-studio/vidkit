@@ -1,5 +1,14 @@
 /*! vidkit 0.2.0 — deterministic HTML/JS → video. MIT. Bundled fonts: SIL OFL 1.1 (see fonts/LICENSES.md) */
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -27,11 +36,12 @@ function suggest(name, valid, k = 3) {
     return { v, d: lev(s2, w) - (w.startsWith(s2) || s2.startsWith(w) ? 1 : 0) };
   }).filter((x) => x.d <= max).sort((a, b) => a.d - b.d || String(a.v).length - String(b.v).length).slice(0, k).map((x) => x.v);
 }
+var init_names = __esm({
+  "src/core/names.js"() {
+  }
+});
 
 // src/core/strict.js
-var G = typeof globalThis !== "undefined" ? globalThis : {};
-var STRICT = G.__vkStrictState || (G.__vkStrictState = { on: false, frame: 0, t: null, warnedRandom: false });
-var SRC = G.__vkSrcState || (G.__vkSrcState = { err: null });
 function setStrict(on) {
   STRICT.on = !!on;
   return STRICT.on;
@@ -61,13 +71,11 @@ function userFrame(stack2) {
   }
   return null;
 }
-var LABEL = { fx: "fx", transitions: "transition", textures: "texture", backgrounds: "background", eases: "ease", themes: "theme", materials: "material", styles: "style", formats: "format", sounds: "sound", blocks: "block", threeMaterials: "vk.three material", products: "vk.three product", grades: "vk.three grade", envs: "vk.three env", targets: "particle target" };
 function unknownMessage(kind, name, valid, where) {
   const s2 = suggest(name, valid), at = where || userFrame();
   return `[vk] unknown ${LABEL[kind] || kind} "${name}"${s2.length ? ` \u2014 did you mean ${s2.map((x) => `"${x}"`).join(" or ")}?` : ""}${at ? ` (at ${at})` : ""}
   valid ${LABEL[kind] || kind} names: ${[...new Set(valid)].join(", ")}`;
 }
-var warned = G.__vkWarned || (G.__vkWarned = /* @__PURE__ */ new Set());
 function unknownName(kind, name, valid, { fatal = false, where } = {}) {
   const msg = unknownMessage(kind, name, valid, where);
   if (STRICT.on || fatal) {
@@ -107,8 +115,930 @@ function guardedRandom(r) {
     return r();
   };
 }
+var G, STRICT, SRC, LABEL, warned;
+var init_strict = __esm({
+  "src/core/strict.js"() {
+    init_names();
+    G = typeof globalThis !== "undefined" ? globalThis : {};
+    STRICT = G.__vkStrictState || (G.__vkStrictState = { on: false, frame: 0, t: null, warnedRandom: false });
+    SRC = G.__vkSrcState || (G.__vkSrcState = { err: null });
+    LABEL = { fx: "fx", transitions: "transition", textures: "texture", backgrounds: "background", eases: "ease", themes: "theme", materials: "material", styles: "style", formats: "format", sounds: "sound", blocks: "block", threeMaterials: "vk.three material", products: "vk.three product", grades: "vk.three grade", envs: "vk.three env", targets: "particle target" };
+    warned = G.__vkWarned || (G.__vkWarned = /* @__PURE__ */ new Set());
+  }
+});
+
+// src/core/random.js
+function hash(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+  return x - Math.floor(x);
+}
+function hash2(x, y) {
+  return hash(x * 157.31 + y * 113.97);
+}
+function mulberry32(a) {
+  return function() {
+    a |= 0;
+    a = a + 1831565813 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hrange(i, a, b) {
+  return a + (b - a) * hash(i);
+}
+function hpick(i, arr) {
+  return arr[Math.floor(hash(i) * arr.length) % arr.length];
+}
+function noise1(x) {
+  const i = Math.floor(x), f = x - i;
+  return hash(i) + (hash(i + 1) - hash(i)) * sm(f);
+}
+function noise2(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = sm(x - ix), fy = sm(y - iy);
+  const a = hash2(ix, iy), b = hash2(ix + 1, iy), c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
+function boil(t, rate = 12) {
+  return Math.floor(t * rate + 1e-6);
+}
+var sm;
+var init_random = __esm({
+  "src/core/random.js"() {
+    sm = (t) => t * t * (3 - 2 * t);
+  }
+});
+
+// src/styles/geom.js
+var geom_exports = {};
+__export(geom_exports, {
+  arc: () => arc,
+  area: () => area,
+  bbox: () => bbox,
+  blob: () => blob,
+  capsule: () => capsule,
+  cloudScroll: () => cloudScroll,
+  ellipse: () => ellipse,
+  grass: () => grass,
+  hills: () => hills,
+  house: () => house,
+  peaks: () => peaks,
+  perimeter: () => perimeter,
+  polyD: () => polyD,
+  r1: () => r1,
+  rect: () => rect,
+  resample: () => resample,
+  rnd: () => rnd,
+  rotate: () => rotate,
+  scale: () => scale,
+  smoothD: () => smoothD,
+  spiral: () => spiral,
+  star: () => star,
+  strokeOutline: () => strokeOutline,
+  translate: () => translate,
+  tree: () => tree,
+  waves: () => waves,
+  wobble: () => wobble
+});
+function ellipse(cx, cy, rx, ry = rx, rot = 0, n = 28) {
+  const c = Math.cos(rot * Math.PI / 180), s2 = Math.sin(rot * Math.PI / 180), out = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
+    out.push([cx + x * c - y * s2, cy + x * s2 + y * c]);
+  }
+  return out;
+}
+function capsule(x0, y0, r0, x1, y1, r1_, n = 10) {
+  const a = Math.atan2(y1 - y0, x1 - x0), out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = a + Math.PI / 2 + i / n * Math.PI;
+    out.push([x0 + Math.cos(t) * r0, y0 + Math.sin(t) * r0]);
+  }
+  for (let i = 0; i <= n; i++) {
+    const t = a - Math.PI / 2 + i / n * Math.PI;
+    out.push([x1 + Math.cos(t) * r1_, y1 + Math.sin(t) * r1_]);
+  }
+  return out;
+}
+function blob(cx, cy, rx, ry = rx, seed = 1, k = 0.18, n = 30) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU, r = 1 + k * (noise1(seed * 9.1 + Math.cos(a) * 1.3 + 4) - 0.5) * 2 + k * 0.5 * (noise1(seed * 3.3 + Math.sin(a) * 2.1) - 0.5);
+    out.push([cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r]);
+  }
+  return out;
+}
+function star(cx, cy, r0, r1_, n = 5, rot = -90) {
+  const out = [];
+  for (let i = 0; i < n * 2; i++) {
+    const a = (rot + i * 180 / n) * Math.PI / 180, r = i % 2 ? r1_ : r0;
+    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return out;
+}
+function rotate(pts, deg, cx = 0, cy = 0) {
+  const c = Math.cos(deg * Math.PI / 180), s2 = Math.sin(deg * Math.PI / 180);
+  return pts.map((p) => [cx + (p[0] - cx) * c - (p[1] - cy) * s2, cy + (p[0] - cx) * s2 + (p[1] - cy) * c]);
+}
+function bbox(pts) {
+  let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+  for (const p of pts) {
+    a = Math.min(a, p[0]);
+    b = Math.min(b, p[1]);
+    c = Math.max(c, p[0]);
+    d = Math.max(d, p[1]);
+  }
+  return [a, b, c, d];
+}
+function area(pts) {
+  let s2 = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    s2 += p[0] * q[1] - q[0] * p[1];
+  }
+  return s2 / 2;
+}
+function perimeter(pts, closed = true) {
+  let L = 0;
+  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    L += Math.hypot(q[0] - p[0], q[1] - p[1]);
+  }
+  return L;
+}
+function resample(pts, step = 6, closed = true) {
+  const L = perimeter(pts, closed), n = Math.max(closed ? 6 : 2, Math.round(L / step)), out = [];
+  const segs = [];
+  let acc = 0;
+  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length], l = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    segs.push([p, q, acc, l]);
+    acc += l;
+  }
+  for (let k = 0; k < (closed ? n : n + 1); k++) {
+    const d = L * k / n;
+    let s2 = segs[segs.length - 1];
+    for (const g2 of segs) if (d <= g2[2] + g2[3]) {
+      s2 = g2;
+      break;
+    }
+    const u = s2[3] ? (d - s2[2]) / s2[3] : 0;
+    out.push([s2[0][0] + (s2[1][0] - s2[0][0]) * u, s2[0][1] + (s2[1][1] - s2[0][1]) * u]);
+  }
+  return out;
+}
+function wobble(pts, o = {}) {
+  const amp = o.amp != null ? o.amp : 0.9, step = o.step || 5, seed = o.seed || 1, closed = o.closed !== false;
+  const q = resample(pts, step, closed), m = q.length;
+  return q.map((p, i) => {
+    if (!closed && (i === 0 || i === m - 1)) return p;
+    const a = q[(i - 1 + m) % m], b = q[(i + 1) % m], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const nick = rnd(seed * 3.1, i * 1.93) > 0.94 ? 1.9 : 1, k = amp * (rnd(seed * 13.7, i * 0.731) - 0.5) * 2 * nick;
+    return [p[0] - dy / l * k, p[1] + dx / l * k];
+  });
+}
+function smoothD(pts, closed = true, k = 1) {
+  const n = pts.length;
+  if (n < 3) return polyD(pts, closed);
+  const P2 = (i) => closed ? pts[(i + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
+  let d = `M${r1(pts[0][0])} ${r1(pts[0][1])}`;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const p0 = P2(i - 1), p1 = P2(i), p2 = P2(i + 1), p3 = P2(i + 2);
+    d += ` C${r1(p1[0] + (p2[0] - p0[0]) / 6 * k)} ${r1(p1[1] + (p2[1] - p0[1]) / 6 * k)} ${r1(p2[0] - (p3[0] - p1[0]) / 6 * k)} ${r1(p2[1] - (p3[1] - p1[1]) / 6 * k)} ${r1(p2[0])} ${r1(p2[1])}`;
+  }
+  return d + (closed ? " Z" : "");
+}
+function strokeOutline(pts, w = 4, taper = true) {
+  const n = pts.length, L = [], R2 = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const u = n > 1 ? i / (n - 1) : 0.5, ww = (typeof w === "function" ? w(u) : w) / 2 * (taper ? Math.pow(Math.sin(Math.PI * Math.min(1, 0.06 + u * 0.9)), 0.7) : 1);
+    L.push([pts[i][0] - dy / l * ww, pts[i][1] + dx / l * ww]);
+    R2.push([pts[i][0] + dy / l * ww, pts[i][1] - dx / l * ww]);
+  }
+  return L.concat(R2.reverse());
+}
+function arc(a, b, bend = 0, n = 8) {
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, cx = mx - dy / l * bend, cy = my + dx / l * bend, out = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n, v = 1 - u;
+    out.push([v * v * a[0] + 2 * u * v * cx + u * u * b[0], v * v * a[1] + 2 * u * v * cy + u * u * b[1]]);
+  }
+  return out;
+}
+function spiral(cx, cy, r0, turns = 1.5, grow = 0.5, rot = 0, dir = 1, n = 40) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n, a = rot + dir * u * turns * TAU, r = r0 * (1 - grow * u);
+    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return out;
+}
+function hills(x0, x1, top, amp, seed = 1, o = {}) {
+  const step = o.step || 16, freq = o.freq || 6e-3, base2 = o.base != null ? o.base : 760, out = [[x0, base2]];
+  for (let x = x0; x <= x1 + 0.1; x += step) {
+    const n = noise1(x * freq + seed * 17.3) * 0.7 + noise1(x * freq * 2.7 + seed * 5.1) * 0.3;
+    const peak = o.peaks ? Math.pow(Math.max(0, n), o.peaks) : n;
+    out.push([x, top + amp * (1 - 2 * peak)]);
+  }
+  out.push([x1, base2]);
+  return out;
+}
+function peaks(x0, x1, base2, hMin, hMax, n = 5, seed = 1) {
+  const out = [];
+  const w = (x1 - x0) / n;
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + w * (i + 0.5) + (rnd(seed, i) - 0.5) * w * 0.4, h3 = hMin + (hMax - hMin) * rnd(seed + 3, i), ww = w * (0.55 + 0.4 * rnd(seed + 7, i));
+    const pts = [];
+    for (let k = 0; k <= 16; k++) {
+      const u = k / 16, a = Math.PI * u;
+      pts.push([cx - ww * Math.cos(a), base2 - h3 * Math.pow(Math.sin(a), 0.65) * (1 + 0.06 * Math.sin(a * 5 + i))]);
+    }
+    out.push({ cx, h: h3, pts: [[cx - ww, base2 + 40], ...pts, [cx + ww, base2 + 40]] });
+  }
+  return out;
+}
+function tree(x, y, h3, o = {}) {
+  const kind = o.kind || "round", seed = o.seed || 1, lean = o.lean || 0, tw = o.trunk || h3 * 0.07;
+  const top = [x + lean * h3, y - h3 * (kind === "pine" ? 0.95 : 0.62)];
+  const trunk = [[x - tw, y], [x - tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [top[0] - tw * 0.35, top[1]], [top[0] + tw * 0.35, top[1]], [x + tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [x + tw, y]];
+  const crown = [];
+  if (kind === "pine") {
+    for (let i = 0; i < 4; i++) {
+      const yy = y - h3 * (0.38 + i * 0.17), ww = h3 * (0.36 - i * 0.07);
+      crown.push([[x + lean * h3 * (0.4 + i * 0.15) - ww, yy + h3 * 0.05], [x + lean * h3 * (0.5 + i * 0.15), yy - h3 * 0.2], [x + lean * h3 * (0.4 + i * 0.15) + ww, yy + h3 * 0.05]]);
+    }
+  } else if (kind === "willow") {
+    crown.push(blob(top[0], top[1], h3 * 0.3, h3 * 0.2, seed, 0.22));
+    for (let i = 0; i < 5; i++) {
+      const sx = top[0] - h3 * 0.28 + i * h3 * 0.14;
+      crown.push(strokeOutline(arc([sx, top[1]], [sx - h3 * 0.05, top[1] + h3 * 0.45], 8), h3 * 0.05));
+    }
+  } else {
+    const n = o.lobes || 3;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n - 0.5) * 1.8, r = h3 * (0.26 + 0.06 * rnd(seed, i));
+      crown.push(blob(top[0] + Math.sin(a) * h3 * 0.22, top[1] - Math.cos(a) * h3 * 0.1 + h3 * 0.04, r, r * 0.85, seed + i, 0.14));
+    }
+  }
+  return { trunk, crown, top, kind };
+}
+function house(x, y, w, h3, o = {}) {
+  const kind = o.kind || "cottage", rh = h3 * (kind === "temple" ? 0.55 : 0.45), ov2 = w * 0.12, curl = kind === "temple" ? h3 * 0.12 : 0;
+  const walls = rect(x - w / 2, y - h3, w, h3);
+  const roof = kind === "flat" ? rect(x - w / 2 - ov2 * 0.3, y - h3 - h3 * 0.1, w + ov2 * 0.6, h3 * 0.1) : [[x - w / 2 - ov2, y - h3 + curl * 0.2], [x - w / 2 - ov2 - curl * 0.6, y - h3 - curl], [x - w / 2 - ov2 * 0.2, y - h3 - rh * 0.1], [x, y - h3 - rh], [x + w / 2 + ov2 * 0.2, y - h3 - rh * 0.1], [x + w / 2 + ov2 + curl * 0.6, y - h3 - curl], [x + w / 2 + ov2, y - h3 + curl * 0.2]];
+  const door = rect(x - w * 0.1, y - h3 * 0.55, w * 0.2, h3 * 0.55), win2 = rect(x + w * 0.18, y - h3 * 0.7, w * 0.18, h3 * 0.2), win22 = rect(x - w * 0.36, y - h3 * 0.7, w * 0.18, h3 * 0.2);
+  return { walls, roof, door, windows: [win2, win22] };
+}
+function waves(x0, x1, y, amp = 8, len2 = 90, phase = 0, base2 = 760, step = 8) {
+  const out = [[x0, base2]];
+  for (let x = x0; x <= x1 + 0.1; x += step) out.push([x, y + amp * Math.sin(x / len2 * TAU + phase) + amp * 0.4 * Math.sin(x / len2 * 2.3 * TAU + phase * 1.7)]);
+  out.push([x1, base2]);
+  return out;
+}
+function grass(x, y, h3 = 28, n = 5, seed = 1) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const dx = (i - (n - 1) / 2) * 5, lean = (i - (n - 1) / 2) * 0.22 + (rnd(seed, i) - 0.5) * 0.3, hh = h3 * (0.6 + 0.5 * rnd(seed + 2, i));
+    out.push(strokeOutline(arc([x + dx, y], [x + dx + lean * hh, y - hh], -lean * 6, 6), 4.2));
+  }
+  return out;
+}
+function cloudScroll(cx, cy, w, o = {}) {
+  const seed = o.seed || 1, h3 = w * 0.32, body = [];
+  const bumps = 4;
+  for (let i = 0; i <= bumps; i++) {
+    const u = i / bumps, x = cx - w / 2 + u * w;
+    const r = h3 * (0.55 + 0.35 * Math.sin(Math.PI * u)) * (0.9 + 0.2 * rnd(seed, i));
+    for (let k = 0; k <= 6; k++) {
+      const a = Math.PI + k / 6 * Math.PI;
+      body.push([x + Math.cos(a) * r * 0.6, cy + Math.sin(a) * r]);
+    }
+  }
+  body.push([cx + w / 2 + h3 * 0.2, cy + h3 * 0.25], [cx - w / 2 - h3 * 0.2, cy + h3 * 0.25]);
+  const curls = [spiral(cx - w / 2 + h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.1, -1), spiral(cx + w / 2 - h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.9, 1), spiral(cx - w * 0.08, cy - h3 * 0.45, h3 * 0.42, 1.1, 0.7, Math.PI * 0.5, 1)];
+  return { body, curls, h: h3 };
+}
+var TAU, r1, rnd, rect, translate, scale, polyD;
+var init_geom = __esm({
+  "src/styles/geom.js"() {
+    init_random();
+    TAU = Math.PI * 2;
+    r1 = (x) => Math.round(x * 10) / 10;
+    rnd = (seed, i) => hash(seed * 7.31 + i * 1.618 + 0.5);
+    rect = (x, y, w, h3) => [[x, y], [x + w, y], [x + w, y + h3], [x, y + h3]];
+    translate = (pts, dx, dy) => pts.map((p) => [p[0] + dx, p[1] + dy]);
+    scale = (pts, sx, sy = sx, cx = 0, cy = 0) => pts.map((p) => [cx + (p[0] - cx) * sx, cy + (p[1] - cy) * sy]);
+    polyD = (pts, closed = true) => pts.length ? "M" + pts.map((p) => r1(p[0]) + " " + r1(p[1])).join(" L") + (closed ? " Z" : "") : "";
+  }
+});
+
+// src/styles/color.js
+var color_exports = {};
+__export(color_exports, {
+  hex2rgb: () => hex2rgb,
+  kmeans: () => kmeans,
+  luma: () => luma,
+  mix: () => mix,
+  nearest: () => nearest,
+  rgb2hex: () => rgb2hex,
+  rgba: () => rgba,
+  shade: () => shade
+});
+function hex2rgb(c) {
+  const s2 = String(c).trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(s2);
+  if (m) return [...m[1]].map((ch) => parseInt(ch + ch, 16));
+  m = /^#([0-9a-f]{6})/i.exec(s2);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  m = /rgba?\(([^)]+)\)/i.exec(s2);
+  if (m) return m[1].split(/[ ,/]+/).slice(0, 3).map(Number);
+  return [0, 0, 0];
+}
+function rgba(c, a) {
+  const [r, g2, b] = hex2rgb(c);
+  return `rgba(${r},${g2},${b},${a})`;
+}
+function nearest(c, palette) {
+  const A = hex2rgb(c);
+  let best = palette[0], bd = Infinity;
+  for (const p of palette) {
+    const B4 = hex2rgb(p), d = (A[0] - B4[0]) ** 2 * 0.3 + (A[1] - B4[1]) ** 2 * 0.59 + (A[2] - B4[2]) ** 2 * 0.11;
+    if (d < bd) {
+      bd = d;
+      best = p;
+    }
+  }
+  return best;
+}
+function kmeans(px4, k = 6, o = {}) {
+  let s2 = (o.seed || 7) >>> 0;
+  const R2 = () => (s2 = s2 * 1664525 + 1013904223 >>> 0) / 4294967296;
+  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+  const C2 = [px4[Math.floor(R2() * px4.length)].slice()];
+  while (C2.length < k) {
+    const D = px4.map((p) => Math.min(...C2.map((c) => d2(p, c)))), tot = D.reduce((a, b) => a + b, 0) || 1;
+    let r = R2() * tot, i = 0;
+    for (; i < D.length - 1 && r > D[i]; i++) r -= D[i];
+    C2.push(px4[i].slice());
+  }
+  let lab = new Array(px4.length).fill(0);
+  for (let it = 0; it < (o.iter || 16); it++) {
+    lab = px4.map((p) => {
+      let bi = 0, bd = Infinity;
+      C2.forEach((c, j) => {
+        const d = d2(p, c);
+        if (d < bd) {
+          bd = d;
+          bi = j;
+        }
+      });
+      return bi;
+    });
+    const S2 = C2.map(() => [0, 0, 0, 0]);
+    px4.forEach((p, i) => {
+      const a = S2[lab[i]];
+      a[0] += p[0];
+      a[1] += p[1];
+      a[2] += p[2];
+      a[3]++;
+    });
+    S2.forEach((a, j) => {
+      if (a[3]) C2[j] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]];
+    });
+  }
+  const n = C2.map((_, j) => lab.filter((l) => l === j).length);
+  return C2.map((c, j) => ({ rgb: c.map(Math.round), hex: rgb2hex(c), share: n[j] / px4.length })).sort((a, b) => b.share - a.share);
+}
+var rgb2hex, mix, shade, luma;
+var init_color = __esm({
+  "src/styles/color.js"() {
+    rgb2hex = (c) => "#" + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+    mix = (a, b, t) => {
+      const A = hex2rgb(a), B4 = hex2rgb(b);
+      return rgb2hex(A.map((v, i) => v + (B4[i] - v) * t));
+    };
+    shade = (c, k) => k >= 0 ? mix(c, "#ffffff", k) : mix(c, "#000000", -k);
+    luma = (c) => {
+      const [r, g2, b] = hex2rgb(c);
+      return (0.2126 * r + 0.7152 * g2 + 0.0722 * b) / 255;
+    };
+  }
+});
+
+// src/styles/materials.js
+function svgDefs(v, id, inner) {
+  if (document.getElementById(id)) return;
+  const w = document.createElement("div");
+  w.innerHTML = `<svg id="${id}" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>${inner}</defs></svg>`;
+  (v.stage || document.body).appendChild(w.firstElementChild);
+}
+var holesD, farCol, lineOf, MATERIALS, material;
+var init_materials = __esm({
+  "src/styles/materials.js"() {
+    init_strict();
+    init_geom();
+    init_color();
+    holesD = (piece, f) => (piece.holes || []).map((h3) => " " + f(h3)).join("");
+    farCol = (piece, k = -0.16) => piece.far ? shade(piece.col, k) : piece.col;
+    lineOf = (piece, f = 1) => polyD(strokeOutline(piece.line, (piece.w || 3) * f, piece.taper !== false), true);
+    MATERIALS = {
+      // 剪纸: scissor-cut edges (seeded normal wobble), flat colour, ornaments cut out as holes (evenodd), lifted shadow
+      cut: {
+        label: "\u526A\u7EB8\uFF08\u526A\u5200\u6BDB\u8FB9 \xB7 \u5E73\u6D82 \xB7 \u9542\u7A7A \xB7 \u6295\u5F71\uFF09",
+        defs(v, P2) {
+          if (v && v.stage && window.vk) window.vk.gl.paperCut(v, { prefix: "pc", seed: P2.seed || 4, shadow: P2.shadow || [3, 5, 3, 0.35] });
+        },
+        group: (P2, kind) => kind === "char" ? 'filter="url(#pc-shadow)"' : kind === "layer" ? 'filter="url(#pc)"' : "",
+        paint(p, P2) {
+          const amp = P2.cutAmp != null ? P2.cutAmp : 0.9, W = (pts) => polyD(wobble(pts, { amp, step: p.step || 5, seed: p.seed || 1 }), true);
+          if (p.line) return `<path d="${W(strokeOutline(p.line, (p.w || 3) * 1.15))}" fill="${farCol(p)}"/>`;
+          const holes = (p.holes || []).concat(p.orn || []);
+          return `<path d="${W(p.pts)}${holes.map((h3) => " " + W(h3)).join("")}" fill="${farCol(p)}"${holes.length ? ' fill-rule="evenodd"' : ""}${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+        },
+        dyn: (P2, col3) => `fill="${col3}"`
+      },
+      // 水墨: pale wash fill + wobbling brush outline (ink-line filter from vk.installInk)
+      ink: {
+        label: "\u6C34\u58A8\uFF08\u6DE1\u5F69\u6655\u67D3 + \u6BDB\u7B14\u52FE\u7EBF\uFF09",
+        defs(v, P2) {
+          if (v && v.stage && window.vk && !document.querySelector("#ink-line")) window.vk.installInk({ seed: P2.seed || 7 });
+        },
+        group: (P2, kind) => kind === "char" ? 'filter="url(#ink-wob)"' : "",
+        paint(p, P2) {
+          const ink = P2.ink || "#1f2529", paper2 = P2.paper || "#e4e5d8";
+          if (p.line) return `<path d="${lineOf(p, 1.25)}" fill="${ink}" opacity="${p.op != null ? p.op : 0.92}"/>`;
+          const wash = mix(farCol(p, -0.1), paper2, P2.wash != null ? P2.wash : 0.28), lw = p.role === "skin" || p.role === "eyeW" ? 1.8 : 2.6;
+          return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${wash}" fill-rule="evenodd" stroke="${ink}" stroke-width="${p.lw || lw}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+        },
+        dyn: (P2, col3) => `fill="${mix(col3, P2.paper || "#e4e5d8", 0.2)}" stroke="${P2.ink || "#1f2529"}" stroke-width="1.6" stroke-linejoin="round"`
+      },
+      // flat vector (product promo): clean smooth shapes, no outline, soft back-side shade
+      flat: {
+        label: "\u6241\u5E73\u77E2\u91CF\uFF08\u5E73\u6ED1\u5F62 \xB7 \u65E0\u63CF\u8FB9 \xB7 \u4FA7\u5149\uFF09",
+        defs() {
+        },
+        group: () => "",
+        paint(p, P2) {
+          if (p.line) return `<path d="${lineOf(p)}" fill="${p.col}"/>`;
+          return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.22)}" fill-rule="evenodd"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+        },
+        dyn: (P2, col3) => `fill="${col3}"`
+      },
+      // 皮影: translucent dyed leather, dark tooled outline, carved ornaments (holes), multiply onto the lit screen
+      leather: {
+        label: "\u76AE\u5F71\uFF08\u534A\u900F\u660E\u67D3\u8272\u76AE \xB7 \u9542\u523B\u82B1\u7EB9 \xB7 \u80CC\u5149\uFF09",
+        defs(v) {
+          svgDefs(v, "vk-sp-defs", `<filter id="sp-leather" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".035 .09" numOctaves="3" seed="11" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 .35  0 0 0 0 .2  0 0 0 0 .08  0 0 0 -.9 .55" result="v"/><feComposite in="v" in2="SourceAlpha" operator="in" result="vv"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="vv"/></feMerge></filter>`);
+        },
+        group: (P2, kind) => kind === "char" ? 'filter="url(#sp-leather)" style="mix-blend-mode:multiply"' : kind === "layer" ? 'style="mix-blend-mode:multiply"' : "",
+        paint(p, P2) {
+          const line = P2.line || "#3a2112";
+          if (p.line) return `<path d="${lineOf(p, 1.1)}" fill="${line}"/>`;
+          const holes = (p.holes || []).concat(p.orn || []), d = polyD(p.pts, true) + holes.map((h3) => " " + polyD(h3, true)).join("");
+          return `<path d="${d}" fill="${farCol(p, -0.12)}" fill-opacity="${p.op != null ? p.op : P2.alpha || 0.8}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 2.2}" stroke-linejoin="round"/>`;
+        },
+        dyn: (P2, col3) => `fill="${col3}" fill-opacity=".75" stroke="${P2.line || "#3a2112"}" stroke-width="1.6"`
+      },
+      // 重彩装饰 (大闹天宫): saturated flat colour, bold dark contour, gilded ornaments
+      decor: {
+        label: "\u91CD\u5F69\u88C5\u9970\uFF08\u9971\u548C\u5E73\u6D82 \xB7 \u7C97\u58A8\u7EBF \xB7 \u63CF\u91D1\u7EB9\u6837\uFF09",
+        defs() {
+        },
+        group: () => "",
+        paint(p, P2) {
+          const line = P2.line || "#2a160e", gold = P2.gold || "#e9b949";
+          if (p.line) return `<path d="${lineOf(p, 1.15)}" fill="${line}"/>`;
+          let s2 = `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.14)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 3.2}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+          if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${gold}" stroke="${line}" stroke-width="1.1"/>`;
+          return s2;
+        },
+        dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#2a160e"}" stroke-width="2.4" stroke-linejoin="round"`
+      },
+      // 赛博霓虹: dark body, glowing coloured contour (SVG blur-merge glow in each stroke's own colour)
+      neon: {
+        label: "\u9713\u8679\u7EBF\u63CF\uFF08\u6697\u5E95 \xB7 \u53D1\u5149\u8F6E\u5ED3\uFF09",
+        defs(v) {
+          svgDefs(v, "vk-neon-defs", `<filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b1"/><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b2"/><feColorMatrix in="b2" type="matrix" values="1.6 0 0 0 0  0 1.6 0 0 0  0 0 1.6 0 0  0 0 0 1.4 0" result="b3"/><feMerge><feMergeNode in="b3"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
+        },
+        group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#neon-glow)"' : "",
+        paint(p, P2) {
+          const body = P2.body || "#07050f";
+          if (p.line) return `<path d="${polyD(p.line, false)}" fill="none" stroke="${p.col}" stroke-width="${(p.w || 3) * 0.8}" stroke-linecap="round" stroke-linejoin="round"/>`;
+          const col3 = p.far ? mix(p.col, body, 0.35) : p.col;
+          let s2 = `<path d="${smoothD(p.pts, true)}" fill="${p.fill || body}" fill-opacity="${p.fillOp != null ? p.fillOp : 0.92}" stroke="${col3}" stroke-width="${p.lw || 2.6}" stroke-linejoin="round"/>`;
+          if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="none" stroke="${col3}" stroke-width="1.3" opacity=".8"/>`;
+          return s2;
+        },
+        dyn: (P2, col3) => `fill="${P2.body || "#07050f"}" fill-opacity=".6" stroke="${col3}" stroke-width="2.4" stroke-linejoin="round"`
+      },
+      // 像素: flat fills + thick dark outline; the scene is pixelated by the pack's post filter (vk.style … post.pixel)
+      pixel: {
+        label: "\u50CF\u7D20\uFF08\u5E73\u6D82 + \u7C97\u63CF\u8FB9\uFF0C\u6574\u5E27\u50CF\u7D20\u5316\uFF09",
+        defs() {
+        },
+        group: () => "",
+        paint(p, P2) {
+          const line = P2.line || "#1a1c2c";
+          if (p.line) return `<path d="${lineOf(p, 1.6)}" fill="${line}"/>`;
+          return `<path d="${polyD(p.pts, true)}${holesD(p, (h3) => polyD(h3, true))}" fill="${farCol(p, -0.2)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 5}" stroke-linejoin="miter" paint-order="stroke"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+        },
+        dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#1a1c2c"}" stroke-width="4" paint-order="stroke"`
+      },
+      // 蜡笔绘本: waxy fill with paper tooth showing through, rough wobbly outline, boil (seed stepped by the pack)
+      crayon: {
+        label: "\u8721\u7B14\uFF08\u8721\u8D28\u9897\u7C92 \xB7 \u7EB8\u7EB9\u900F\u51FA \xB7 \u6296\u52A8\u63CF\u8FB9\uFF09",
+        defs(v, P2) {
+          svgDefs(v, "vk-cr-defs", `<filter id="cr-wax" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence type="fractalNoise" baseFrequency=".9 .12" numOctaves="2" seed="3" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -3.2 2.15" result="tooth"/><feComposite in="SourceGraphic" in2="tooth" operator="in" result="wax"/><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="2" seed="5" result="w"/><feDisplacementMap in="wax" in2="w" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter><filter id="cr-line" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence class="cr-boil" type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="2" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4.5" xChannelSelector="R" yChannelSelector="G"/></filter>`);
+        },
+        group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#cr-line)"' : "",
+        paint(p, P2) {
+          const line = P2.line || "#3b2a20";
+          if (p.line) return `<path d="${lineOf(p, 1.2)}" fill="${shade(p.col, -0.2)}" opacity=".9"/>`;
+          const col3 = farCol(p, -0.14), d = smoothD(p.pts, true) + holesD(p, (h3) => smoothD(h3, true));
+          let s2 = `<path d="${d}" fill="${col3}" fill-rule="evenodd" filter="url(#cr-wax)"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+          if (p.role !== "eye" && p.role !== "mouth" && p.role !== "pupil") s2 += `<path d="${smoothD(p.pts, true)}" fill="none" stroke="${p.outline || shade(col3, -0.42)}" stroke-width="${p.lw || 2.4}" stroke-linejoin="round" opacity=".85"/>`;
+          if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${shade(col3, 0.35)}" filter="url(#cr-wax)"/>`;
+          return s2;
+        },
+        dyn: (P2, col3) => `fill="${col3}" stroke="${shade(col3, -0.4)}" stroke-width="2"`
+      }
+    };
+    material = (id) => {
+      if (id && typeof id === "string" && !MATERIALS[id]) unknownName("materials", id, Object.keys(MATERIALS));
+      return MATERIALS[id] || MATERIALS.flat;
+    };
+  }
+});
+
+// src/styles/schema.js
+function normalizeStyle(raw = {}) {
+  const d = { ...raw };
+  const fonts = d.fonts || d.typography && d.typography.fonts || [];
+  const motion2 = d.motion || {
+    grammar: d.pacing && d.pacing.beat || d.camera && d.camera.notes || "",
+    pacing: { scene: 5, hold: 1, transition: 0.6, ...d.pacing || {} },
+    camera: { ...d.camera || {} },
+    transitions: { ...d.transitions || {} }
+  };
+  if (!motion2.grammar) motion2.grammar = motion2.pacing && motion2.pacing.beat || "";
+  const materials = d.materials || {
+    world: d.worldMaterial || d.material || "flat",
+    chars: d.characters && d.characters.material || d.material || "flat"
+  };
+  const lineage = d.lineage || { parents: [], weights: [], note: d.extracted ? "extracted starter" : "hand-authored" };
+  const renderCost = d.renderCost || inferCost(d);
+  const look = d.look !== void 0 ? d.look : d.three && d.three.post && d.three.post.look != null ? d.three.post.look : null;
+  const out = {
+    ...d,
+    schemaVersion: STYLE_SCHEMA_VERSION,
+    fonts: [...fonts],
+    motion: {
+      grammar: motion2.grammar || "",
+      pacing: { scene: 5, hold: 1, transition: 0.6, ...motion2.pacing || {} },
+      camera: { ...motion2.camera || {} },
+      transitions: { ...motion2.transitions || {} }
+    },
+    look: look == null ? null : look,
+    materials: { world: materials.world, chars: materials.chars },
+    lineage: {
+      parents: [...lineage.parents || []],
+      weights: [...lineage.weights || []],
+      note: lineage.note || ""
+    },
+    renderCost: {
+      tier: renderCost && renderCost.tier || "medium",
+      modules: [...renderCost && renderCost.modules || []],
+      notes: renderCost && renderCost.notes || ""
+    }
+  };
+  out.material = out.material || out.materials.chars;
+  out.pacing = { ...out.motion.pacing };
+  out.camera = { ...out.motion.camera };
+  out.transitions = { ...out.motion.transitions };
+  if (!out.typography) out.typography = {};
+  if (!out.typography.fonts) out.typography.fonts = out.fonts.slice();
+  else out.fonts = out.typography.fonts.slice();
+  return out;
+}
+function inferCost(d) {
+  const mods = [], tags = new Set(d.tags || []);
+  if (d.requires && d.requires.some((r) => /three/.test(r))) {
+    mods.push("three");
+    tags.add("3d");
+  }
+  if (d.three) mods.push("three-post");
+  if (d.look) mods.push("look");
+  const tier = mods.includes("three") ? "high" : tags.has("gl") || /gl\.|inkBleed|mist/.test(JSON.stringify(d.effects || {})) ? "medium" : "low";
+  return { tier, modules: mods, notes: tier === "high" ? "WebGL / vk.three" : tier === "medium" ? "2D + light GL fx" : "2D SVG" };
+}
+function validateStyle(raw) {
+  const d = normalizeStyle(raw), errors = [];
+  if (d.schemaVersion !== 2) errors.push("schemaVersion must be 2");
+  if (!d.id || !/^[a-z][a-z0-9-]{0,31}$/.test(d.id)) errors.push("id: slug a-z / digits / hyphen");
+  for (const k of ["name", "en", "description"]) if (!d[k]) errors.push(`missing ${k}`);
+  for (const k of PALETTE_KEYS) if (!isHex(d.palette && d.palette[k])) errors.push(`palette.${k} hex`);
+  for (const k of HUE_KEYS) if (!isHex(d.hues && d.hues[k])) errors.push(`hues.${k} hex`);
+  if (!Array.isArray(d.fonts)) errors.push("fonts[]");
+  if (!d.motion || typeof d.motion.grammar !== "string") errors.push("motion.grammar");
+  if (!MATERIALS[d.materials.world]) errors.push(`materials.world unknown: ${d.materials.world}`);
+  if (!MATERIALS[d.materials.chars]) errors.push(`materials.chars unknown: ${d.materials.chars}`);
+  if (!Array.isArray(d.qa) || d.qa.length < 1) errors.push("qa[]");
+  if (!d.lineage || !Array.isArray(d.lineage.parents)) errors.push("lineage.parents");
+  return { ok: !errors.length, errors, data: d };
+}
+function lerpNum(a, b, w) {
+  return a + (b - a) * w;
+}
+function mixVal(a, b, w) {
+  if (typeof a === "number" && typeof b === "number") return lerpNum(a, b, w);
+  if (isHex(a) && isHex(b)) return mix(a, b, w);
+  if (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
+    const keys = /* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)]), out = {};
+    for (const k of keys) out[k] = a[k] == null ? b[k] : b[k] == null ? a[k] : mixVal(a[k], b[k], w);
+    return out;
+  }
+  return w < 0.5 ? a : b;
+}
+function concatLook(a, b) {
+  const toArr = (x) => {
+    if (x == null) return [];
+    if (typeof x === "string") return [{ type: "preset", preset: x }];
+    if (Array.isArray(x)) return x.map((p) => typeof p === "string" ? { type: p } : { ...p });
+    if (x.preset) return [{ type: "preset", preset: x.preset }, ...x.chain || []];
+    if (x.chain) return x.chain.slice();
+    return [x];
+  };
+  const chain = [...toArr(a), ...toArr(b)];
+  return chain.length ? { chain } : null;
+}
+function mixStyles(aRaw, bRaw, w = 0.5, { id, name, en, note } = {}) {
+  const A = normalizeStyle(aRaw), B4 = normalizeStyle(bRaw);
+  const wB = Math.max(0, Math.min(1, +w || 0)), wA = 1 - wB;
+  const idOut = id || `${A.id}-x-${B4.id}`;
+  const palette = mixVal(A.palette, B4.palette, wB);
+  const hues = mixVal(A.hues || {}, B4.hues || {}, wB);
+  const P2 = mixVal(A.P || {}, B4.P || {}, wB);
+  const motion2 = {
+    grammar: wB < 0.5 ? A.motion.grammar : B4.motion.grammar,
+    pacing: mixVal(A.motion.pacing, B4.motion.pacing, wB),
+    camera: mixVal(A.motion.camera, B4.motion.camera, wB),
+    transitions: wB < 0.5 ? { ...A.motion.transitions } : { ...B4.motion.transitions }
+  };
+  const materials = wB < 0.5 ? { ...A.materials } : { ...B4.materials };
+  const fonts = wB < 0.5 ? A.fonts.slice() : B4.fonts.slice();
+  const look = concatLook(A.look, B4.look);
+  const sound = wB < 0.5 ? structuredClone(A.sound) : structuredClone(B4.sound);
+  const qa = [.../* @__PURE__ */ new Set([...A.qa || [], ...B4.qa || []])];
+  const tags = [.../* @__PURE__ */ new Set([...A.tags || [], ...B4.tags || [], "mixed"])];
+  const raw = {
+    schemaVersion: 2,
+    id: idOut,
+    order: Math.max(A.order || 50, B4.order || 50) + 1,
+    name: name || `${A.name}\xD7${B4.name}`,
+    en: en || `mix ${A.id} ${(wA * 100).toFixed(0)}% + ${B4.id} ${(wB * 100).toFixed(0)}%`,
+    description: `Mixed style: ${A.id} (w=${wA.toFixed(2)}) + ${B4.id} (w=${wB.toFixed(2)}). ${note || "Parameter lerp + look-chain concat; hand-tune hooks in style.js."}`,
+    tags,
+    theme: wB < 0.5 ? A.theme : B4.theme,
+    palette,
+    hues,
+    fonts,
+    motion: motion2,
+    look,
+    materials,
+    sound,
+    qa,
+    lineage: { parents: [A.id, B4.id], weights: [+wA.toFixed(4), +wB.toFixed(4)], note: note || `vk style mix ${A.id} ${B4.id} --w ${wB}` },
+    renderCost: {
+      tier: A.renderCost.tier === "high" || B4.renderCost.tier === "high" ? "high" : A.renderCost.tier === "medium" || B4.renderCost.tier === "medium" ? "medium" : "low",
+      modules: [.../* @__PURE__ */ new Set([...A.renderCost.modules || [], ...B4.renderCost.modules || []])],
+      notes: `mix of ${A.id} + ${B4.id}`
+    },
+    material: materials.chars,
+    P: P2,
+    video: mixVal(A.video || {}, B4.video || {}, wB),
+    typography: { ...wB < 0.5 ? A.typography : B4.typography, fonts },
+    characters: wB < 0.5 ? { ...A.characters } : { ...B4.characters },
+    effects: wB < 0.5 ? { ...A.effects } : { ...B4.effects },
+    demo: wB < 0.5 ? { ...A.demo } : { ...B4.demo },
+    pacing: motion2.pacing,
+    camera: motion2.camera,
+    transitions: motion2.transitions
+  };
+  if (A.three || B4.three) raw.three = wB < 0.5 ? A.three : B4.three;
+  return normalizeStyle(raw);
+}
+function forkStyle(raw, { id, name, en, note } = {}) {
+  const A = normalizeStyle(raw);
+  const idOut = id || `${A.id}-fork`;
+  return normalizeStyle({
+    ...structuredClone(A),
+    id: idOut,
+    name: name || `${A.name} fork`,
+    en: en || `fork of ${A.id}`,
+    description: `Fork of ${A.id}. ${note || "Edit freely; lineage records the parent."}`,
+    tags: [.../* @__PURE__ */ new Set([...A.tags || [], "fork"])],
+    lineage: { parents: [A.id], weights: [1], note: note || `vk style fork ${A.id}` }
+  });
+}
+function matchBaseFromPrompt(text3 = "") {
+  const t = String(text3).toLowerCase();
+  const rules = [
+    [/水墨|墨|宣纸|写意|ink|sumi|wash/, "ink"],
+    [/剪纸|窗花|papercut|paper.?cut|scissors/, "papercut"],
+    [/皮影|影子|shadow|silhouette/, "shadow"],
+    [/京剧|戏曲|opera|脸谱/, "opera"],
+    [/霓虹|赛博|neon|cyber|glow/, "neon"],
+    [/像素|8.?bit|pixel|retro.?game/, "pixel"],
+    [/蜡笔|彩铅|crayon|pastel|sketch/, "crayon"],
+    [/胶片|电影感|reel|film.?grain|cinematic/, "reel"],
+    [/科技|产品|three|3d|webgl|turntable/, "tech"]
+  ];
+  for (const [re, id] of rules) if (re.test(t)) return id;
+  if (/暗|夜|黑|dark|noir/.test(t)) return "shadow";
+  if (/童|可爱|软|soft|cute/.test(t)) return "crayon";
+  return "tech";
+}
+var STYLE_SCHEMA_VERSION, PALETTE_KEYS, HUE_KEYS, isHex;
+var init_schema = __esm({
+  "src/styles/schema.js"() {
+    init_color();
+    init_materials();
+    STYLE_SCHEMA_VERSION = 2;
+    PALETTE_KEYS = ["sky0", "sky1", "far", "mid", "ground", "ground2", "leaf", "trunk"];
+    HUE_KEYS = ["skin", "black", "white", "red", "gold"];
+    isHex = (s2) => typeof s2 === "string" && /^#[0-9A-Fa-f]{6}$/.test(s2);
+  }
+});
+
+// styles/boot.mjs
+var boot_exports = {};
+__export(boot_exports, {
+  boot: () => boot,
+  loadAllBrowser: () => loadAllBrowser,
+  loadOneBrowser: () => loadOneBrowser
+});
+async function boot(vk2, { ids, stylesUrl = HERE } = {}) {
+  if (!vk2 || !vk2.style) throw new Error("[vk.style.boot] vk not ready");
+  try {
+    return await loadAllBrowser(vk2, stylesUrl, ids);
+  } catch (e) {
+    const fallback = ids || ["ink", "papercut", "shadow", "opera", "tech", "neon", "pixel", "crayon", "reel"];
+    const out = [];
+    for (const id of fallback) {
+      try {
+        out.push(await loadOneBrowser(vk2, id, stylesUrl));
+      } catch (err) {
+        console.warn("[vk.style.boot]", id, err.message);
+      }
+    }
+    return out;
+  }
+}
+var HERE;
+var init_boot = __esm({
+  "styles/boot.mjs"() {
+    init_loader();
+    HERE = new URL("./", import.meta.url).href;
+  }
+});
+
+// src/styles/loader.js
+var loader_exports = {};
+__export(loader_exports, {
+  discoverStyleIds: () => discoverStyleIds,
+  loadAllBrowser: () => loadAllBrowser,
+  loadAllForVk: () => loadAllForVk,
+  loadAllNode: () => loadAllNode,
+  loadForVk: () => loadForVk,
+  loadOneBrowser: () => loadOneBrowser,
+  normalizeStyle: () => normalizeStyle,
+  readStyleJson: () => readStyleJson,
+  stylesDir: () => stylesDir,
+  validateStyle: () => validateStyle,
+  writeManifest: () => writeManifest
+});
+function stylesDir(root) {
+  return root;
+}
+function discoverStyleIds(fs, path2, root) {
+  const dir = path2.join(root, "styles");
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((d) => {
+    try {
+      return fs.statSync(path2.join(dir, d)).isDirectory() && fs.existsSync(path2.join(dir, d, "style.json"));
+    } catch {
+      return false;
+    }
+  }).sort();
+}
+function readStyleJson(fs, path2, root, id) {
+  const raw = JSON.parse(fs.readFileSync(path2.join(root, "styles", id, "style.json"), "utf8"));
+  return normalizeStyle(raw);
+}
+async function loadAllNode(vk2, { root, fs, path: path2, skip = /* @__PURE__ */ new Set() } = {}) {
+  const ids = discoverStyleIds(fs, path2, root);
+  const out = [];
+  for (const id of ids) {
+    if (skip.has(id) || vk2.style.get && vk2.style.get(id)) {
+      out.push(id);
+      continue;
+    }
+    const jsonPath = path2.join(root, "styles", id, "style.json");
+    const jsPath = path2.join(root, "styles", id, "style.js");
+    const data = normalizeStyle(JSON.parse(fs.readFileSync(jsonPath, "utf8")));
+    const href = pathToFileUrl(jsPath);
+    const mod = await import(href);
+    vk2.style.register(data, mod.default);
+    out.push(id);
+  }
+  return out;
+}
+function pathToFileUrl(p) {
+  const sep = p.startsWith("/") ? "" : "/";
+  return "file://" + sep + p.split("\\").join("/");
+}
+async function loadOneBrowser(vk2, id, stylesUrl) {
+  if (vk2.style.get && vk2.style.get(id)) return id;
+  const base2 = stylesUrl.replace(/\/?$/, "/");
+  const data = normalizeStyle(await fetch(base2 + id + "/style.json").then((r) => {
+    if (!r.ok) throw new Error("style.json " + id + " " + r.status);
+    return r.json();
+  }));
+  const mod = await import(base2 + id + "/style.js");
+  vk2.style.register(data, mod.default);
+  return id;
+}
+async function loadAllBrowser(vk2, stylesUrl, ids) {
+  const base2 = stylesUrl.replace(/\/?$/, "/");
+  let list2 = ids;
+  if (!list2) {
+    try {
+      const man = await fetch(base2 + "manifest.json").then((r) => r.ok ? r.json() : null);
+      list2 = man && man.ids || [];
+    } catch {
+      list2 = [];
+    }
+  }
+  if (!list2.length) throw new Error("[vk.style] no pack ids to load from " + base2);
+  const out = [];
+  for (const id of list2) out.push(await loadOneBrowser(vk2, id, base2));
+  return out;
+}
+function writeManifest(fs, path2, root) {
+  const ids = discoverStyleIds(fs, path2, root);
+  const packs = ids.map((id) => {
+    const d = readStyleJson(fs, path2, root, id);
+    return {
+      id: d.id,
+      name: d.name,
+      en: d.en,
+      tags: d.tags || [],
+      material: d.material,
+      order: d.order || 99,
+      requires: d.requires || [],
+      lineage: d.lineage,
+      renderCost: d.renderCost,
+      fonts: d.fonts
+    };
+  }).sort((a, b) => (a.order || 99) - (b.order || 99) || a.id.localeCompare(b.id));
+  const man = { schemaVersion: 2, ids: packs.map((p) => p.id), packs };
+  fs.writeFileSync(path2.join(root, "styles", "manifest.json"), JSON.stringify(man, null, 2) + "\n");
+  return man;
+}
+async function loadForVk(vk2, id, o = {}) {
+  if (vk2.style.get && vk2.style.get(id)) return vk2.style.get(id);
+  if (typeof process !== "undefined" && process.versions && process.versions.node) {
+    const fs = await import("node:fs");
+    const path2 = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const root = o.root || path2.resolve(path2.dirname(fileURLToPath(import.meta.url)), "../..");
+    const data = normalizeStyle(JSON.parse(fs.readFileSync(path2.join(root, "styles", id, "style.json"), "utf8")));
+    const mod = await import(pathToFileUrl(path2.join(root, "styles", id, "style.js")));
+    return vk2.style.register(data, mod.default);
+  }
+  const base2 = (o.stylesUrl || new URL("../styles/", typeof location !== "undefined" ? location.href : import.meta.url).href).replace(/\/?$/, "/");
+  return loadOneBrowser(vk2, id, base2);
+}
+async function loadAllForVk(vk2, o = {}) {
+  if (typeof process !== "undefined" && process.versions && process.versions.node) {
+    const fs = await import("node:fs");
+    const path2 = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const root = o.root || path2.resolve(path2.dirname(fileURLToPath(import.meta.url)), "../..");
+    return loadAllNode(vk2, { root, fs, path: path2, skip: new Set(Object.keys(vk2.style.packs || {})) });
+  }
+  const { boot: boot2 } = await Promise.resolve().then(() => (init_boot(), boot_exports));
+  return boot2(vk2, o);
+}
+var init_loader = __esm({
+  "src/styles/loader.js"() {
+    init_schema();
+  }
+});
 
 // src/core/ease.js
+init_strict();
 function bezier(x1, y1, x2, y2) {
   const A = (a, b) => 1 - 3 * b + 3 * a, B4 = (a, b) => 3 * b - 6 * a, C2 = (a) => 3 * a;
   const calc = (t, a, b) => ((A(a, b) * t + B4(a, b)) * t + C2(a)) * t;
@@ -225,42 +1155,8 @@ function getEase(e) {
   return EASE.outCubic;
 }
 
-// src/core/random.js
-function hash(n) {
-  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
-  return x - Math.floor(x);
-}
-function hash2(x, y) {
-  return hash(x * 157.31 + y * 113.97);
-}
-function mulberry32(a) {
-  return function() {
-    a |= 0;
-    a = a + 1831565813 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-function hrange(i, a, b) {
-  return a + (b - a) * hash(i);
-}
-function hpick(i, arr) {
-  return arr[Math.floor(hash(i) * arr.length) % arr.length];
-}
-var sm = (t) => t * t * (3 - 2 * t);
-function noise1(x) {
-  const i = Math.floor(x), f = x - i;
-  return hash(i) + (hash(i + 1) - hash(i)) * sm(f);
-}
-function noise2(x, y) {
-  const ix = Math.floor(x), iy = Math.floor(y), fx = sm(x - ix), fy = sm(y - iy);
-  const a = hash2(ix, iy), b = hash2(ix + 1, iy), c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
-  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
-}
-function boil(t, rate = 12) {
-  return Math.floor(t * rate + 1e-6);
-}
+// src/index.js
+init_random();
 
 // src/core/time.js
 var clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;
@@ -609,6 +1505,9 @@ function ensureLazy(kind, name) {
   return !!registry[kind][name];
 }
 
+// src/core/video.js
+init_random();
+
 // src/core/timeline.js
 var Timeline = class {
   constructor() {
@@ -730,6 +1629,7 @@ function defaultVal(el2, k) {
 }
 
 // src/core/camera.js
+init_random();
 function normKeys(keys, W, H, o = {}) {
   const hold2 = o.hold === true;
   const raw = keys.map((k, i) => ({ k, i, t: +k.t || 0 })).sort((a, b) => a.t - b.t || a.i - b.i);
@@ -935,490 +1835,17 @@ function shotCamera(list2, o = {}) {
   };
 }
 
-// src/styles/geom.js
-var geom_exports = {};
-__export(geom_exports, {
-  arc: () => arc,
-  area: () => area,
-  bbox: () => bbox,
-  blob: () => blob,
-  capsule: () => capsule,
-  cloudScroll: () => cloudScroll,
-  ellipse: () => ellipse,
-  grass: () => grass,
-  hills: () => hills,
-  house: () => house,
-  peaks: () => peaks,
-  perimeter: () => perimeter,
-  polyD: () => polyD,
-  r1: () => r1,
-  rect: () => rect,
-  resample: () => resample,
-  rnd: () => rnd,
-  rotate: () => rotate,
-  scale: () => scale,
-  smoothD: () => smoothD,
-  spiral: () => spiral,
-  star: () => star,
-  strokeOutline: () => strokeOutline,
-  translate: () => translate,
-  tree: () => tree,
-  waves: () => waves,
-  wobble: () => wobble
-});
-var TAU = Math.PI * 2;
-var r1 = (x) => Math.round(x * 10) / 10;
-var rnd = (seed, i) => hash(seed * 7.31 + i * 1.618 + 0.5);
-function ellipse(cx, cy, rx, ry = rx, rot = 0, n = 28) {
-  const c = Math.cos(rot * Math.PI / 180), s2 = Math.sin(rot * Math.PI / 180), out = [];
-  for (let i = 0; i < n; i++) {
-    const a = i / n * TAU, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
-    out.push([cx + x * c - y * s2, cy + x * s2 + y * c]);
-  }
-  return out;
-}
-function capsule(x0, y0, r0, x1, y1, r1_, n = 10) {
-  const a = Math.atan2(y1 - y0, x1 - x0), out = [];
-  for (let i = 0; i <= n; i++) {
-    const t = a + Math.PI / 2 + i / n * Math.PI;
-    out.push([x0 + Math.cos(t) * r0, y0 + Math.sin(t) * r0]);
-  }
-  for (let i = 0; i <= n; i++) {
-    const t = a - Math.PI / 2 + i / n * Math.PI;
-    out.push([x1 + Math.cos(t) * r1_, y1 + Math.sin(t) * r1_]);
-  }
-  return out;
-}
-function blob(cx, cy, rx, ry = rx, seed = 1, k = 0.18, n = 30) {
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const a = i / n * TAU, r = 1 + k * (noise1(seed * 9.1 + Math.cos(a) * 1.3 + 4) - 0.5) * 2 + k * 0.5 * (noise1(seed * 3.3 + Math.sin(a) * 2.1) - 0.5);
-    out.push([cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r]);
-  }
-  return out;
-}
-var rect = (x, y, w, h3) => [[x, y], [x + w, y], [x + w, y + h3], [x, y + h3]];
-function star(cx, cy, r0, r1_, n = 5, rot = -90) {
-  const out = [];
-  for (let i = 0; i < n * 2; i++) {
-    const a = (rot + i * 180 / n) * Math.PI / 180, r = i % 2 ? r1_ : r0;
-    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-  }
-  return out;
-}
-var translate = (pts, dx, dy) => pts.map((p) => [p[0] + dx, p[1] + dy]);
-var scale = (pts, sx, sy = sx, cx = 0, cy = 0) => pts.map((p) => [cx + (p[0] - cx) * sx, cy + (p[1] - cy) * sy]);
-function rotate(pts, deg, cx = 0, cy = 0) {
-  const c = Math.cos(deg * Math.PI / 180), s2 = Math.sin(deg * Math.PI / 180);
-  return pts.map((p) => [cx + (p[0] - cx) * c - (p[1] - cy) * s2, cy + (p[0] - cx) * s2 + (p[1] - cy) * c]);
-}
-function bbox(pts) {
-  let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
-  for (const p of pts) {
-    a = Math.min(a, p[0]);
-    b = Math.min(b, p[1]);
-    c = Math.max(c, p[0]);
-    d = Math.max(d, p[1]);
-  }
-  return [a, b, c, d];
-}
-function area(pts) {
-  let s2 = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i], q = pts[(i + 1) % pts.length];
-    s2 += p[0] * q[1] - q[0] * p[1];
-  }
-  return s2 / 2;
-}
-function perimeter(pts, closed = true) {
-  let L = 0;
-  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
-    const p = pts[i], q = pts[(i + 1) % pts.length];
-    L += Math.hypot(q[0] - p[0], q[1] - p[1]);
-  }
-  return L;
-}
-function resample(pts, step = 6, closed = true) {
-  const L = perimeter(pts, closed), n = Math.max(closed ? 6 : 2, Math.round(L / step)), out = [];
-  const segs = [];
-  let acc = 0;
-  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
-    const p = pts[i], q = pts[(i + 1) % pts.length], l = Math.hypot(q[0] - p[0], q[1] - p[1]);
-    segs.push([p, q, acc, l]);
-    acc += l;
-  }
-  for (let k = 0; k < (closed ? n : n + 1); k++) {
-    const d = L * k / n;
-    let s2 = segs[segs.length - 1];
-    for (const g2 of segs) if (d <= g2[2] + g2[3]) {
-      s2 = g2;
-      break;
-    }
-    const u = s2[3] ? (d - s2[2]) / s2[3] : 0;
-    out.push([s2[0][0] + (s2[1][0] - s2[0][0]) * u, s2[0][1] + (s2[1][1] - s2[0][1]) * u]);
-  }
-  return out;
-}
-function wobble(pts, o = {}) {
-  const amp = o.amp != null ? o.amp : 0.9, step = o.step || 5, seed = o.seed || 1, closed = o.closed !== false;
-  const q = resample(pts, step, closed), m = q.length;
-  return q.map((p, i) => {
-    if (!closed && (i === 0 || i === m - 1)) return p;
-    const a = q[(i - 1 + m) % m], b = q[(i + 1) % m], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
-    const nick = rnd(seed * 3.1, i * 1.93) > 0.94 ? 1.9 : 1, k = amp * (rnd(seed * 13.7, i * 0.731) - 0.5) * 2 * nick;
-    return [p[0] - dy / l * k, p[1] + dx / l * k];
-  });
-}
-var polyD = (pts, closed = true) => pts.length ? "M" + pts.map((p) => r1(p[0]) + " " + r1(p[1])).join(" L") + (closed ? " Z" : "") : "";
-function smoothD(pts, closed = true, k = 1) {
-  const n = pts.length;
-  if (n < 3) return polyD(pts, closed);
-  const P2 = (i) => closed ? pts[(i + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
-  let d = `M${r1(pts[0][0])} ${r1(pts[0][1])}`;
-  for (let i = 0; i < (closed ? n : n - 1); i++) {
-    const p0 = P2(i - 1), p1 = P2(i), p2 = P2(i + 1), p3 = P2(i + 2);
-    d += ` C${r1(p1[0] + (p2[0] - p0[0]) / 6 * k)} ${r1(p1[1] + (p2[1] - p0[1]) / 6 * k)} ${r1(p2[0] - (p3[0] - p1[0]) / 6 * k)} ${r1(p2[1] - (p3[1] - p1[1]) / 6 * k)} ${r1(p2[0])} ${r1(p2[1])}`;
-  }
-  return d + (closed ? " Z" : "");
-}
-function strokeOutline(pts, w = 4, taper = true) {
-  const n = pts.length, L = [], R2 = [];
-  for (let i = 0; i < n; i++) {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
-    const u = n > 1 ? i / (n - 1) : 0.5, ww = (typeof w === "function" ? w(u) : w) / 2 * (taper ? Math.pow(Math.sin(Math.PI * Math.min(1, 0.06 + u * 0.9)), 0.7) : 1);
-    L.push([pts[i][0] - dy / l * ww, pts[i][1] + dx / l * ww]);
-    R2.push([pts[i][0] + dy / l * ww, pts[i][1] - dx / l * ww]);
-  }
-  return L.concat(R2.reverse());
-}
-function arc(a, b, bend = 0, n = 8) {
-  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, cx = mx - dy / l * bend, cy = my + dx / l * bend, out = [];
-  for (let i = 0; i <= n; i++) {
-    const u = i / n, v = 1 - u;
-    out.push([v * v * a[0] + 2 * u * v * cx + u * u * b[0], v * v * a[1] + 2 * u * v * cy + u * u * b[1]]);
-  }
-  return out;
-}
-function spiral(cx, cy, r0, turns = 1.5, grow = 0.5, rot = 0, dir = 1, n = 40) {
-  const out = [];
-  for (let i = 0; i <= n; i++) {
-    const u = i / n, a = rot + dir * u * turns * TAU, r = r0 * (1 - grow * u);
-    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-  }
-  return out;
-}
-function hills(x0, x1, top, amp, seed = 1, o = {}) {
-  const step = o.step || 16, freq = o.freq || 6e-3, base2 = o.base != null ? o.base : 760, out = [[x0, base2]];
-  for (let x = x0; x <= x1 + 0.1; x += step) {
-    const n = noise1(x * freq + seed * 17.3) * 0.7 + noise1(x * freq * 2.7 + seed * 5.1) * 0.3;
-    const peak = o.peaks ? Math.pow(Math.max(0, n), o.peaks) : n;
-    out.push([x, top + amp * (1 - 2 * peak)]);
-  }
-  out.push([x1, base2]);
-  return out;
-}
-function peaks(x0, x1, base2, hMin, hMax, n = 5, seed = 1) {
-  const out = [];
-  const w = (x1 - x0) / n;
-  for (let i = 0; i < n; i++) {
-    const cx = x0 + w * (i + 0.5) + (rnd(seed, i) - 0.5) * w * 0.4, h3 = hMin + (hMax - hMin) * rnd(seed + 3, i), ww = w * (0.55 + 0.4 * rnd(seed + 7, i));
-    const pts = [];
-    for (let k = 0; k <= 16; k++) {
-      const u = k / 16, a = Math.PI * u;
-      pts.push([cx - ww * Math.cos(a), base2 - h3 * Math.pow(Math.sin(a), 0.65) * (1 + 0.06 * Math.sin(a * 5 + i))]);
-    }
-    out.push({ cx, h: h3, pts: [[cx - ww, base2 + 40], ...pts, [cx + ww, base2 + 40]] });
-  }
-  return out;
-}
-function tree(x, y, h3, o = {}) {
-  const kind = o.kind || "round", seed = o.seed || 1, lean = o.lean || 0, tw = o.trunk || h3 * 0.07;
-  const top = [x + lean * h3, y - h3 * (kind === "pine" ? 0.95 : 0.62)];
-  const trunk = [[x - tw, y], [x - tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [top[0] - tw * 0.35, top[1]], [top[0] + tw * 0.35, top[1]], [x + tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [x + tw, y]];
-  const crown = [];
-  if (kind === "pine") {
-    for (let i = 0; i < 4; i++) {
-      const yy = y - h3 * (0.38 + i * 0.17), ww = h3 * (0.36 - i * 0.07);
-      crown.push([[x + lean * h3 * (0.4 + i * 0.15) - ww, yy + h3 * 0.05], [x + lean * h3 * (0.5 + i * 0.15), yy - h3 * 0.2], [x + lean * h3 * (0.4 + i * 0.15) + ww, yy + h3 * 0.05]]);
-    }
-  } else if (kind === "willow") {
-    crown.push(blob(top[0], top[1], h3 * 0.3, h3 * 0.2, seed, 0.22));
-    for (let i = 0; i < 5; i++) {
-      const sx = top[0] - h3 * 0.28 + i * h3 * 0.14;
-      crown.push(strokeOutline(arc([sx, top[1]], [sx - h3 * 0.05, top[1] + h3 * 0.45], 8), h3 * 0.05));
-    }
-  } else {
-    const n = o.lobes || 3;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n - 0.5) * 1.8, r = h3 * (0.26 + 0.06 * rnd(seed, i));
-      crown.push(blob(top[0] + Math.sin(a) * h3 * 0.22, top[1] - Math.cos(a) * h3 * 0.1 + h3 * 0.04, r, r * 0.85, seed + i, 0.14));
-    }
-  }
-  return { trunk, crown, top, kind };
-}
-function house(x, y, w, h3, o = {}) {
-  const kind = o.kind || "cottage", rh = h3 * (kind === "temple" ? 0.55 : 0.45), ov2 = w * 0.12, curl = kind === "temple" ? h3 * 0.12 : 0;
-  const walls = rect(x - w / 2, y - h3, w, h3);
-  const roof = kind === "flat" ? rect(x - w / 2 - ov2 * 0.3, y - h3 - h3 * 0.1, w + ov2 * 0.6, h3 * 0.1) : [[x - w / 2 - ov2, y - h3 + curl * 0.2], [x - w / 2 - ov2 - curl * 0.6, y - h3 - curl], [x - w / 2 - ov2 * 0.2, y - h3 - rh * 0.1], [x, y - h3 - rh], [x + w / 2 + ov2 * 0.2, y - h3 - rh * 0.1], [x + w / 2 + ov2 + curl * 0.6, y - h3 - curl], [x + w / 2 + ov2, y - h3 + curl * 0.2]];
-  const door = rect(x - w * 0.1, y - h3 * 0.55, w * 0.2, h3 * 0.55), win2 = rect(x + w * 0.18, y - h3 * 0.7, w * 0.18, h3 * 0.2), win22 = rect(x - w * 0.36, y - h3 * 0.7, w * 0.18, h3 * 0.2);
-  return { walls, roof, door, windows: [win2, win22] };
-}
-function waves(x0, x1, y, amp = 8, len2 = 90, phase = 0, base2 = 760, step = 8) {
-  const out = [[x0, base2]];
-  for (let x = x0; x <= x1 + 0.1; x += step) out.push([x, y + amp * Math.sin(x / len2 * TAU + phase) + amp * 0.4 * Math.sin(x / len2 * 2.3 * TAU + phase * 1.7)]);
-  out.push([x1, base2]);
-  return out;
-}
-function grass(x, y, h3 = 28, n = 5, seed = 1) {
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const dx = (i - (n - 1) / 2) * 5, lean = (i - (n - 1) / 2) * 0.22 + (rnd(seed, i) - 0.5) * 0.3, hh = h3 * (0.6 + 0.5 * rnd(seed + 2, i));
-    out.push(strokeOutline(arc([x + dx, y], [x + dx + lean * hh, y - hh], -lean * 6, 6), 4.2));
-  }
-  return out;
-}
-function cloudScroll(cx, cy, w, o = {}) {
-  const seed = o.seed || 1, h3 = w * 0.32, body = [];
-  const bumps = 4;
-  for (let i = 0; i <= bumps; i++) {
-    const u = i / bumps, x = cx - w / 2 + u * w;
-    const r = h3 * (0.55 + 0.35 * Math.sin(Math.PI * u)) * (0.9 + 0.2 * rnd(seed, i));
-    for (let k = 0; k <= 6; k++) {
-      const a = Math.PI + k / 6 * Math.PI;
-      body.push([x + Math.cos(a) * r * 0.6, cy + Math.sin(a) * r]);
-    }
-  }
-  body.push([cx + w / 2 + h3 * 0.2, cy + h3 * 0.25], [cx - w / 2 - h3 * 0.2, cy + h3 * 0.25]);
-  const curls = [spiral(cx - w / 2 + h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.1, -1), spiral(cx + w / 2 - h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.9, 1), spiral(cx - w * 0.08, cy - h3 * 0.45, h3 * 0.42, 1.1, 0.7, Math.PI * 0.5, 1)];
-  return { body, curls, h: h3 };
-}
+// src/core/scene.js
+init_strict();
 
-// src/styles/color.js
-var color_exports = {};
-__export(color_exports, {
-  hex2rgb: () => hex2rgb,
-  kmeans: () => kmeans,
-  luma: () => luma,
-  mix: () => mix,
-  nearest: () => nearest,
-  rgb2hex: () => rgb2hex,
-  rgba: () => rgba,
-  shade: () => shade
-});
-function hex2rgb(c) {
-  const s2 = String(c).trim();
-  let m = /^#([0-9a-f]{3})$/i.exec(s2);
-  if (m) return [...m[1]].map((ch) => parseInt(ch + ch, 16));
-  m = /^#([0-9a-f]{6})/i.exec(s2);
-  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
-  m = /rgba?\(([^)]+)\)/i.exec(s2);
-  if (m) return m[1].split(/[ ,/]+/).slice(0, 3).map(Number);
-  return [0, 0, 0];
-}
-var rgb2hex = (c) => "#" + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
-var mix = (a, b, t) => {
-  const A = hex2rgb(a), B4 = hex2rgb(b);
-  return rgb2hex(A.map((v, i) => v + (B4[i] - v) * t));
-};
-var shade = (c, k) => k >= 0 ? mix(c, "#ffffff", k) : mix(c, "#000000", -k);
-var luma = (c) => {
-  const [r, g2, b] = hex2rgb(c);
-  return (0.2126 * r + 0.7152 * g2 + 0.0722 * b) / 255;
-};
-function rgba(c, a) {
-  const [r, g2, b] = hex2rgb(c);
-  return `rgba(${r},${g2},${b},${a})`;
-}
-function nearest(c, palette) {
-  const A = hex2rgb(c);
-  let best = palette[0], bd = Infinity;
-  for (const p of palette) {
-    const B4 = hex2rgb(p), d = (A[0] - B4[0]) ** 2 * 0.3 + (A[1] - B4[1]) ** 2 * 0.59 + (A[2] - B4[2]) ** 2 * 0.11;
-    if (d < bd) {
-      bd = d;
-      best = p;
-    }
-  }
-  return best;
-}
-function kmeans(px4, k = 6, o = {}) {
-  let s2 = (o.seed || 7) >>> 0;
-  const R2 = () => (s2 = s2 * 1664525 + 1013904223 >>> 0) / 4294967296;
-  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
-  const C2 = [px4[Math.floor(R2() * px4.length)].slice()];
-  while (C2.length < k) {
-    const D = px4.map((p) => Math.min(...C2.map((c) => d2(p, c)))), tot = D.reduce((a, b) => a + b, 0) || 1;
-    let r = R2() * tot, i = 0;
-    for (; i < D.length - 1 && r > D[i]; i++) r -= D[i];
-    C2.push(px4[i].slice());
-  }
-  let lab = new Array(px4.length).fill(0);
-  for (let it = 0; it < (o.iter || 16); it++) {
-    lab = px4.map((p) => {
-      let bi = 0, bd = Infinity;
-      C2.forEach((c, j) => {
-        const d = d2(p, c);
-        if (d < bd) {
-          bd = d;
-          bi = j;
-        }
-      });
-      return bi;
-    });
-    const S2 = C2.map(() => [0, 0, 0, 0]);
-    px4.forEach((p, i) => {
-      const a = S2[lab[i]];
-      a[0] += p[0];
-      a[1] += p[1];
-      a[2] += p[2];
-      a[3]++;
-    });
-    S2.forEach((a, j) => {
-      if (a[3]) C2[j] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]];
-    });
-  }
-  const n = C2.map((_, j) => lab.filter((l) => l === j).length);
-  return C2.map((c, j) => ({ rgb: c.map(Math.round), hex: rgb2hex(c), share: n[j] / px4.length })).sort((a, b) => b.share - a.share);
-}
+// src/fx/apply.js
+init_strict();
 
-// src/styles/materials.js
-var holesD = (piece, f) => (piece.holes || []).map((h3) => " " + f(h3)).join("");
-var farCol = (piece, k = -0.16) => piece.far ? shade(piece.col, k) : piece.col;
-function svgDefs(v, id, inner) {
-  if (document.getElementById(id)) return;
-  const w = document.createElement("div");
-  w.innerHTML = `<svg id="${id}" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>${inner}</defs></svg>`;
-  (v.stage || document.body).appendChild(w.firstElementChild);
-}
-var lineOf = (piece, f = 1) => polyD(strokeOutline(piece.line, (piece.w || 3) * f, piece.taper !== false), true);
-var MATERIALS = {
-  // 剪纸: scissor-cut edges (seeded normal wobble), flat colour, ornaments cut out as holes (evenodd), lifted shadow
-  cut: {
-    label: "\u526A\u7EB8\uFF08\u526A\u5200\u6BDB\u8FB9 \xB7 \u5E73\u6D82 \xB7 \u9542\u7A7A \xB7 \u6295\u5F71\uFF09",
-    defs(v, P2) {
-      if (v && v.stage && window.vk) window.vk.gl.paperCut(v, { prefix: "pc", seed: P2.seed || 4, shadow: P2.shadow || [3, 5, 3, 0.35] });
-    },
-    group: (P2, kind) => kind === "char" ? 'filter="url(#pc-shadow)"' : kind === "layer" ? 'filter="url(#pc)"' : "",
-    paint(p, P2) {
-      const amp = P2.cutAmp != null ? P2.cutAmp : 0.9, W = (pts) => polyD(wobble(pts, { amp, step: p.step || 5, seed: p.seed || 1 }), true);
-      if (p.line) return `<path d="${W(strokeOutline(p.line, (p.w || 3) * 1.15))}" fill="${farCol(p)}"/>`;
-      const holes = (p.holes || []).concat(p.orn || []);
-      return `<path d="${W(p.pts)}${holes.map((h3) => " " + W(h3)).join("")}" fill="${farCol(p)}"${holes.length ? ' fill-rule="evenodd"' : ""}${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}"`
-  },
-  // 水墨: pale wash fill + wobbling brush outline (ink-line filter from vk.installInk)
-  ink: {
-    label: "\u6C34\u58A8\uFF08\u6DE1\u5F69\u6655\u67D3 + \u6BDB\u7B14\u52FE\u7EBF\uFF09",
-    defs(v, P2) {
-      if (v && v.stage && window.vk && !document.querySelector("#ink-line")) window.vk.installInk({ seed: P2.seed || 7 });
-    },
-    group: (P2, kind) => kind === "char" ? 'filter="url(#ink-wob)"' : "",
-    paint(p, P2) {
-      const ink = P2.ink || "#1f2529", paper2 = P2.paper || "#e4e5d8";
-      if (p.line) return `<path d="${lineOf(p, 1.25)}" fill="${ink}" opacity="${p.op != null ? p.op : 0.92}"/>`;
-      const wash = mix(farCol(p, -0.1), paper2, P2.wash != null ? P2.wash : 0.28), lw = p.role === "skin" || p.role === "eyeW" ? 1.8 : 2.6;
-      return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${wash}" fill-rule="evenodd" stroke="${ink}" stroke-width="${p.lw || lw}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${mix(col3, P2.paper || "#e4e5d8", 0.2)}" stroke="${P2.ink || "#1f2529"}" stroke-width="1.6" stroke-linejoin="round"`
-  },
-  // flat vector (product promo): clean smooth shapes, no outline, soft back-side shade
-  flat: {
-    label: "\u6241\u5E73\u77E2\u91CF\uFF08\u5E73\u6ED1\u5F62 \xB7 \u65E0\u63CF\u8FB9 \xB7 \u4FA7\u5149\uFF09",
-    defs() {
-    },
-    group: () => "",
-    paint(p, P2) {
-      if (p.line) return `<path d="${lineOf(p)}" fill="${p.col}"/>`;
-      return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.22)}" fill-rule="evenodd"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}"`
-  },
-  // 皮影: translucent dyed leather, dark tooled outline, carved ornaments (holes), multiply onto the lit screen
-  leather: {
-    label: "\u76AE\u5F71\uFF08\u534A\u900F\u660E\u67D3\u8272\u76AE \xB7 \u9542\u523B\u82B1\u7EB9 \xB7 \u80CC\u5149\uFF09",
-    defs(v) {
-      svgDefs(v, "vk-sp-defs", `<filter id="sp-leather" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".035 .09" numOctaves="3" seed="11" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 .35  0 0 0 0 .2  0 0 0 0 .08  0 0 0 -.9 .55" result="v"/><feComposite in="v" in2="SourceAlpha" operator="in" result="vv"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="vv"/></feMerge></filter>`);
-    },
-    group: (P2, kind) => kind === "char" ? 'filter="url(#sp-leather)" style="mix-blend-mode:multiply"' : kind === "layer" ? 'style="mix-blend-mode:multiply"' : "",
-    paint(p, P2) {
-      const line = P2.line || "#3a2112";
-      if (p.line) return `<path d="${lineOf(p, 1.1)}" fill="${line}"/>`;
-      const holes = (p.holes || []).concat(p.orn || []), d = polyD(p.pts, true) + holes.map((h3) => " " + polyD(h3, true)).join("");
-      return `<path d="${d}" fill="${farCol(p, -0.12)}" fill-opacity="${p.op != null ? p.op : P2.alpha || 0.8}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 2.2}" stroke-linejoin="round"/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}" fill-opacity=".75" stroke="${P2.line || "#3a2112"}" stroke-width="1.6"`
-  },
-  // 重彩装饰 (大闹天宫): saturated flat colour, bold dark contour, gilded ornaments
-  decor: {
-    label: "\u91CD\u5F69\u88C5\u9970\uFF08\u9971\u548C\u5E73\u6D82 \xB7 \u7C97\u58A8\u7EBF \xB7 \u63CF\u91D1\u7EB9\u6837\uFF09",
-    defs() {
-    },
-    group: () => "",
-    paint(p, P2) {
-      const line = P2.line || "#2a160e", gold = P2.gold || "#e9b949";
-      if (p.line) return `<path d="${lineOf(p, 1.15)}" fill="${line}"/>`;
-      let s2 = `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.14)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 3.2}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${gold}" stroke="${line}" stroke-width="1.1"/>`;
-      return s2;
-    },
-    dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#2a160e"}" stroke-width="2.4" stroke-linejoin="round"`
-  },
-  // 赛博霓虹: dark body, glowing coloured contour (SVG blur-merge glow in each stroke's own colour)
-  neon: {
-    label: "\u9713\u8679\u7EBF\u63CF\uFF08\u6697\u5E95 \xB7 \u53D1\u5149\u8F6E\u5ED3\uFF09",
-    defs(v) {
-      svgDefs(v, "vk-neon-defs", `<filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b1"/><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b2"/><feColorMatrix in="b2" type="matrix" values="1.6 0 0 0 0  0 1.6 0 0 0  0 0 1.6 0 0  0 0 0 1.4 0" result="b3"/><feMerge><feMergeNode in="b3"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
-    },
-    group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#neon-glow)"' : "",
-    paint(p, P2) {
-      const body = P2.body || "#07050f";
-      if (p.line) return `<path d="${polyD(p.line, false)}" fill="none" stroke="${p.col}" stroke-width="${(p.w || 3) * 0.8}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      const col3 = p.far ? mix(p.col, body, 0.35) : p.col;
-      let s2 = `<path d="${smoothD(p.pts, true)}" fill="${p.fill || body}" fill-opacity="${p.fillOp != null ? p.fillOp : 0.92}" stroke="${col3}" stroke-width="${p.lw || 2.6}" stroke-linejoin="round"/>`;
-      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="none" stroke="${col3}" stroke-width="1.3" opacity=".8"/>`;
-      return s2;
-    },
-    dyn: (P2, col3) => `fill="${P2.body || "#07050f"}" fill-opacity=".6" stroke="${col3}" stroke-width="2.4" stroke-linejoin="round"`
-  },
-  // 像素: flat fills + thick dark outline; the scene is pixelated by the pack's post filter (vk.style … post.pixel)
-  pixel: {
-    label: "\u50CF\u7D20\uFF08\u5E73\u6D82 + \u7C97\u63CF\u8FB9\uFF0C\u6574\u5E27\u50CF\u7D20\u5316\uFF09",
-    defs() {
-    },
-    group: () => "",
-    paint(p, P2) {
-      const line = P2.line || "#1a1c2c";
-      if (p.line) return `<path d="${lineOf(p, 1.6)}" fill="${line}"/>`;
-      return `<path d="${polyD(p.pts, true)}${holesD(p, (h3) => polyD(h3, true))}" fill="${farCol(p, -0.2)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 5}" stroke-linejoin="miter" paint-order="stroke"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#1a1c2c"}" stroke-width="4" paint-order="stroke"`
-  },
-  // 蜡笔绘本: waxy fill with paper tooth showing through, rough wobbly outline, boil (seed stepped by the pack)
-  crayon: {
-    label: "\u8721\u7B14\uFF08\u8721\u8D28\u9897\u7C92 \xB7 \u7EB8\u7EB9\u900F\u51FA \xB7 \u6296\u52A8\u63CF\u8FB9\uFF09",
-    defs(v, P2) {
-      svgDefs(v, "vk-cr-defs", `<filter id="cr-wax" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence type="fractalNoise" baseFrequency=".9 .12" numOctaves="2" seed="3" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -3.2 2.15" result="tooth"/><feComposite in="SourceGraphic" in2="tooth" operator="in" result="wax"/><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="2" seed="5" result="w"/><feDisplacementMap in="wax" in2="w" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter><filter id="cr-line" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence class="cr-boil" type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="2" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4.5" xChannelSelector="R" yChannelSelector="G"/></filter>`);
-    },
-    group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#cr-line)"' : "",
-    paint(p, P2) {
-      const line = P2.line || "#3b2a20";
-      if (p.line) return `<path d="${lineOf(p, 1.2)}" fill="${shade(p.col, -0.2)}" opacity=".9"/>`;
-      const col3 = farCol(p, -0.14), d = smoothD(p.pts, true) + holesD(p, (h3) => smoothD(h3, true));
-      let s2 = `<path d="${d}" fill="${col3}" fill-rule="evenodd" filter="url(#cr-wax)"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-      if (p.role !== "eye" && p.role !== "mouth" && p.role !== "pupil") s2 += `<path d="${smoothD(p.pts, true)}" fill="none" stroke="${p.outline || shade(col3, -0.42)}" stroke-width="${p.lw || 2.4}" stroke-linejoin="round" opacity=".85"/>`;
-      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${shade(col3, 0.35)}" filter="url(#cr-wax)"/>`;
-      return s2;
-    },
-    dyn: (P2, col3) => `fill="${col3}" stroke="${shade(col3, -0.4)}" stroke-width="2"`
-  }
-};
-var material = (id) => {
-  if (id && typeof id === "string" && !MATERIALS[id]) unknownName("materials", id, Object.keys(MATERIALS));
-  return MATERIALS[id] || MATERIALS.flat;
-};
+// src/meta/index.js
+init_materials();
 
 // src/authoring/themes.js
+init_strict();
 var SANS = '"Noto Sans SC","Noto Sans CJK SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif';
 var MONO = '"JetBrains Mono","Noto Sans Mono CJK SC",ui-monospace,Menlo,Consolas,"Noto Sans SC",monospace';
 var T = registry.themes;
@@ -1772,7 +2199,11 @@ function createRig(def) {
   return rig;
 }
 
+// src/fx/motion.js
+init_random();
+
 // src/fx/gl/math.js
+init_random();
 var clamp012 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
 var sm2 = (x) => {
   x = clamp012(x);
@@ -2035,6 +2466,8 @@ function ribbonPath(pts, w0 = 10, w1 = 3, o = {}) {
 var motion = { gait, cycle, travel, mouth, VISEMES, boilPoints, follow, spring: spring2, drag, ribbon, ribbonPath };
 
 // src/styles/puppet.js
+init_geom();
+init_materials();
 var NS = "http://www.w3.org/2000/svg";
 var f1 = (x) => Math.round(x * 10) / 10;
 var f3 = (x) => Math.round(x * 1e3) / 1e3;
@@ -2347,6 +2780,9 @@ function puppet(parent, o = {}) {
 var puppetBones = { BONES, IK, CLIPS, SOLE, HIP, HEAD_R };
 
 // src/styles/world.js
+init_geom();
+init_materials();
+init_color();
 var NS2 = "http://www.w3.org/2000/svg";
 var PLACES = ["mountain", "forest", "village", "river", "sea", "field", "city", "palace", "garden", "sky"];
 var TIMES = ["day", "dawn", "dusk", "night"];
@@ -2550,7 +2986,13 @@ function defaultGround(el2, ctx, paint2) {
   el2.innerHTML = paint2(list2);
 }
 
+// src/styles/index.js
+init_materials();
+init_color();
+init_geom();
+
 // src/styles/transitions.js
+init_random();
 var T2 = {};
 var px = (v) => v.toFixed(1) + "px";
 var poly = (pts) => `polygon(${pts.map((p) => px(p[0]) + " " + px(p[1])).join(",")})`;
@@ -2619,6 +3061,7 @@ function installStyleTransitions() {
 }
 
 // src/styles/index.js
+init_strict();
 var STYLES = {};
 var ROLES = ["world", "chars", "type", "motion", "sound", "fx"];
 var ROLE_ALIAS = { bg: "world", background: "world", world: "world", scene: "world", scenes: "world", chars: "chars", char: "chars", character: "chars", characters: "chars", type: "type", typography: "type", text: "type", title: "type", titles: "type", motion: "motion", camera: "motion", pacing: "motion", transitions: "motion", sound: "sound", audio: "sound", music: "sound", fx: "fx", effects: "fx" };
@@ -3985,6 +4428,7 @@ function mk(tag, cls, parent, html2) {
 }
 
 // src/authoring/formats.js
+init_strict();
 var F = registry.formats;
 F["16:9"] = { w: 1280, h: 720, safe: { top: 56, right: 80, bottom: 64, left: 80 }, captionBottom: 28, zones: [] };
 F["1080p"] = { w: 1920, h: 1080, safe: { top: 84, right: 120, bottom: 96, left: 120 }, captionBottom: 42, zones: [] };
@@ -4095,6 +4539,9 @@ html.vk-render,html.vk-render body{margin:0;padding:0;background:#000;overflow:h
 @media (prefers-color-scheme:dark){body{background:#080B14;color:#E7EBFA}.vk-controls button{background:#111729;color:#E7EBFA;border-color:#222A45}}`;
 }
 
+// src/audio/score.js
+init_random();
+
 // src/audio/synth.js
 var synth_exports = {};
 __export(synth_exports, {
@@ -4117,6 +4564,7 @@ __export(synth_exports, {
   wavBytes: () => wavBytes,
   woodfish: () => woodfish
 });
+init_random();
 var TAU3 = Math.PI * 2;
 var dbAmp = (db) => Math.pow(10, db / 20);
 function biquad(type, f, q = 0.707, sr = 48e3, gainDb = 0) {
@@ -4962,6 +5410,7 @@ __export(math_exports, {
   timecode: () => timecode,
   toggleKnob: () => toggleKnob
 });
+init_random();
 var TAU4 = Math.PI * 2;
 var P = (t, s2, d) => clamp01((t - s2) / (d || 1e-9));
 function parseShutter(v, fps = 30) {
@@ -5610,6 +6059,7 @@ async function bakeTile(svgMarkup, cssW, cssH, scale2 = 1) {
 }
 
 // src/core/video.js
+init_strict();
 var Q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
 var RENDER = Q.get("render") === "1";
 var Video = class {
@@ -6077,6 +6527,8 @@ var Video = class {
       __motionBlur: this.motionBlur,
       __strict: this.strict,
       __draft: this.draft,
+      __beats: this.beatsInfo(),
+      // beat/bar grid inside [0, duration] (vk studio draws it on the timeline)
       __qa: (t) => {
         if (t != null) this.render(t);
         return runQA(this);
@@ -6101,6 +6553,15 @@ var Video = class {
       this.ui = buildPreviewUI(this, Q);
     }, 0);
     return this;
+  }
+  // the beat grid as plain times (bpm / beats / bars inside the film) — read by `vk studio`; null without bpm/beats
+  beatsInfo() {
+    const g2 = this.beats, D = this.duration;
+    if (!g2 || !g2.active || !(D > 0) || !(g2.beat > 0)) return null;
+    const beats = [], bars = [];
+    for (let n = Math.ceil(g2.index(0) - 1e-6), t; beats.length < 4e3 && (t = g2.at(n)) <= D + 1e-6; n++) if (t >= -1e-6) beats.push(+t.toFixed(4));
+    for (let k = Math.ceil(g2.barIndex(0) - 1e-6), t; bars.length < 1e3 && (t = g2.measure(k)) <= D + 1e-6; k++) if (t >= -1e-6) bars.push(+t.toFixed(4));
+    return { bpm: +(+g2.bpm || 60 / g2.beat).toFixed(3), meter: g2.meter, beats, bars };
   }
   /* ---------------- render(t): pure ---------------- */
   render(t, frameT) {
@@ -6328,6 +6789,7 @@ function esc(s2) {
 }
 
 // src/authoring/node.js
+init_strict();
 function node(o, build, defFx) {
   o = o || {};
   const src = new Error();
@@ -6679,6 +7141,7 @@ FX2.morph = (el2, o, api) => {
 };
 
 // src/fx/text.js
+init_random();
 var FX3 = registry.fx;
 Object.assign(FX3, {
   fade: { from: { opacity: 0 }, to: { opacity: 1 } },
@@ -6939,6 +7402,7 @@ function scaleOf(el2) {
 }
 
 // src/fx/transitions.js
+init_random();
 var T3 = registry.transitions;
 var pct = (v) => (v * 100).toFixed(3) + "%";
 var focal2 = (c) => ({ x: c.o.x == null ? c.W / 2 : c.o.x <= 1 ? c.o.x * c.W : c.o.x, y: c.o.y == null ? c.H / 2 : c.o.y <= 1 ? c.o.y * c.H : c.o.y });
@@ -7597,6 +8061,7 @@ B2.table = (spec, o = {}) => node(o, function table(ctx) {
 }, null);
 
 // src/fx/textures.js
+init_random();
 var X = registry.textures;
 var ov = (cls = "") => {
   const e = document.createElement("div");
@@ -7726,6 +8191,7 @@ X.rgb = (v, o, host) => {
 };
 
 // src/fx/backgrounds.js
+init_random();
 var G2 = registry.backgrounds;
 var div = () => document.createElement("div");
 var col2 = (sc, v, name) => v || `var(--${name})`;
@@ -7803,6 +8269,7 @@ G2.noise = (sc, o, v) => {
 };
 
 // src/fx/lyrics.js
+init_random();
 var B3 = registry.blocks;
 var c01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
 var esc3 = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
@@ -7979,6 +8446,7 @@ function lyricVideo(vk2, o = {}) {
 }
 
 // src/fx/ink.js
+init_random();
 var INK = { paper: "#e4e5d8", paper2: "#d7dbcc", ink: "#1f2529", inkSoft: "#4c565b", seal: "#b5342a", sealInk: "#f6ece0", mist: "#f4f4ea" };
 var BRUSH = '"Ma Shan Zheng","STKaiti","KaiTi","Kaiti SC","Noto Serif SC",serif';
 var SERIF = '"Noto Serif SC","Songti SC","STSong","Noto Sans SC",serif';
@@ -8616,6 +9084,7 @@ void main(){
 }`;
 
 // src/fx/gl/particles.js
+init_random();
 var D2R2 = Math.PI / 180;
 var isR = (v) => Array.isArray(v) && v.length === 2 && typeof v[0] === "number";
 function particles(opts = {}) {
@@ -9442,1656 +9911,11 @@ var gl = {
   COPY
 };
 
-// styles/ink/style.json
-var style_default = {
-  id: "ink",
-  order: 1,
-  name: "\u6C34\u58A8",
-  en: "Ink wash",
-  description: "\u5BA3\u7EB8\u6C34\u58A8\uFF1A\u8FDC\u5C71\u6DE1\u58A8\u6655\u67D3\u3001\u8FD1\u666F\u6D53\u58A8\u52FE\u52D2\u3001\u7559\u767D\u4E0E\u96FE\u5E26\uFF0C\u6731\u7802\u5370\u7AE0\u3001\u7AD6\u6392\u6BDB\u7B14\u9898\u5B57\uFF0C\u53E4\u7434\u4E0E\u7AF9\u7B1B\u3002",
-  tags: ["chinese", "ink", "painterly", "calm"],
-  theme: "ink",
-  palette: {
-    sky0: "#e6e6da",
-    sky1: "#dfe0d1",
-    dusk0: "#e9dfcf",
-    dusk1: "#e3e2d4",
-    dawn0: "#e8e3d6",
-    dawn1: "#e2e3d6",
-    night0: "#cfd1c4",
-    night1: "#dcddd1",
-    sun: "#b5342a",
-    moon: "#f3f3e9",
-    star: "#9aa199",
-    cloud: "#f2f2e8",
-    far: "#a7aca3",
-    mid: "#6d7671",
-    near: "#3c4446",
-    trunk: "#262c2f",
-    leaf: "#39443f",
-    leaf2: "#56625b",
-    wall: "#ecebe0",
-    roof: "#353d40",
-    door: "#2b3134",
-    water: "#cdd3c9",
-    water2: "#b9c2b8",
-    ground: "#d3d4c5",
-    ground2: "#c3c6b6",
-    flower: "#b5342a",
-    ink: "#1f2529",
-    paper: "#e4e5d8",
-    accent: "#b5342a"
-  },
-  hues: {
-    skin: "#ead7bf",
-    black: "#22292c",
-    white: "#f4f2e8",
-    cream: "#e8e1cc",
-    red: "#b14a3c",
-    deepred: "#8c3a30",
-    gold: "#c9a24c",
-    yellow: "#d2b261",
-    blue: "#5d7a86",
-    green: "#5f7a66",
-    teal: "#4d6659",
-    brown: "#7a5a42",
-    orange: "#c27b4a",
-    pink: "#d39a90",
-    purple: "#76657a",
-    grey: "#8c918a",
-    ink: "#1f2529",
-    mouth: "#9a4a40",
-    cheek: "#d99a8a"
-  },
-  material: "ink",
-  P: { ink: "#1f2529", paper: "#e4e5d8", wash: 0.3, seed: 7, ornament: 0 },
-  video: { texture: { rice: { amount: 0.55, seed: 4, vignette: 0.24 } }, fadeOut: 0.8 },
-  transitions: { default: "ink:1.0", soft: "wash:1.2", strong: "ink:0.7", list: ["ink", "wash", "fade"] },
-  typography: { title: "vertical brush calligraphy (Ma Shan Zheng) + serif subtitle + red seal (vk.vtitle)", subtitle: "paper caption bar with seal-red rule (Noto Serif SC)", seal: "vk.seal, 2 characters", fonts: ["Ma Shan Zheng", "Noto Serif SC"] },
-  sound: {
-    voice: { voice: "zh-CN-YunxiNeural", rate: "-4%" },
-    sfx: { hit: [["woodfish", 0.8]], big: [["gong", 0.6, 110]], swish: [["whoosh", 0.4]], title: [["woodfish", 0.6]], step: [["drop", 0.12, 900]], pop: [["drop", 0.4]], transition: [["ripple", 0.4]] },
-    music: "guqin plucks on a pentatonic walk (D gong mode) + bamboo flute phrases, 66 bpm, lots of silence",
-    scoreOptions: { pad: [73.42, 110, 146.83], padGain: 0.012 }
-  },
-  pacing: { scene: 6, hold: 1.6, transition: 1, beat: "slow; let washes and mist breathe; one idea per shot" },
-  camera: { push: 0.02, punch: 0.06, establish: "extreme-wide", dialog: "medium-wide", action: "full", notes: "slow push-ins and lateral drifts like unrolling a scroll; avoid fast cuts" },
-  characters: { material: "ink", conventions: "pale colour washes inside a wobbling brush outline (ink-wob filter); faces simple, few details; no hard shadows" },
-  effects: { signature: "ink bloom: a brush stroke is written and bleeds into the paper (vk.gl.inkBleed)", list: ["inkBleed", "mist", "inkDrops"] },
-  demo: { setting: "mountain dawn pine", setting2: "river day willow", look: { hairStyle: "bun", cloth: "cream", cloth2: "cream", trim: "teal", pants: "grey", sash: "teal", scarf: "teal" }, title: "\u6C34\u58A8", sub: "Ink wash" },
-  qa: ["generous empty paper (\u7559\u767D): at least a third of the frame is plain paper", "far layers lighter and softer than near layers (aerial perspective)", "only one saturated accent (seal red)", "brush outlines wobble; nothing looks vector-perfect", "titles vertical, top-right or top-left, never centred over the subject"]
-};
-
-// styles/ink/style.js
-var style_default2 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  return {
-    install(v) {
-      vk2.installInk({ seed: 7 });
-    },
-    layerAttrs(name) {
-      return name === "far" ? 'filter="url(#ink-far)" opacity=".75"' : name === "mid" ? 'filter="url(#ink-wash)" opacity=".92"' : name === "props" || name === "ground" ? 'filter="url(#ink-line)"' : "";
-    },
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, S: st, style: style2 } = ctx, c = (r) => style2.colour(r, r);
-        let s2 = `<rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="${c("sky0")}"/>`;
-        if (st.time === "dusk" || st.time === "dawn" || st.props.includes("sun")) s2 += `<circle cx="${W * 0.74}" cy="${st.time === "dawn" ? 170 : 210}" r="44" fill="${c("sun")}" opacity=".85" filter="url(#ink-bleed)"/>`;
-        if (st.time === "night" || st.props.includes("moon")) s2 += `<circle cx="${W * 0.76}" cy="130" r="40" fill="none" stroke="${c("ink")}" stroke-width="2" opacity=".55" filter="url(#ink-line)"/>`;
-        el2.innerHTML = s2;
-      },
-      far(el2, ctx, paint2) {
-        const { W, gy0, seed, S: st } = ctx, tall = st.place === "mountain" ? 1 : 0.55;
-        el2.innerHTML = paint2([
-          ...G3.peaks(-80, W * 0.62, gy0 + 30, 220 * tall, 380 * tall, 3, seed + 1).map((p) => ({ pts: p.pts, role: "far", op: 0.7 })),
-          ...G3.peaks(W * 0.45, W + 80, gy0 + 30, 160 * tall, 300 * tall, 3, seed + 4).map((p) => ({ pts: p.pts, role: "far", op: 0.55 }))
-        ]);
-      },
-      mid(el2, ctx, paint2) {
-        const { W, gy0, seed, S: st } = ctx, tall = st.place === "mountain" ? 1 : 0.5;
-        el2.innerHTML = paint2([...G3.peaks(-60, W * 0.42, gy0 + 20, 90 * tall, 210 * tall, 2, seed + 7).map((p) => ({ pts: p.pts, role: "mid" })), { pts: G3.hills(W * 0.55, W + 60, gy0 - 70 * tall, 30, seed + 2, { base: gy0 + 30, freq: 8e-3 }), role: "mid", op: 0.8 }]);
-      }
-    },
-    decorate(sc, w, S2) {
-      sc.gl([vk2.gl.mist({ y: w.ctx.gy0 - 150, height: 80, speed: 14, density: 0.9, scale: 110, color: S2.colour("paper") })], { rect: [0, w.ctx.gy0 - 260, sc.video.W, 220] });
-    },
-    title(sc, text3, o = {}, S2) {
-      sc.add(vk2.vtitle(text3, { sub: o.sub, seal: o.seal || "\u58A8", at: o.at != null ? o.at : 0.3, out: o.out, size: o.size || ([...text3].length > 3 ? 96 : 120), pos: { x: o.x || (o.side === "right" ? sc.video.W - 96 - (o.size || ([...text3].length > 3 ? 96 : 120)) * 1.9 : 96), y: o.y || 58 }, sealSfx: o.sfx !== false }));
-      if (o.sfx !== false) S2.sfx(sc, "title", (o.at || 0.3) + 0.05);
-      return null;
-    },
-    // signature: an ink character is written top→bottom and bleeds into the paper beside the subject (vk.gl.inkBleed)
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), W = sc.video.W, txt2 = o.text || "\u58A8", size2 = o.size || 190;
-      const X2 = Math.min(W - size2 * 0.7, x + 230), Y = 70, n = [...txt2].length;
-      sc.gl([vk2.gl.inkBleed({ src: vk2.gl.text(txt2, { x: X2, y: Y, size: size2, vertical: true }), at, draw: 0.7, dur: 2.4, spread: 14, haloEnd: 0.2, density: 0.93, wipe: { dir: "down", dur: 0.6 }, seed: 5 })], { fixed: true, zIndex: 15, rect: [X2 - size2 * 0.75, Y - 30, size2 * 1.5, size2 * n * 1.08 + 60] });
-      if (o.sfx !== false) {
-        S2.sfx(sc, "swish", at);
-        S2.sfx(sc, "big", at + 0.3);
-      }
-      return null;
-    },
-    music(v, o = {}) {
-      const N = vk2.style.scaleNotes(146.83, vk2.style.SCALES.penta, 3);
-      return vk2.style.bed(v, { bpm: 66, gain: o.gain != null ? o.gain : 0.8, seed: 5, fadeIn: 0.1, tracks: [
-        { voice: "pluck", steps: "x.....x...x.....", notes: N.slice(2, 12), walk: true, rest: 0.25, gain: 0.55 },
-        { voice: "flute", steps: "........x.......", notes: N.slice(7, 14), walk: true, rest: 0.5, gain: 0.35, from: 1 },
-        { voice: "woodfish", steps: "x...............", gain: 0.18 }
-      ] });
-    }
-  };
-};
-
-// styles/papercut/style.json
-var style_default3 = {
-  id: "papercut",
-  order: 2,
-  name: "\u526A\u7EB8",
-  en: "Paper-cut (Shanghai Animation Film Studio)",
-  description: "\u4E0A\u7F8E\u5382\u526A\u7EB8\u7247\uFF1A\u5F69\u7EB8\u5C42\u5C42\u53E0\u8D34\uFF0C\u526A\u5200\u6BDB\u8FB9\u3001\u9542\u7A7A\u7EB9\u6837\u3001\u7EB8\u7247\u6295\u5F71\uFF0C\u5BA3\u7EB8\u5E95\u8272\uFF0C\u9523\u9F13\u70B9\u914D\u4E50\u3002",
-  tags: ["chinese", "paper", "flat", "folk"],
-  theme: {
-    extends: "ink",
-    label: "\u526A\u7EB8\uFF08\u5BA3\u7EB8\u5E95 \xB7 \u6731\u7EA2 \xB7 \u9A6C\u5584\u653F\u6BDB\u7B14\u5B57\uFF09",
-    modes: { light: { bg: "#e9dfc8", fg: "#2a1d17", muted: "#5a4636", surface: "#f2e9d4", line: "#b9a382", accent: "#c0392b", accent2: "#2f5d50", onAccent: "#fbf3e2" } },
-    caption: { bg: "rgba(242,233,212,.92)", fg: "#2a1d17", karaoke: "#c0392b", border: ".14em solid #c0392b" }
-  },
-  palette: {
-    sky0: "#efe4c9",
-    sky1: "#e6d6b2",
-    dusk0: "#f0c9a0",
-    dusk1: "#e9dcc0",
-    dawn0: "#f3d9b8",
-    dawn1: "#ece2c8",
-    night0: "#2b3346",
-    night1: "#4a5266",
-    sun: "#c9332a",
-    moon: "#f4ead2",
-    star: "#f4ead2",
-    cloud: "#f7f0de",
-    far: "#a9b59a",
-    mid: "#6f8a63",
-    trunk: "#5b3a24",
-    leaf: "#3f6b4a",
-    leaf2: "#5d8a54",
-    wall: "#e9d7b0",
-    roof: "#2f3a3c",
-    door: "#7a2a1e",
-    water: "#7fa8a0",
-    water2: "#a9c7bd",
-    ground: "#b99a62",
-    ground2: "#9a7a48",
-    flower: "#c9332a",
-    accent: "#c0392b",
-    ink: "#2a1d17",
-    paper: "#e9dfc8"
-  },
-  hues: {
-    skin: "#efc9a0",
-    black: "#2a1d17",
-    white: "#fbf3e2",
-    cream: "#f2e2bf",
-    red: "#c0392b",
-    deepred: "#8e2a22",
-    gold: "#d9a43c",
-    yellow: "#e3b341",
-    blue: "#2f5d7c",
-    green: "#3f6b4a",
-    teal: "#2f5d50",
-    brown: "#6b4429",
-    orange: "#d4692b",
-    pink: "#e38a8a",
-    purple: "#6b3f6b",
-    grey: "#7d7466",
-    ink: "#2a1d17",
-    mouth: "#8e2a22",
-    cheek: "#e0786a"
-  },
-  material: "cut",
-  P: { cutAmp: 0.9, seed: 4, shadow: [3, 5, 3, 0.35], ornament: 1, line: "#2a1d17" },
-  video: { texture: { rice: { amount: 0.42, seed: 23, vignette: 0.24 } }, fadeOut: 0.6 },
-  transitions: { default: "tear:0.8", soft: "wash:0.9", strong: "tear:0.6", list: ["tear", "wash", "ink", "iris"] },
-  typography: {
-    title: "brush calligraphy on a red cut-paper banner, gold cut edge",
-    subtitle: "theme caption bar: paper with a red left rule (Noto Serif SC)",
-    seal: "red square seal, 2\xD72 characters",
-    fonts: ["Ma Shan Zheng", "Noto Serif SC"]
-  },
-  sound: {
-    voice: { voice: "zh-CN-YunjianNeural", rate: "+4%", pitch: "-2Hz" },
-    sfx: { hit: [["op-bangu", 1], ["op-naoMute", 0.7]], big: [["op-daluo", 0.8], ["op-nao", 0.6]], swish: [["rustle", 0.8]], title: [["op-daluo", 0.7], ["op-nao", 0.5]], step: [["bangzi", 0.25]], pop: [["op-xiaoluo", 0.6]], transition: [["rustle", 0.6]] },
-    music: "\u9523\u9F13\u7ECF (\u677F\u9F13 + \u5C0F\u9523 + \u94D9\u94B9) at 96 bpm, sparse; \u5927\u9523 on titles",
-    scoreOptions: { pad: [73.42, 110, 146.83], padGain: 0.01 }
-  },
-  pacing: { scene: 5, hold: 1, transition: 0.8, beat: "action lands on a \u9523\u9F13 hit; holds before strikes" },
-  camera: { push: 0.015, punch: 0.12, establish: "wide", dialog: "medium", action: "medium-wide", notes: "slow pushes; punch-in on hits; mostly side-on staging (paper layers read in profile)" },
-  characters: { material: "cut", conventions: "profile view, flat paper pieces jointed at the limbs (rig = separate cut pieces), cut-out ornaments on robes, lifted drop shadow, black-paper hair, rosy cheek patch" },
-  effects: { signature: "paper confetti burst (cut-paper flakes) + lifted shadow pop", list: ["burst", "petals", "stamp"] },
-  demo: { setting: "mountain dusk pine", setting2: "village day", look: { hairStyle: "twinbuns", cloth: "red", cloth2: "deepred", trim: "gold", pants: "teal", sash: "gold", scarf: "gold" }, title: "\u526A\u7EB8", sub: "Paper-cut" },
-  qa: ["edges show scissor wobble (no perfectly smooth vectors)", "every character piece has the lifted paper shadow", "no gradients on character pieces (flat paper colour only)", "joints overlap (no gaps between cut pieces when limbs bend)", "rice-paper grain visible on the background", "red seal/banner contrast readable over the background"]
-};
-
-// styles/papercut/style.js
-var style_default4 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  return {
-    install(v, S2, role) {
-    },
-    // clouds as cut paper scrolls (祥云-like curls) in the sky
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, S: st, style: style2 } = ctx, c = (r2) => style2.colour(r2, r2), M = vk2.style.material("cut"), P2 = style2.P;
-        const [a, b] = st.time === "night" ? [c("night0"), c("night1")] : st.time === "dusk" ? [c("dusk0"), c("dusk1")] : [c("sky0"), c("sky1")];
-        let s2 = `<rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="${b}"/><rect x="-60" y="-60" width="${W + 120}" height="${H * 0.45}" fill="${a}" opacity=".85"/>`;
-        const night = st.time === "night", sx = W * 0.76, sy = st.time === "day" ? 140 : 210, r = night ? 52 : 74;
-        s2 += `<g filter="url(#pc)">` + M.paint({ pts: G3.ellipse(sx, sy, r, r, 0, 56), holes: [G3.ellipse(sx, sy, r - 12, r - 12, 0, 50)], col: night ? c("moon") : c("sun"), seed: 3 }, P2) + M.paint({ pts: G3.ellipse(sx, sy, r - 20, r - 20, 0, 48), col: night ? c("moon") : c("sun"), seed: 5 }, P2);
-        [[210, 120, 1], [560, 80, 0.8], [1010, 300, 0.7]].forEach(([x, y, k], i) => {
-          s2 += M.paint({ pts: G3.blob(x, y, 96 * k, 24 * k, 7 + i, 0.18), holes: [G3.ellipse(x - 30 * k, y, 14 * k, 6 * k, 0, 14), G3.ellipse(x + 26 * k, y + 2, 10 * k, 5 * k, 0, 12)], col: c("cloud"), seed: 11 + i }, P2);
-        });
-        el2.innerHTML = s2 + "</g>";
-      }
-    },
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.2), px4 = sc.video.px, red = S2.colour("red"), gold = S2.colour("gold");
-      const w = Math.max(320, String(text3).length * 118 + 120), h3 = 150;
-      const svg3 = K.svgLayer(sc, { fixed: true, z: 20 }), M = vk2.style.material("cut"), P2 = S2.charView.P;
-      const g2 = K.svgEl(svg3, "g", { filter: "url(#pc-shadow)" });
-      const ban = [[-w / 2, -h3 / 2], [w / 2, -h3 / 2], [w / 2 - 26, 0], [w / 2, h3 / 2], [-w / 2, h3 / 2], [-w / 2 + 26, 0]];
-      g2.innerHTML = M.paint({ pts: G3.scale(ban, 1.04, 1.1), col: gold, seed: 2 }, P2) + M.paint({ pts: ban, col: red, seed: 3, holes: [G3.rect(-w / 2 + 40, -h3 / 2 + 12, w - 80, 4), G3.rect(-w / 2 + 40, h3 / 2 - 16, w - 80, 4)] }, P2) + `<text x="0" y="${o.sub ? 6 : 30}" text-anchor="middle" font-family="Ma Shan Zheng, Noto Serif SC, serif" font-size="${o.size || 96}" fill="#fbf3e2" letter-spacing="8">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="56" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="700" font-size="24" fill="#f2d79a" letter-spacing="6">${K.esc(o.sub)}</text>` : "");
-      sc.on((l) => {
-        const u = K.ease.back(K.prog(l, p.at, 0.55)), a = K.win(l, p.at, 0.2, p.out, 0.4);
-        K.attr(g2, "transform", `translate(${p.x} ${p.y}) rotate(${(-4 * (1 - u)).toFixed(2)}) scale(${(0.4 + 0.6 * u).toFixed(3)})`);
-        K.attr(g2, "opacity", a.toFixed(3));
-      });
-      if (o.sfx !== false) S2.sfx(sc, "title", p.at + 0.1);
-      return g2;
-    },
-    // signature: cut-paper confetti burst (red / gold / cream flakes), with 大锣
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0;
-      K.burst(sc, { at, x: o.x || 640, y: o.y || 300, n: 54, shape: "petal", colors: [S2.colour("red"), S2.colour("gold"), S2.colour("cream"), S2.colour("deepred")], color2: S2.colour("red"), speed: [260, 680], gravity: 520, drag: 1.4, life: [1.4, 2.2], size: [12, 22], sway: 18 });
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    // 锣鼓经: 板鼓 roll-in, 小锣 on the off-beats, 铙钹 accents, sparse
-    music(v, o = {}) {
-      return vk2.style.bed(v, { bpm: 96, gain: o.gain != null ? o.gain : 0.7, seed: 3, fadeIn: 0.2, tracks: [
-        { voice: "op-bangu", steps: "x.x.x...x...x.o.", gain: 0.45 },
-        { voice: "op-xiaoluo", steps: "....x.......x...", gain: 0.5 },
-        { voice: "op-naoMute", steps: "..........x.....", gain: 0.5 },
-        { voice: "op-tanggu", steps: "x...............", gain: 0.5 }
-      ] });
-    }
-  };
-};
-
-// styles/shadow/style.json
-var style_default5 = {
-  id: "shadow",
-  order: 3,
-  name: "\u76AE\u5F71",
-  en: "Shadow puppet",
-  description: "\u76AE\u5F71\u620F\uFF1A\u6CB9\u706F\u7167\u4EAE\u7684\u5E55\u5E03\uFF0C\u534A\u900F\u660E\u67D3\u8272\u9A74\u76AE\u4EBA\u7269\u3001\u9542\u523B\u82B1\u7EB9\u3001\u64CD\u7EB5\u7B7E\u5B50\uFF0C\u706F\u706B\u5FAE\u98A4\uFF1B\u6886\u5B50\u4E0E\u9523\u9F13\u3002",
-  tags: ["chinese", "folk", "theatre", "backlit"],
-  theme: {
-    extends: "ink",
-    label: "\u76AE\u5F71\uFF08\u6696\u5149\u5E55\u5E03 \xB7 \u8D6D\u7EA2 \xB7 \u6BDB\u7B14\u5B57\uFF09",
-    modes: { light: { bg: "#2a1408", fg: "#f6dfb4", muted: "#d9b98a", surface: "#3a1d0c", line: "#7a4a22", accent: "#d9482b", accent2: "#e9b04a", onAccent: "#fff3dc" } },
-    mode: "light",
-    caption: { bg: "rgba(30,14,6,.82)", fg: "#f6dfb4", karaoke: "#e9b04a", border: ".14em solid #d9482b" }
-  },
-  palette: {
-    screen: "#f3c77a",
-    screen2: "#e39a45",
-    edge: "#2a1206",
-    sky0: "#f3c77a",
-    sky1: "#e39a45",
-    dusk0: "#f0b866",
-    dusk1: "#d9843a",
-    night0: "#d9a45a",
-    night1: "#a8632a",
-    dawn0: "#f3cf8a",
-    dawn1: "#e3a352",
-    sun: "#d9482b",
-    moon: "#f8e6bd",
-    star: "#7a3a18",
-    cloud: "#7a3a18",
-    far: "#a8582a",
-    mid: "#7a3a18",
-    trunk: "#4a2410",
-    leaf: "#3f6b3a",
-    leaf2: "#8a3a1e",
-    wall: "#c76a2a",
-    roof: "#3a2412",
-    door: "#8a2a14",
-    water: "#5a7a6a",
-    water2: "#7a9a8a",
-    ground: "#3a1d0c",
-    ground2: "#2a1206",
-    flower: "#c0301e",
-    ink: "#2a1206",
-    accent: "#d9482b",
-    paper: "#f3c77a"
-  },
-  hues: {
-    skin: "#f0c890",
-    black: "#2a1206",
-    white: "#f8e6bd",
-    cream: "#f0d49a",
-    red: "#c8321e",
-    deepred: "#8a1e12",
-    gold: "#e9a830",
-    yellow: "#f0c040",
-    blue: "#2a5a8a",
-    green: "#2f7a4a",
-    teal: "#1f6a6a",
-    brown: "#6a3a1a",
-    orange: "#e0702a",
-    pink: "#d86a6a",
-    purple: "#6a2a6a",
-    grey: "#6a5a4a",
-    ink: "#2a1206",
-    mouth: "#8a1e12",
-    cheek: "#d0503a"
-  },
-  material: "leather",
-  P: { alpha: 0.82, line: "#3a1a08", ornament: 1 },
-  video: { texture: { grain: { amount: 0.07 }, vignette: { amount: 0.5 } }, fadeOut: 0.8 },
-  transitions: { default: "lamp:0.9", soft: "fade:0.6", strong: "lamp:0.6", list: ["lamp", "fade", "iris"] },
-  typography: { title: "carved leather plaque: red dyed hide with tooled border, brush characters cut out (light shows through)", subtitle: "dark translucent bar, warm cream text", seal: "carved red hide roundel", fonts: ["Ma Shan Zheng", "Noto Serif SC"] },
-  sound: {
-    voice: { voice: "zh-CN-YunyeNeural", rate: "+0%" },
-    sfx: { hit: [["bangzi", 1], ["op-naoMute", 0.6]], big: [["op-daluo", 0.7], ["op-nao", 0.5]], swish: [["rustle", 0.7]], title: [["bangzi", 0.9], ["op-xiaoluo", 0.6]], step: [["bangzi", 0.25, 1500]], pop: [["op-xiaoluo", 0.5]], transition: [["op-tanggu", 0.5]] },
-    music: "\u79E6\u8154-style \u6886\u5B50 ostinato + \u5C0F\u9523 + \u5802\u9F13 at 104 bpm; \u5927\u9523 on titles",
-    scoreOptions: { pad: [98, 146.83, 196], padGain: 0.01 }
-  },
-  pacing: { scene: 5, hold: 1, transition: 0.9, beat: "puppets move in bursts on the \u6886\u5B50; stillness between" },
-  camera: { push: 0, punch: 0.05, establish: "full", dialog: "full", action: "full", notes: "the screen is a stage: mostly locked-off full shots; gentle punch-ins only (puppets are flat against the screen)" },
-  characters: { material: "leather", conventions: "strict profile, translucent dyed hide pieces with dark tooled outlines and carved holes, rivets at joints, control rods from the neck and hands to below the frame" },
-  effects: { signature: "lamp flare: the lamp flickers up and a carved rosette spins onto the screen", list: ["flare", "rosette", "smoke"] },
-  demo: { setting: "village night", setting2: "garden night", look: { hairStyle: "cap", hair: "black", cloth: "red", cloth2: "gold", trim: "green", pants: "blue", shoe: "black", sash: "gold" }, title: "\u76AE\u5F71", sub: "Shadow puppet" },
-  qa: ["screen glows warm in the centre and falls off to the edges (lamp)", "puppet colours are translucent (background light shows through)", "carved holes visible on costume pieces", "control rods visible, never crossing the face", "no camera moves that reveal the screen edge"]
-};
-
-// styles/shadow/style.js
-var style_default6 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  const flick = (t) => 1 + 0.035 * Math.sin(t * 7.3) + 0.025 * Math.sin(t * 13.1 + 1) + 0.02 * (vk2.noise1(t * 6) - 0.5);
-  return {
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, style: style2, S: st } = ctx, c = (r) => style2.colour(r, r), id = "sp-scr-" + ctx.sc.index;
-        const a = st.time === "night" ? c("night0") : c("screen"), b = st.time === "night" ? c("night1") : c("screen2");
-        el2.innerHTML = `<defs><radialGradient id="${id}" cx=".5" cy=".46" r=".72"><stop offset="0" stop-color="#fff2cc"/><stop offset=".35" stop-color="${a}"/><stop offset=".8" stop-color="${b}"/><stop offset="1" stop-color="${c("edge")}"/></radialGradient></defs>
-          <rect x="-80" y="-80" width="${W + 160}" height="${H + 160}" fill="url(#${id})"/>`;
-        if (st.time === "night" || st.props.includes("moon")) {
-          const M = vk2.style.material("leather");
-          el2.innerHTML += `<g style="mix-blend-mode:multiply">${M.paint({ pts: G3.ellipse(W * 0.78, 130, 44, 44, 0, 40), holes: [G3.ellipse(W * 0.78 + 16, 122, 36, 38, 0, 36)], col: c("moon"), seed: 2 }, ctx.style.P)}</g>`;
-        }
-      },
-      far(el2, ctx, paint2) {
-        const { W, gy0, seed } = ctx, holes = [];
-        for (let i = 0; i < 18; i++) holes.push(G3.ellipse(40 + i * 72, gy0 - 50 - 14 * Math.sin(i), 16, 6, 10, 12));
-        el2.innerHTML = paint2([{ pts: G3.hills(-60, W + 60, gy0 - 120, 34, seed + 2, { base: gy0 + 10, freq: 6e-3 }), role: "far", holes, op: 0.5 }]);
-      },
-      mid: false,
-      ground(el2, ctx, paint2) {
-        const { W, H, gy0, style: style2 } = ctx, c = (r) => style2.colour(r, r), holes = [];
-        for (let i = 0; i < 26; i++) holes.push(G3.rect(18 + i * 50, gy0 + 22, 28, 8));
-        el2.innerHTML = paint2([{ pts: [[-60, gy0 + 4], [W + 60, gy0 + 4], [W + 60, H + 60], [-60, H + 60]], role: "ground", holes, op: 0.95 }]);
-      }
-    },
-    worldOptions: { flat: true },
-    // lamp flicker on the whole screen + soft focus breathing
-    decorate(sc, w) {
-      const el2 = w.sky;
-      sc.on((l) => K.css(el2, "filter", `brightness(${flick(sc.start + l).toFixed(3)})`));
-    },
-    // control rods: neck rod + near-hand rod, dark thin sticks to below the frame
-    charAfter(p, S2) {
-      const NS4 = "http://www.w3.org/2000/svg", g2 = document.createElementNS(NS4, "g");
-      g2.setAttribute("class", "sp-rods");
-      p.g.appendChild(g2);
-      g2.innerHTML = '<path stroke="#2a1206" stroke-width="3" stroke-linecap="round" fill="none" opacity=".85"/><path stroke="#2a1206" stroke-width="2.6" stroke-linecap="round" fill="none" opacity=".8"/>';
-      const [a, b] = g2.children, render = p.render;
-      p.render = (t, s2 = {}) => {
-        const R2 = render(t, s2);
-        if (!R2) return R2;
-        const n = p.pointAt(R2, "chest", -6, -60), h3 = p.pointAt(R2, "handN", 0, 16), y = 900;
-        K.attr(a, "d", `M${n[0].toFixed(1)} ${n[1].toFixed(1)} L${(n[0] - 40 * R2.dir).toFixed(1)} ${y}`);
-        K.attr(b, "d", `M${h3[0].toFixed(1)} ${h3[1].toFixed(1)} L${(h3[0] + 60 * R2.dir).toFixed(1)} ${y}`);
-        return R2;
-      };
-    },
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.2), M = vk2.style.material("leather"), P2 = S2.charView.P;
-      const w = Math.max(300, String(text3).length * 120 + 110), h3 = 150, svg3 = K.svgLayer(sc, { fixed: true, z: 20 });
-      const g2 = K.svgEl(svg3, "g", { style: "mix-blend-mode:multiply", filter: "url(#sp-leather)" });
-      const orn = [];
-      for (let i = 0; i < 9; i++) orn.push(G3.star(-w / 2 + 34 + i * (w - 68) / 8, -h3 / 2 + 18, 7, 3, 4), G3.star(-w / 2 + 34 + i * (w - 68) / 8, h3 / 2 - 18, 7, 3, 4));
-      g2.innerHTML = M.paint({ pts: G3.blob(0, 0, w / 2, h3 / 2, 5, 0.04, 60), col: S2.colour("red"), holes: orn, seed: 2 }, P2) + `<text x="0" y="${o.sub ? 10 : 34}" text-anchor="middle" font-family="Ma Shan Zheng, serif" font-size="${o.size || 100}" fill="#fff6dd" stroke="#3a1a08" stroke-width="2.5" paint-order="stroke" letter-spacing="10">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="52" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="700" font-size="22" fill="#fff0c8" letter-spacing="6">${K.esc(o.sub)}</text>` : "");
-      sc.on((l) => {
-        const u = K.ease.out(K.prog(l, p.at, 0.6)), a = K.win(l, p.at, 0.3, p.out, 0.4);
-        K.attr(g2, "transform", `translate(${p.x} ${p.y}) rotate(${(3 * Math.sin(l * 2.1) * (1 - u * 0.7)).toFixed(2)})`);
-        K.attr(g2, "opacity", a.toFixed(3));
-        K.css(svg3, "filter", u < 1 ? `blur(${(6 * (1 - u)).toFixed(2)}px)` : "none");
-      });
-      if (o.sfx !== false) S2.sfx(sc, "title", p.at + 0.1);
-      return g2;
-    },
-    // signature: lamp flare (screen flashes warm) + carved rosette spinning onto the screen
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), M = vk2.style.material("leather"), P2 = S2.charView.P;
-      const svg3 = K.svgLayer(sc, { fixed: true, z: 14 });
-      const fl = K.svgEl(svg3, "rect", { x: 0, y: 0, width: sc.video.W, height: sc.video.H, fill: "#fff1c4", opacity: 0, style: "mix-blend-mode:screen" });
-      const g2 = K.svgEl(svg3, "g", { style: "mix-blend-mode:multiply" });
-      const holes = [];
-      for (let i = 0; i < 8; i++) {
-        const a = i / 8 * Math.PI * 2;
-        holes.push(G3.ellipse(Math.cos(a) * 52, Math.sin(a) * 52, 14, 7, i * 45, 14));
-      }
-      holes.push(G3.star(0, 0, 22, 9, 6));
-      g2.innerHTML = M.paint({ pts: G3.star(0, 0, 96, 70, 12), col: S2.colour("gold"), holes, seed: 4 }, P2) + M.paint({ pts: G3.ellipse(0, 0, 14, 14, 0, 16), col: S2.colour("red"), seed: 5 }, P2);
-      sc.on((l) => {
-        const u = K.prog(l, at, 0.7), e = K.ease.back(u);
-        K.attr(fl, "opacity", (0.3 * Math.max(0, 1 - Math.abs(l - at - 0.05) / 0.35)).toFixed(3));
-        K.attr(g2, "opacity", K.win(l, at, 0.15, at + 1.4, 0.4).toFixed(3));
-        K.attr(g2, "transform", `translate(${Math.min(sc.video.W - 120, x + 190).toFixed(1)} ${Math.max(130, y).toFixed(1)}) rotate(${(-200 * (1 - e) + 20 * l).toFixed(1)}) scale(${(0.2 + 0.8 * e).toFixed(3)})`);
-      });
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    music(v, o = {}) {
-      return vk2.style.bed(v, { bpm: 104, gain: o.gain != null ? o.gain : 0.7, seed: 7, fadeIn: 0.1, tracks: [
-        { voice: "bangzi", steps: "x..x..x.x..x..x.", gain: 0.5, notes: [1150, 1150, 1300] },
-        { voice: "op-tanggu", steps: "x.......x.......", gain: 0.45 },
-        { voice: "op-xiaoluo", steps: "....x.......x...", gain: 0.35 },
-        { voice: "flute", steps: "x.......x.......", notes: vk2.style.scaleNotes(392, vk2.style.SCALES.penta, 2), walk: true, rest: 0.4, gain: 0.25, from: 1 }
-      ] });
-    }
-  };
-};
-
-// styles/opera/style.json
-var style_default7 = {
-  id: "opera",
-  order: 4,
-  name: "\u91CD\u5F69\u88C5\u9970",
-  en: "Decorative opera colour (Havoc in Heaven)",
-  description: "\u300A\u5927\u95F9\u5929\u5BAB\u300B\u5F0F\u91CD\u5F69\u88C5\u9970\uFF1A\u77F3\u9752\u77F3\u7EFF\u4E0E\u6731\u7EA2\u91D1\u9EC4\u7684\u9971\u548C\u5E73\u6D82\u3001\u7C97\u58A8\u7EBF\u3001\u63CF\u91D1\u7EB9\u6837\u3001\u5C42\u53E0\u7965\u4E91\u4E0E\u5929\u5BAB\u6BBF\u5B87\uFF0C\u533E\u989D\u9898\u5B57\uFF0C\u4EAC\u5267\u9523\u9F13\u3002",
-  tags: ["chinese", "decorative", "bold", "opera"],
-  theme: {
-    extends: "ink",
-    label: "\u91CD\u5F69\u88C5\u9970\uFF08\u77F3\u9752 \xB7 \u6731\u7EA2 \xB7 \u91D1\uFF09",
-    modes: { light: { bg: "#1e5a7a", fg: "#fff4d6", muted: "#f0d9a0", surface: "#173f57", line: "#e9b949", accent: "#d8342a", accent2: "#e9b949", onAccent: "#fff4d6" } },
-    caption: { bg: "rgba(26,22,40,.85)", fg: "#fff4d6", karaoke: "#e9b949", border: ".14em solid #d8342a" }
-  },
-  palette: {
-    sky0: "#1f6f8f",
-    sky1: "#5fb3b0",
-    dusk0: "#c9493a",
-    dusk1: "#f0a85a",
-    dawn0: "#3f8fae",
-    dawn1: "#f2c36a",
-    night0: "#1a2a5a",
-    night1: "#2f5a8a",
-    sun: "#e8402f",
-    moon: "#fff1c8",
-    star: "#ffe9a8",
-    cloud: "#f7f1e1",
-    cloud2: "#9fd3c7",
-    cloudLine: "#2a160e",
-    far: "#2f7f7a",
-    mid: "#1f5f6a",
-    trunk: "#6a2a1a",
-    leaf: "#2f8f5a",
-    leaf2: "#e9b949",
-    wall: "#d8342a",
-    roof: "#2f6f8f",
-    door: "#e9b949",
-    water: "#3f9fb0",
-    water2: "#8fd0c8",
-    ground: "#f7f1e1",
-    ground2: "#9fd3c7",
-    flower: "#e8402f",
-    ink: "#2a160e",
-    accent: "#d8342a",
-    gold: "#e9b949",
-    paper: "#fff4d6"
-  },
-  hues: {
-    skin: "#f6d2a8",
-    black: "#2a160e",
-    white: "#fff7e6",
-    cream: "#f7ecd0",
-    red: "#d8342a",
-    deepred: "#9a1e1a",
-    gold: "#e9b949",
-    yellow: "#f4cf3a",
-    blue: "#2a6fb0",
-    green: "#2f9a6a",
-    teal: "#1f8a8a",
-    brown: "#7a3a1a",
-    orange: "#f08a2a",
-    pink: "#f08aa0",
-    purple: "#7a3a9a",
-    grey: "#7a8a8a",
-    ink: "#2a160e",
-    mouth: "#b0201a",
-    cheek: "#f07a6a"
-  },
-  material: "decor",
-  P: { line: "#2a160e", gold: "#e9b949", ornament: 1 },
-  video: { texture: { grain: { amount: 0.04 } } },
-  transitions: { default: "cloud:0.8", soft: "fade:0.5", strong: "flash:0.4", list: ["cloud", "flash", "iris", "zoom-in"] },
-  typography: { title: "palace plaque (\u533E\u989D): blue board, gold frame, gold brush characters, red ribbon tassels", subtitle: "deep indigo caption bar, cream text, red rule", seal: "gold-on-red roundel", fonts: ["Ma Shan Zheng", "Noto Serif SC"] },
-  sound: {
-    voice: { voice: "zh-CN-YunjianNeural", rate: "+6%" },
-    sfx: { hit: [["op-bangu", 1], ["op-nao", 0.6]], big: [["op-daluo", 0.9], ["op-nao", 0.7]], swish: [["whoosh", 0.5]], title: [["op-daluo", 0.8], ["op-nao", 0.6]], step: [["op-bangu", 0.3]], pop: [["op-xiaoluo", 0.7]], transition: [["op-nao", 0.5]] },
-    music: "\u4EAC\u5267\u9523\u9F13 \u6025\u6025\u98CE: \u677F\u9F13 sixteenths + \u94D9\u94B9 + \u5C0F\u9523 + \u5927\u9523 on the downbeat, 132 bpm",
-    scoreOptions: { pad: [110, 164.81, 220], padGain: 8e-3 }
-  },
-  pacing: { scene: 4.5, hold: 0.8, transition: 0.8, beat: "\u4EAE\u76F8: strike a pose and hold on \u4ED3 (\u5927\u9523); fast moves between" },
-  camera: { push: 0.02, punch: 0.12, establish: "wide", dialog: "medium-wide", action: "full", notes: "frontal, symmetrical staging; snap punch-ins on \u4EAE\u76F8 poses; clouds parallax" },
-  characters: { material: "decor", conventions: "saturated flat colour, heavy dark contour, gold ornament dots on robes, opera make-up cheeks" },
-  effects: { signature: "golden radiance: rotating gilded rays + gold sparks (\u4EAE\u76F8 flash)", list: ["rays", "sparks", "clouds"] },
-  demo: { setting: "palace dusk clouds", setting2: "palace day clouds", look: { hairStyle: "cap", hair: "black", cloth: "yellow", cloth2: "red", trim: "green", pants: "red", shoe: "black", sash: "red", scarf: "red" }, title: "\u91CD\u5F69", sub: "Havoc in Heaven" },
-  qa: ["every shape has the dark contour", "palette limited to \u77F3\u9752 / \u77F3\u7EFF / \u6731\u7EA2 / \u91D1 / cream", "clouds are scrolled \u7965\u4E91 with curls, not fluffy blobs", "symmetric, frontal staging for titles", "gold ornaments do not cover faces"]
-};
-
-// styles/opera/style.js
-var style_default8 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  const cloud = (M, P2, c, x, y, w, seed, fill) => {
-    const C2 = G3.cloudScroll(x, y, w, { seed });
-    return M.paint({ pts: C2.body, col: fill || c("cloud"), seed, lw: 3 }, P2) + C2.curls.map((s2) => `<path d="${G3.polyD(s2, false)}" fill="none" stroke="${c("cloudLine")}" stroke-width="3" stroke-linecap="round"/>`).join("") + C2.curls.slice(0, 2).map((s2) => `<path d="${G3.polyD(s2.slice(0, Math.ceil(s2.length * 0.55)), false)}" fill="none" stroke="${c("gold")}" stroke-width="2" stroke-linecap="round" transform="translate(0 4)"/>`).join("");
-  };
-  return {
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, S: st, style: style2 } = ctx, c = (r) => style2.colour(r, r), M = vk2.style.material("decor"), P2 = style2.P;
-        const [a, b] = st.time === "dusk" ? [c("dusk0"), c("dusk1")] : st.time === "night" ? [c("night0"), c("night1")] : [c("sky0"), c("sky1")];
-        let s2 = "";
-        for (let i = 0; i < 6; i++) s2 += `<rect x="-60" y="${-60 + i * (H * 0.62 / 6)}" width="${W + 120}" height="${H * 0.62 / 6 + 2}" fill="${vk2.color.mix(a, b, i / 5)}"/>`;
-        s2 += `<rect x="-60" y="${H * 0.62 - 62}" width="${W + 120}" height="${H}" fill="${b}"/>`;
-        const sx = W * 0.8, sy = st.time === "dusk" ? 200 : 120;
-        s2 += M.paint({ pts: G3.ellipse(sx, sy, 58, 58, 0, 48), col: st.time === "night" ? c("moon") : c("sun"), orn: [G3.ellipse(sx, sy, 40, 40, 0, 40)].map((p) => p), seed: 2 }, P2).replace(/fill="#e9b949"/, `fill="none"`);
-        for (let i = 0; i < 12; i++) {
-          const a2 = i / 12 * Math.PI * 2;
-          s2 += `<path d="M${(sx + Math.cos(a2) * 70).toFixed(1)} ${(sy + Math.sin(a2) * 70).toFixed(1)} L${(sx + Math.cos(a2 + 0.12) * 96).toFixed(1)} ${(sy + Math.sin(a2 + 0.12) * 96).toFixed(1)}" stroke="${c("gold")}" stroke-width="5" stroke-linecap="round"/>`;
-        }
-        [[180, 110, 220, 3], [520, 70, 160, 5], [1040, 300, 190, 7]].forEach(([x, y, w, sd]) => {
-          s2 += cloud(M, P2, c, x, y, w, sd);
-        });
-        el2.innerHTML = s2;
-      },
-      far(el2, ctx, paint2) {
-        const { W, gy0, seed } = ctx;
-        const list2 = [];
-        [[90, 260], [250, 330], [1120, 300], [1230, 230]].forEach(([x, h3], i) => list2.push({ pts: G3.capsule(x, gy0 - h3, 46 + 8 * (i % 2), x + 10, gy0 + 40, 70, 14), role: i % 2 ? "far" : "mid", orn: [G3.ellipse(x - 10, gy0 - h3 + 60, 6, 6, 0, 10), G3.ellipse(x + 14, gy0 - h3 + 120, 5, 5, 0, 10)] }));
-        el2.innerHTML = paint2(list2);
-      },
-      mid: false,
-      props(el2, ctx, paint2) {
-        const { S: st, gy0 } = ctx, list2 = [];
-        if (st.place === "palace" || st.props.includes("temple")) {
-          [[860, 280, 150], [1060, 200, 110]].forEach(([x, w, h3], i) => {
-            const Hs = G3.house(x, gy0 - 30, w, h3, { kind: "temple" });
-            list2.push({ pts: G3.rect(x - w / 2 - 20, gy0 - 40, w + 40, 16), role: "door" }, { pts: Hs.walls, role: "wall", orn: [G3.rect(x - w * 0.38, gy0 - 30 - h3 * 0.9, w * 0.76, 6)] }, { pts: Hs.roof, role: "roof", orn: [G3.ellipse(x, gy0 - 30 - h3 - h3 * 0.3, 8, 8, 0, 12)] }, { pts: Hs.door, role: "door" });
-            for (let k = 0; k < 4; k++) list2.push({ pts: G3.rect(x - w * 0.42 + k * w * 0.28, gy0 - 30 - h3, 10, h3), role: "deepred" });
-          });
-        }
-        el2.innerHTML = paint2(list2);
-      },
-      ground(el2, ctx) {
-        const { W, H, gy0, style: style2 } = ctx, c = (r) => style2.colour(r, r), M = vk2.style.material("decor"), P2 = style2.P;
-        let s2 = `<rect x="-60" y="${gy0 + 18}" width="${W + 120}" height="${H - gy0 + 60}" fill="${c("ground2")}"/>`;
-        for (let i = 0; i < 9; i++) s2 += cloud(M, P2, c, -60 + i * 170, gy0 + 34 + i % 2 * 18, 210, 11 + i, i % 2 ? c("cloud") : c("cloud2"));
-        for (let i = 0; i < 8; i++) s2 += cloud(M, P2, c, 20 + i * 180, gy0 + 104 + i % 2 * 14, 230, 31 + i, c("cloud"));
-        el2.innerHTML = s2;
-      }
-    },
-    worldOptions: { flat: true },
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.2), M = vk2.style.material("decor"), P2 = S2.charView.P, c = (n) => S2.colour(n);
-      const w = Math.max(300, String(text3).length * 120 + 120), h3 = 156, svg3 = K.svgLayer(sc, { fixed: true, z: 20 }), g2 = K.svgEl(svg3, "g", {});
-      const tas = (x) => M.paint({ pts: [[x - 8, h3 / 2], [x + 8, h3 / 2], [x + 12, h3 / 2 + 60], [x, h3 / 2 + 76], [x - 12, h3 / 2 + 60]], col: c("red"), seed: 3 }, P2);
-      g2.innerHTML = tas(-w / 2 + 30) + tas(w / 2 - 30) + M.paint({ pts: G3.rect(-w / 2 - 14, -h3 / 2 - 14, w + 28, h3 + 28), col: c("gold"), orn: [], seed: 1 }, P2) + M.paint({ pts: G3.rect(-w / 2, -h3 / 2, w, h3), col: "#1f3f7a", orn: [G3.ellipse(-w / 2 + 16, -h3 / 2 + 16, 5, 5, 0, 10), G3.ellipse(w / 2 - 16, -h3 / 2 + 16, 5, 5, 0, 10), G3.ellipse(-w / 2 + 16, h3 / 2 - 16, 5, 5, 0, 10), G3.ellipse(w / 2 - 16, h3 / 2 - 16, 5, 5, 0, 10)], seed: 2 }, P2) + `<text x="0" y="${o.sub ? 10 : 34}" text-anchor="middle" font-family="Ma Shan Zheng, serif" font-size="${o.size || 104}" fill="${c("gold")}" stroke="#2a160e" stroke-width="3" paint-order="stroke" letter-spacing="12">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="56" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="900" font-size="22" fill="#fff4d6" letter-spacing="5">${K.esc(o.sub)}</text>` : "");
-      sc.on((l) => {
-        const u = K.ease.back(K.prog(l, p.at, 0.5)), a = K.win(l, p.at, 0.12, p.out, 0.35);
-        K.attr(g2, "transform", `translate(${p.x} ${(p.y - 260 * (1 - u)).toFixed(1)})`);
-        K.attr(g2, "opacity", a.toFixed(3));
-      });
-      if (o.sfx !== false) S2.sfx(sc, "title", p.at + 0.45);
-      return g2;
-    },
-    // signature: golden radiance — rotating gilded rays behind the subject + gold sparks, on 仓
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), svg3 = K.svgLayer(sc, { fixed: true, z: 4 }), c = (n) => S2.colour(n);
-      let rays = "";
-      for (let i = 0; i < 16; i++) {
-        const a = i / 16 * Math.PI * 2, b = a + Math.PI / 30;
-        rays += `<path d="M0 0 L${(Math.cos(a) * 900).toFixed(0)} ${(Math.sin(a) * 900).toFixed(0)} L${(Math.cos(b) * 900).toFixed(0)} ${(Math.sin(b) * 900).toFixed(0)} Z" fill="${i % 2 ? c("gold") : "#fff1b0"}"/>`;
-      }
-      const g2 = K.svgEl(svg3, "g", { opacity: 0, style: "mix-blend-mode:screen" }, rays);
-      sc.on((l) => {
-        const a = K.win(l, at, 0.2, at + 1.3, 0.5);
-        K.attr(g2, "opacity", (a * 0.55).toFixed(3));
-        K.attr(g2, "transform", `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(18 * (l - at)).toFixed(2)}) scale(${(0.6 + 0.4 * K.ease.out(K.prog(l, at, 0.5))).toFixed(3)})`);
-      });
-      K.burst(sc, { at, x: o.x, y: o.y, n: 50, shape: "spark", colors: [c("gold"), "#fff1b0", c("red")], speed: [250, 700], gravity: 300, drag: 1.6, life: [0.7, 1.3], size: [8, 16], blend: "add", seed: 9 });
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    music(v, o = {}) {
-      return vk2.style.bed(v, { bpm: 132, gain: o.gain != null ? o.gain : 0.6, seed: 4, fadeIn: 0.05, tracks: [
-        { voice: "op-bangu", steps: "x.x.x.x.x.x.xxxx", gain: 0.4 },
-        { voice: "op-naoMute", steps: "..x...x...x...x.", gain: 0.45 },
-        { voice: "op-xiaoluo", steps: "....x.......x...", gain: 0.4 },
-        { voice: "op-daluo", steps: "x...............", gain: 0.45, from: 1 }
-      ] });
-    }
-  };
-};
-
-// styles/tech/style.json
-var style_default9 = {
-  id: "tech",
-  order: 5,
-  name: "\u79D1\u6280\u5BA3\u4F20",
-  en: "Tech promo (dark)",
-  description: "\u6DF1\u8272\u4EA7\u54C1\u5BA3\u4F20\u7247\uFF1A\u6DF1\u84DD\u5E95\u3001\u53D1\u5149\u7F51\u683C\u5730\u9762\u3001\u7535\u5149\u84DD\u5F3A\u8C03\u8272\u3001Archivo \u7C97\u4F53\u5927\u6807\u9898 + \u7B49\u5BBD\u5C0F\u5B57\uFF0C\u6241\u5E73\u77E2\u91CF\u4EBA\u7269\uFF0C\u9F13\u70B9 + \u5408\u6210\u5668\u94FA\u5E95\u3002",
-  tags: ["promo", "product", "flat", "modern"],
-  theme: { extends: "tech-blue", label: "\u79D1\u6280\u5BA3\u4F20\uFF08\u6DF1\u8272\uFF09", mode: "dark" },
-  palette: {
-    sky0: "#070b1a",
-    sky1: "#121a3a",
-    dusk0: "#0b1024",
-    dusk1: "#2a2a5e",
-    dawn0: "#0b1024",
-    dawn1: "#1d2f63",
-    night0: "#05070f",
-    night1: "#0e1530",
-    sun: "#3355ff",
-    moon: "#7c93ff",
-    star: "#9aa6cc",
-    cloud: "#1a2347",
-    far: "#141c3d",
-    mid: "#1c2650",
-    trunk: "#2a3358",
-    leaf: "#3355ff",
-    leaf2: "#7c93ff",
-    wall: "#1c2650",
-    roof: "#2a3358",
-    door: "#7c93ff",
-    water: "#16204a",
-    water2: "#22306a",
-    ground: "#0a0f22",
-    ground2: "#0d1430",
-    flower: "#7c93ff",
-    grid: "#3355ff",
-    accent: "#3355ff",
-    accent2: "#7c93ff",
-    ink: "#0b1020",
-    paper: "#ffffff"
-  },
-  hues: {
-    skin: "#f2c6a4",
-    black: "#1b2140",
-    white: "#f3f5ff",
-    cream: "#dfe5ff",
-    red: "#ff4d6a",
-    deepred: "#c2334f",
-    gold: "#ffc94d",
-    yellow: "#ffd75e",
-    blue: "#3355ff",
-    lightblue: "#7c93ff",
-    green: "#28d39b",
-    teal: "#1fb8c9",
-    brown: "#6b4a3a",
-    orange: "#ff8a3d",
-    pink: "#ff7ab6",
-    purple: "#8a5cff",
-    grey: "#5a648c",
-    navy: "#1b2140",
-    ink: "#0b1020",
-    mouth: "#9c2f45",
-    cheek: "#ff9a9a"
-  },
-  material: "flat",
-  P: { ornament: 0 },
-  video: { texture: { grain: { amount: 0.05 }, vignette: { amount: 0.2 } } },
-  transitions: { default: "push-left:0.6", soft: "fade:0.4", strong: "zoom-through:0.7", list: ["push-left", "wipe-left", "iris", "zoom-in", "split-open", "zoom-through"] },
-  typography: { title: "Archivo 900 hero word, accent underline bar that wipes in, JetBrains Mono kicker", subtitle: "black caption bar, white Noto Sans SC, red karaoke", seal: "pill badge (vk.badge)", fonts: ["Archivo", "Noto Sans SC", "JetBrains Mono"] },
-  sound: {
-    voice: { voice: "zh-CN-YunxiNeural", rate: "+6%" },
-    sfx: { hit: [["kick", 0.9]], big: [["kick", 1], ["chime", 0.5, 880]], swish: [["whoosh", 0.6]], title: [["kick", 0.9], ["chime", 0.4, 1320]], step: [["tick", 0.25]], pop: [["pop", 0.8]], transition: [["whoosh", 0.5]] },
-    music: "four-on-the-floor kick + off-beat hats + saw bass on A minor, 112 bpm, sine pad",
-    scoreOptions: { pad: [110, 164.81, 220], padGain: 0.02 }
-  },
-  pacing: { scene: 4.5, hold: 0.8, transition: 0.6, beat: "fast cuts on the beat; every scene has one headline" },
-  camera: { push: 0.03, punch: 0.08, establish: "wide", dialog: "medium", action: "medium-wide", notes: "steady push-ins, punch on the kick, whip pans between scenes" },
-  characters: { material: "flat", conventions: "clean flat vector, no outline, back-side limbs one shade darker; brand colours on clothes" },
-  effects: { signature: "electric ring pulse + spark burst (additive particles)", list: ["pulse", "sparks", "grid"] },
-  demo: { setting: "city night", setting2: "city night", look: { hairStyle: "short", hair: "black", cloth: "blue", cloth2: "blue", trim: "white", pants: "navy", shoe: "white", sash: "lightblue" }, title: "TECH", sub: "Dark product promo" },
-  qa: ["one accent colour per frame (electric blue), everything else navy / white", "headline readable in < 1 s (\u2265 64 px, high contrast)", "grid floor converges to a single vanishing point", "no text inside 5 % safe margin", "cuts land on beats"]
-};
-
-// styles/tech/style.js
-var style_default10 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  return {
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, style: style2 } = ctx, c = (r) => style2.colour(r, r), id = "tk-sky-" + ctx.seed + "-" + ctx.sc.index;
-        let s2 = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c("sky0")}"/><stop offset=".72" stop-color="${c("sky1")}"/><stop offset="1" stop-color="${c("dusk1")}"/></linearGradient>
-          <radialGradient id="${id}g" cx=".5" cy=".78" r=".55"><stop offset="0" stop-color="${c("accent")}" stop-opacity=".45"/><stop offset="1" stop-color="${c("accent")}" stop-opacity="0"/></radialGradient></defs>
-          <rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="url(#${id})"/><rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="url(#${id}g)"/>`;
-        for (let i = 0; i < 40; i++) s2 += `<circle cx="${(G3.rnd(ctx.seed + 3, i) * W).toFixed(1)}" cy="${(G3.rnd(ctx.seed + 5, i) * H * 0.5).toFixed(1)}" r="${(0.6 + G3.rnd(ctx.seed + 7, i) * 1.3).toFixed(2)}" fill="${c("star")}" opacity="${(0.25 + 0.5 * G3.rnd(ctx.seed + 9, i)).toFixed(2)}"/>`;
-        el2.innerHTML = s2;
-      },
-      far(el2, ctx) {
-        const { W, gy0, seed, style: style2 } = ctx, c = (r) => style2.colour(r, r);
-        let s2 = "";
-        for (let i = 0; i < 22; i++) {
-          const w = 34 + G3.rnd(seed, i) * 60, h3 = 60 + G3.rnd(seed + 2, i) * 190, x = i * 62 - 20;
-          s2 += `<rect x="${x}" y="${gy0 - h3}" width="${w.toFixed(1)}" height="${h3 + 4}" fill="${c("far")}"/>`;
-          for (let r = 0; r < h3 / 22 - 1; r++) for (let q = 0; q < w / 14 - 1; q++) if (G3.rnd(seed + i, r * 9 + q) > 0.78) s2 += `<rect x="${(x + 6 + q * 14).toFixed(1)}" y="${(gy0 - h3 + 10 + r * 22).toFixed(1)}" width="5" height="8" fill="${c("accent2")}" opacity=".55"/>`;
-        }
-        el2.innerHTML = s2 + `<rect x="-60" y="${gy0 - 3}" width="${W + 120}" height="3" fill="${c("accent2")}" opacity=".9"/>`;
-      },
-      mid: false,
-      props(el2) {
-        el2.innerHTML = "";
-      },
-      ground(el2, ctx) {
-        const { W, H, gy0, style: style2 } = ctx, c = (r) => style2.colour(r, r), vx = W / 2;
-        let s2 = `<rect x="-60" y="${gy0}" width="${W + 120}" height="${H - gy0 + 60}" fill="${c("ground")}"/>`;
-        for (let i = -14; i <= 14; i++) s2 += `<line x1="${vx + i * 18}" y1="${gy0}" x2="${vx + i * 150}" y2="${H + 60}" stroke="${c("grid")}" stroke-width="1.4" opacity=".55"/>`;
-        for (let j = 1; j < 9; j++) {
-          const y = gy0 + Math.pow(j / 8, 2.1) * (H - gy0 + 60);
-          s2 += `<line x1="-60" y1="${y.toFixed(1)}" x2="${W + 60}" y2="${y.toFixed(1)}" stroke="${c("grid")}" stroke-width="1.2" opacity="${(0.25 + 0.4 * j / 8).toFixed(2)}"/>`;
-        }
-        el2.innerHTML = s2;
-      }
-    },
-    // ground is flat for the grid (feet on gy0)
-    worldOptions: { flat: true },
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.24), acc = S2.colour("accent");
-      const el2 = K.overlay(sc, `<div class="tk-t" style="position:absolute;left:0;right:0;top:${p.y - 70}px;text-align:center">
-        <div class="tk-k" style="font:500 22px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#9aa6cc;text-transform:uppercase">${K.esc(o.kicker || "vidkit \xB7 style")}</div>
-        <div class="tk-h" style="font:900 ${o.size || 112}px/1 Archivo,'Noto Sans SC',sans-serif;color:#fff;letter-spacing:-.02em;margin-top:6px">${K.esc(text3)}</div>
-        <div class="tk-b" style="height:8px;width:${Math.min(520, String(text3).length * 70)}px;margin:14px auto 0;background:${acc};border-radius:4px;transform-origin:0 50%"></div>
-        ${o.sub ? `<div class="tk-s" style="font:500 26px 'Noto Sans SC',sans-serif;color:#c9d2ff;margin-top:14px">${K.esc(o.sub)}</div>` : ""}</div>`, { z: 20 });
-      const [k, h3, b, s2] = [".tk-k", ".tk-h", ".tk-b", ".tk-s"].map((q) => el2.querySelector(q));
-      sc.on((l) => {
-        const a = K.win(l, p.at, 0.3, p.out, 0.3), u = K.ease.out(K.prog(l, p.at, 0.5));
-        K.css(el2, "opacity", a.toFixed(3));
-        K.css(h3, "transform", `translateY(${(30 * (1 - u)).toFixed(1)}px)`);
-        K.css(h3, "clipPath", `inset(${(100 * (1 - u)).toFixed(1)}% 0 0 0)`);
-        K.css(k, "opacity", K.prog(l, p.at + 0.15, 0.3).toFixed(3));
-        K.css(b, "transform", `scaleX(${K.ease.out(K.prog(l, p.at + 0.25, 0.45)).toFixed(3)})`);
-        if (s2) K.css(s2, "opacity", K.prog(l, p.at + 0.45, 0.35).toFixed(3));
-      });
-      if (o.sfx !== false) S2.sfx(sc, "title", p.at + 0.05);
-      return el2;
-    },
-    // signature: electric ring pulse + additive spark burst at the subject
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), acc = S2.colour("accent"), acc2 = S2.colour("accent2");
-      const svg3 = K.svgLayer(sc, { fixed: true, z: 14 });
-      const rings2 = [0, 1, 2].map((i) => K.svgEl(svg3, "circle", { cx: x, cy: y, r: 10, fill: "none", stroke: i ? acc2 : acc, "stroke-width": 6 - i * 1.5, opacity: 0 }));
-      sc.on((l) => rings2.forEach((r, i) => {
-        const u = K.prog(l, at + i * 0.12, 0.8);
-        K.attr(r, "r", (20 + 260 * K.ease.out(u)).toFixed(1));
-        K.attr(r, "opacity", (u > 0 && u < 1 ? (1 - u) * 0.9 : 0).toFixed(3));
-      }));
-      K.burst(sc, { at, x: o.x, y: o.y, n: 60, shape: "spark", colors: ["#ffffff", acc2, acc], speed: [300, 900], gravity: 200, drag: 2.2, life: [0.5, 1.1], size: [6, 14], blend: "add", seed: 5 });
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    music(v, o = {}) {
-      return vk2.style.bed(v, { bpm: 112, gain: o.gain != null ? o.gain : 0.75, seed: 2, fadeIn: 0.05, tracks: [
-        { voice: "kick", steps: "x...x...x...x...", gain: 0.6 },
-        { voice: "hat", steps: "..x...x...x...x.", gain: 0.5 },
-        { voice: "saw", steps: "x..x..x...x..x..", notes: [55, 55, 65.41, 49], gain: 0.7 },
-        { voice: "chime", steps: "x...............", notes: [880, 1046.5, 783.99, 659.25], gain: 0.25, from: 1 }
-      ] });
-    }
-  };
-};
-
-// styles/neon/style.json
-var style_default11 = {
-  id: "neon",
-  order: 6,
-  name: "\u8D5B\u535A\u9713\u8679",
-  en: "Cyber neon",
-  description: "\u8D5B\u535A\u9713\u8679\uFF1A\u96E8\u591C\u90FD\u5E02\u526A\u5F71\u3001\u53D1\u5149\u7EBF\u63CF\u4EBA\u7269\u3001\u9713\u8679\u62DB\u724C\u6807\u9898\uFF08vk.gl \u8F89\u5149 bloom\uFF09\u3001CRT \u626B\u63CF\u7EBF\u4E0E\u8272\u6563\uFF0C\u5408\u6210\u5668\u7436\u97F3\u3002",
-  tags: ["cyberpunk", "night", "glow", "synth"],
-  theme: {
-    extends: "tech-blue",
-    label: "\u8D5B\u535A\u9713\u8679\uFF08\u6DF1\u7D2B \xB7 \u9752 \xB7 \u54C1\u7EA2\uFF09",
-    mode: "dark",
-    modes: { dark: { bg: "#07040f", fg: "#f2eaff", muted: "#a99bd0", surface: "#140c26", line: "#3a2a5a", accent: "#ff2bd6", accent2: "#2bf0ff", onAccent: "#07040f" } },
-    caption: { bg: "rgba(7,4,15,.82)", fg: "#f2eaff", karaoke: "#2bf0ff" }
-  },
-  palette: {
-    sky0: "#07040f",
-    sky1: "#1a0b3a",
-    dusk0: "#0a0520",
-    dusk1: "#3a0f4a",
-    dawn0: "#0a0520",
-    dawn1: "#2a1a5a",
-    night0: "#05030c",
-    night1: "#160a30",
-    sun: "#ff2bd6",
-    moon: "#2bf0ff",
-    star: "#8a7ad0",
-    cloud: "#24123f",
-    far: "#120a26",
-    mid: "#1a0f36",
-    trunk: "#ff2bd6",
-    leaf: "#2bf0ff",
-    leaf2: "#ff2bd6",
-    wall: "#140c2a",
-    roof: "#ff2bd6",
-    door: "#2bf0ff",
-    water: "#0a0820",
-    water2: "#2bf0ff",
-    ground: "#07040f",
-    ground2: "#0d0820",
-    flower: "#ff2bd6",
-    grid: "#ff2bd6",
-    accent: "#ff2bd6",
-    accent2: "#2bf0ff",
-    ink: "#07040f",
-    paper: "#f2eaff",
-    body: "#0b0718"
-  },
-  hues: {
-    skin: "#ffd1f0",
-    black: "#7a6aff",
-    white: "#f2eaff",
-    cream: "#ffe3a8",
-    red: "#ff3b6b",
-    deepred: "#ff2b8a",
-    gold: "#ffd23f",
-    yellow: "#fff04a",
-    blue: "#3b7bff",
-    lightblue: "#2bf0ff",
-    green: "#3bff9a",
-    teal: "#2bf0ff",
-    brown: "#ff9a3b",
-    orange: "#ff9a3b",
-    pink: "#ff2bd6",
-    purple: "#a33bff",
-    grey: "#8a7ad0",
-    magenta: "#ff2bd6",
-    cyan: "#2bf0ff",
-    ink: "#f2eaff",
-    mouth: "#ff2b8a",
-    cheek: "#ff2bd6",
-    eyeW: "#f2eaff"
-  },
-  material: "neon",
-  P: { body: "#0b0718", ornament: 1 },
-  video: { texture: { grain: { amount: 0.06 }, vignette: { amount: 0.35 } } },
-  transitions: { default: "glitch:0.45", soft: "scan:0.5", strong: "glitch:0.3", list: ["glitch", "scan", "flash", "whip-left"] },
-  typography: { title: "neon tube sign: outlined Archivo letters in magenta with a cyan sub line, flicker on ignition, GL bloom halo", subtitle: "dark glass bar, cyan karaoke", seal: "cyan rounded tag", fonts: ["Archivo", "JetBrains Mono", "Noto Sans SC"] },
-  sound: {
-    voice: { voice: "zh-CN-YunxiNeural", rate: "+4%" },
-    sfx: { hit: [["zap", 1], ["kick", 0.6]], big: [["zap", 0.9], ["kick", 0.9], ["riser", 0.5]], swish: [["whoosh", 0.6]], title: [["zap", 0.7], ["snap", 0.5]], step: [["tick", 0.2]], pop: [["snap", 0.6]], transition: [["zap", 0.5]] },
-    music: "minor saw arpeggio (A minor, 16ths) + kick + clap-hat, 118 bpm",
-    scoreOptions: { pad: [110, 130.81, 164.81], padGain: 0.015 }
-  },
-  pacing: { scene: 4, hold: 0.6, transition: 0.45, beat: "hits on the kick; glitch cuts; hold the neon sign one beat" },
-  camera: { push: 0.025, punch: 0.1, establish: "wide", dialog: "medium", action: "medium-wide", notes: "slow push through the city; dutch tilt allowed; punch + glitch on hits" },
-  characters: { material: "neon", conventions: "dark bodies with glowing coloured contours (one hue per garment), face lines only, no fills that glow" },
-  effects: { signature: "electric zap burst: additive sparks + bloom flash", list: ["bloom", "sparks", "scanlines"] },
-  demo: { setting: "city night", setting2: "city night", look: { hairStyle: "short", hair: "purple", cloth: "cyan", cloth2: "cyan", trim: "magenta", pants: "purple", shoe: "magenta", sash: "magenta", scarf: "magenta" }, title: "NEON", sub: "\u8D5B\u535A\u9713\u8679 \xB7 cyber neon" },
-  qa: ["glows are coloured, never pure white blobs (bloom knee)", "scanlines subtle (< 10 % darkening)", "two neon hues + one accent max", "contours continuous (no broken neon tubes on characters)", "text legible through the glitch transition"]
-};
-
-// styles/neon/style.js
-var style_default12 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  const SCAN = `void main(){ vec2 sp = scenePx(vUv); float l = .5 + .5 * sin(sp.y * 3.14159 * .5); float v = length((sp / uNS - .5) * vec2(1., .8));
-    float a = .1 * l + .45 * smoothstep(.45, .95, v) + .03 * (fbm3(vec2(sp.x * .02, uStep * 3.1)) - .5);
-    gl_FragColor = vec4(0., 0., 0., clamp(a, 0., 1.)); }`;
-  return {
-    install(v) {
-      v.gl([vk2.gl.shader({ frag: SCAN, step: 12 })], { zIndex: 25 });
-    },
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, style: style2, seed } = ctx, c = (r2) => style2.colour(r2, r2), id = "nn-sky-" + ctx.sc.index;
-        let s2 = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c("night0")}"/><stop offset=".75" stop-color="${c("dusk1")}"/><stop offset="1" stop-color="#5a1a6a"/></linearGradient></defs><rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="url(#${id})"/>`;
-        const sx = W * 0.5, sy = ctx.gy0 - 150, r = 150;
-        s2 += `<defs><clipPath id="${id}c"><rect x="${sx - r}" y="${sy - r}" width="${2 * r}" height="${2 * r}"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff2bd6"/></linearGradient></defs>`;
-        let bands = "";
-        for (let i = 0; i < 6; i++) bands += `<rect x="${sx - r}" y="${(sy + 10 + i * 24).toFixed(1)}" width="${2 * r}" height="${4 + i * 2.4}" fill="${c("night0")}"/>`;
-        s2 += `<g opacity=".9"><circle cx="${sx}" cy="${sy}" r="${r}" fill="url(#${id}s)"/>${bands}</g>`;
-        for (let i = 0; i < 50; i++) s2 += `<circle cx="${(G3.rnd(seed + 3, i) * W).toFixed(1)}" cy="${(G3.rnd(seed + 5, i) * H * 0.45).toFixed(1)}" r="${(0.5 + G3.rnd(seed + 7, i)).toFixed(2)}" fill="${c("star")}" opacity=".7"/>`;
-        el2.innerHTML = s2;
-      },
-      far(el2, ctx) {
-        const { gy0, seed, style: style2 } = ctx, c = (r) => style2.colour(r, r);
-        let s2 = "";
-        for (let i = 0; i < 24; i++) {
-          const w = 40 + G3.rnd(seed, i) * 54, h3 = 80 + G3.rnd(seed + 2, i) * 230, x = i * 56 - 30, col3 = i % 3 ? c("accent2") : c("accent");
-          s2 += `<rect x="${x}" y="${(gy0 - h3).toFixed(1)}" width="${w.toFixed(1)}" height="${h3 + 4}" fill="${c("far")}" stroke="${col3}" stroke-width="1.2" stroke-opacity=".55"/>`;
-          for (let r = 0; r < h3 / 18 - 1; r++) if (G3.rnd(seed + i, r) > 0.55) s2 += `<rect x="${x + 6}" y="${(gy0 - h3 + 10 + r * 18).toFixed(1)}" width="${(w - 12).toFixed(1)}" height="2" fill="${col3}" opacity="${(0.35 + 0.5 * G3.rnd(seed + 9, i * 31 + r)).toFixed(2)}"/>`;
-        }
-        el2.innerHTML = s2;
-      },
-      mid: false,
-      props(el2) {
-        el2.innerHTML = "";
-      },
-      ground(el2, ctx) {
-        const { W, H, gy0, style: style2 } = ctx, c = (r) => style2.colour(r, r), vx = W / 2;
-        let s2 = `<rect x="-60" y="${gy0}" width="${W + 120}" height="${H - gy0 + 60}" fill="${c("ground")}"/>`;
-        for (let i = -16; i <= 16; i++) s2 += `<line x1="${vx + i * 16}" y1="${gy0}" x2="${vx + i * 170}" y2="${H + 60}" stroke="${c("grid")}" stroke-width="1.6" opacity=".7"/>`;
-        for (let j = 1; j < 10; j++) {
-          const y = gy0 + Math.pow(j / 9, 2.2) * (H - gy0 + 60);
-          s2 += `<line x1="-60" y1="${y.toFixed(1)}" x2="${W + 60}" y2="${y.toFixed(1)}" stroke="${c("grid")}" stroke-width="1.4" opacity="${(0.3 + 0.5 * j / 9).toFixed(2)}"/>`;
-        }
-        s2 += `<rect x="-60" y="${gy0 - 2}" width="${W + 120}" height="3" fill="${c("accent2")}"/>`;
-        el2.innerHTML = `<g filter="url(#neon-glow)">${s2}</g>`;
-      }
-    },
-    worldOptions: { flat: true },
-    // diagonal rain streaks (pure function of t)
-    decorate(sc, w) {
-      const svg3 = K.svgLayer(sc, { z: 3 }), N = 70, lines = [];
-      for (let i = 0; i < N; i++) lines.push(K.svgEl(svg3, "line", { stroke: "#9fdcff", "stroke-width": 1.2, opacity: (0.18 + 0.25 * G3.rnd(3, i)).toFixed(2) }));
-      sc.on((l) => lines.forEach((e, i) => {
-        const sp = 900 + 400 * G3.rnd(5, i), y = (G3.rnd(7, i) * 900 + l * sp) % 900 - 100, x = G3.rnd(9, i) * 1400 - 60 - y * 0.25;
-        K.attr(e, "x1", x.toFixed(1));
-        K.attr(e, "y1", y.toFixed(1));
-        K.attr(e, "x2", (x - 9).toFixed(1));
-        K.attr(e, "y2", (y + 34).toFixed(1));
-      }));
-    },
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.22), svg3 = K.svgLayer(sc, { fixed: true, z: 20 }), mg2 = S2.colour("magenta"), cy = S2.colour("cyan");
-      const g2 = K.svgEl(svg3, "g", { filter: "url(#neon-glow)" });
-      g2.innerHTML = `<text x="${p.x}" y="${p.y + 30}" text-anchor="middle" font-family="Archivo, 'Noto Sans SC', sans-serif" font-weight="900" font-size="${o.size || 128}" fill="none" stroke="${mg2}" stroke-width="4.5" letter-spacing="10">${K.esc(text3)}</text>` + (o.sub ? `<text x="${p.x}" y="${p.y + 84}" text-anchor="middle" font-family="'JetBrains Mono', 'Noto Sans SC', monospace" font-weight="700" font-size="26" fill="${cy}" letter-spacing="4">${K.esc(o.sub)}</text>` : "");
-      const on = (l) => {
-        const u = l - p.at;
-        if (u < 0) return 0;
-        if (u < 0.5) return [1, 0, 1, 1, 0, 0.3, 1, 0, 1, 1][Math.floor(u * 20) % 10];
-        return 0.92 + 0.08 * Math.sin(l * 31);
-      };
-      sc.on((l) => K.attr(g2, "opacity", (on(l) * K.win(l, p.at, 0.01, p.out, 0.3)).toFixed(3)));
-      sc.gl([vk2.gl.bloom({ src: vk2.gl.svg(svg3), strength: 1.5, knee: 0.4, flicker: (l) => on(l) * K.win(l, p.at, 0.01, p.out, 0.3) })], { fixed: true, blend: "screen", zIndex: 19 });
-      if (o.sfx !== false) [0, 0.15, 0.3].forEach((d) => S2.sfx(sc, "title", p.at + d, 0.5));
-      return g2;
-    },
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), svg3 = K.svgLayer(sc, { fixed: true, z: 14 });
-      const ring = K.svgEl(svg3, "circle", { cx: x, cy: y, r: 10, fill: "none", stroke: S2.colour("cyan"), "stroke-width": 5, filter: "url(#neon-glow)", opacity: 0 });
-      let bolt = "";
-      for (let i = 0; i < 7; i++) {
-        const a = i / 7 * Math.PI * 2 + 0.3;
-        let px4 = x, py = y, d = `M${px4.toFixed(0)} ${py.toFixed(0)}`;
-        for (let k = 1; k < 6; k++) {
-          px4 = x + Math.cos(a) * k * 40 + (G3.rnd(i, k) - 0.5) * 30;
-          py = y + Math.sin(a) * k * 40 + (G3.rnd(i + 9, k) - 0.5) * 30;
-          d += ` L${px4.toFixed(0)} ${py.toFixed(0)}`;
-        }
-        bolt += `<path d="${d}" fill="none" stroke="${i % 2 ? S2.colour("magenta") : S2.colour("cyan")}" stroke-width="3" stroke-linejoin="round"/>`;
-      }
-      const bolts = K.svgEl(svg3, "g", { filter: "url(#neon-glow)", opacity: 0 }, bolt);
-      sc.on((l) => {
-        const u = K.prog(l, at, 0.6);
-        K.attr(ring, "r", (20 + 240 * K.ease.out(u)).toFixed(1));
-        K.attr(ring, "opacity", (u > 0 && u < 1 ? 1 - u : 0).toFixed(3));
-        const f = l - at;
-        K.attr(bolts, "opacity", (f > 0 && f < 0.45 ? [1, 0.2, 1, 0.6, 1, 0.1, 0.8][Math.floor(f * 30) % 7] * (1 - f / 0.45) : 0).toFixed(3));
-      });
-      K.burst(sc, { at, x: o.x, y: o.y, n: 70, shape: "spark", colors: [S2.colour("cyan"), S2.colour("magenta"), "#ffffff"], speed: [300, 950], gravity: 400, drag: 2, life: [0.5, 1.2], size: [6, 13], blend: "add", seed: 11 });
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    music(v, o = {}) {
-      const A = [110, 130.81, 164.81, 220, 261.63, 329.63, 220, 164.81];
-      return vk2.style.bed(v, { bpm: 118, gain: o.gain != null ? o.gain : 0.7, seed: 6, fadeIn: 0.05, tracks: [
-        { voice: "kick", steps: "x...x...x...x...", gain: 0.6 },
-        { voice: "snap", steps: "....x.......x...", gain: 0.35 },
-        { voice: "hat", steps: "..x...x...x...x.", gain: 0.4 },
-        { voice: "saw", steps: "xxxxxxxxxxxxxxxx", notes: A, gain: 0.45 },
-        { voice: "bass", steps: "x.......x.......", notes: [55, 43.65, 49, 41.2], gain: 0.7 }
-      ] });
-    }
-  };
-};
-
-// styles/pixel/style.json
-var style_default13 = {
-  id: "pixel",
-  order: 7,
-  name: "\u50CF\u7D20",
-  en: "Pixel art (16-colour)",
-  description: "16 \u8272\u50CF\u7D20\u98CE\uFF1A\u6574\u5E27 4px \u50CF\u7D20\u5316\uFF08SVG \u50CF\u7D20\u6EE4\u955C\uFF0C\u786E\u5B9A\u6027\uFF09\uFF0C\u7C97\u63CF\u8FB9\u5E73\u6D82\u3001\u9636\u68AF\u5730\u5F62\u4E0E\u65B9\u5757\u4E91\uFF0C\u50CF\u7D20\u64E6\u9664\u8F6C\u573A\uFF0C\u65B9\u6CE2\u82AF\u7247\u97F3\u4E50\u3002",
-  tags: ["retro", "game", "8-bit", "playful"],
-  theme: {
-    extends: "bold",
-    label: "\u50CF\u7D20\uFF08Sweetie-16 \u8C03\u8272\u677F\uFF09",
-    modes: { dark: { bg: "#1a1c2c", fg: "#f4f4f4", muted: "#94b0c2", surface: "#333c57", line: "#566c86", accent: "#ffcd75", accent2: "#41a6f6", onAccent: "#1a1c2c" } },
-    mode: "dark",
-    caption: { bg: "#1a1c2c", fg: "#f4f4f4", karaoke: "#ffcd75", radius: 0, border: ".16em solid #f4f4f4" }
-  },
-  palette: {
-    sky0: "#41a6f6",
-    sky1: "#73eff7",
-    dusk0: "#5d275d",
-    dusk1: "#ef7d57",
-    dawn0: "#3b5dc9",
-    dawn1: "#ffcd75",
-    night0: "#1a1c2c",
-    night1: "#29366f",
-    sun: "#ffcd75",
-    moon: "#f4f4f4",
-    star: "#f4f4f4",
-    cloud: "#f4f4f4",
-    far: "#3b5dc9",
-    mid: "#257179",
-    trunk: "#5d275d",
-    leaf: "#38b764",
-    leaf2: "#a7f070",
-    wall: "#f4f4f4",
-    roof: "#b13e53",
-    door: "#5d275d",
-    water: "#3b5dc9",
-    water2: "#41a6f6",
-    ground: "#38b764",
-    ground2: "#5d275d",
-    flower: "#b13e53",
-    ink: "#1a1c2c",
-    accent: "#ffcd75",
-    paper: "#f4f4f4"
-  },
-  hues: {
-    skin: "#ffcd75",
-    black: "#1a1c2c",
-    white: "#f4f4f4",
-    cream: "#f4f4f4",
-    red: "#b13e53",
-    deepred: "#5d275d",
-    gold: "#ffcd75",
-    yellow: "#ffcd75",
-    blue: "#3b5dc9",
-    lightblue: "#41a6f6",
-    green: "#38b764",
-    teal: "#257179",
-    brown: "#5d275d",
-    orange: "#ef7d57",
-    pink: "#ef7d57",
-    purple: "#5d275d",
-    grey: "#566c86",
-    navy: "#29366f",
-    ink: "#1a1c2c",
-    mouth: "#b13e53",
-    cheek: "#ef7d57",
-    eyeW: "#f4f4f4"
-  },
-  material: "pixel",
-  P: { line: "#1a1c2c", ornament: 0, pixel: 4 },
-  video: { fadeOut: 0.3 },
-  transitions: { default: "pixel:0.6", soft: "dip:0.4", strong: "pixel:0.4", list: ["pixel", "dip", "blinds", "iris"] },
-  typography: { title: "chunky Archivo 900 with a hard 2-step drop shadow, pixelated by the scene filter; blinking \u25BC prompt", subtitle: "dialogue box: navy panel with a white 4 px border", seal: "8-bit star badge", fonts: ["Archivo", "JetBrains Mono"] },
-  sound: {
-    voice: { voice: "zh-CN-XiaoyiNeural", rate: "+8%" },
-    sfx: { hit: [["chipHit", 1]], big: [["chipJump", 0.9, 330], ["chip", 0.6, 990, 0.08], ["chip", 0.6, 1320, 0.16]], swish: [["chipNoise", 0.8]], title: [["chip", 0.8, 660], ["chip", 0.8, 990, 0.09]], step: [["chipNoise", 0.4]], pop: [["chip", 0.7, 880]], transition: [["chipJump", 0.5, 220]] },
-    music: "square-wave arpeggios + triangle bass + noise hats, C major pentatonic, 140 bpm",
-    scoreOptions: {}
-  },
-  pacing: { scene: 4, hold: 0.6, transition: 0.6, beat: "snappy, game-like: actions on 8th notes; text appears letter by letter" },
-  camera: { push: 0, punch: 0, establish: "wide", dialog: "full", action: "wide", notes: "side-scroller: locked zoom, pans only (integer zoom looks best); shake instead of punch-ins" },
-  characters: { material: "pixel", conventions: "flat fills from the 16-colour palette, thick dark outline (paint-order stroke), no gradients; pixelated together with the scene" },
-  effects: { signature: "8-bit coin/star burst (square sparks) + screen shake", list: ["coins", "shake", "blink"] },
-  demo: { setting: "field day clouds", setting2: "forest day", look: { hairStyle: "cap", hair: "red", cloth: "red", cloth2: "red", trim: "yellow", pants: "blue", shoe: "brown", sash: "yellow" }, title: "PIXEL", sub: "16-colour pixel art" },
-  qa: ["every frame uses only the 16 palette colours (plus pixel-filter mixes)", "pixel grid fixed to the screen (filter on the whole scene, not per object)", "text \u2265 3 'pixels' thick after pixelation", "no smooth zooms (punch = shake)", "outline on every character piece"]
-};
-
-// styles/pixel/style.js
-var style_default14 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  const stair = (x0, x1, y0, step, amp, seed, base2) => {
-    const pts = [[x0, base2]];
-    for (let x = x0; x <= x1; x += step) {
-      const y = y0 + Math.round((Math.sin(x / 170 + seed) * amp + Math.sin(x / 61 + seed * 2) * amp * 0.3) / 16) * 16;
-      pts.push([x, y], [x + step, y]);
-    }
-    pts.push([x1 + step, base2]);
-    return pts;
-  };
-  return {
-    install(v, S2) {
-      const n = S2.base.P && S2.base.P.pixel || 4, h3 = n / 2;
-      const w = document.createElement("div");
-      w.innerHTML = `<svg width="0" height="0" style="position:absolute;width:0;height:0" aria-hidden="true"><defs><filter id="vk-pixelate" filterUnits="userSpaceOnUse" x="-200" y="-200" width="${v.W + 400}" height="${v.H + 400}" color-interpolation-filters="sRGB" primitiveUnits="userSpaceOnUse">
-        <feFlood x="${h3}" y="${h3}" width="1" height="1" flood-color="#000"/><feComposite x="0" y="0" width="${n}" height="${n}"/><feTile x="-200" y="-200" width="${v.W + 400}" height="${v.H + 400}" result="dots"/>
-        <feComposite in="SourceGraphic" in2="dots" operator="in"/><feMorphology operator="dilate" radius="${h3}"/></filter></defs></svg>`;
-      v.stage.appendChild(w.firstElementChild);
-    },
-    // whole-scene pixelation (titles, characters, GL particles alike)
-    post(sc, S2, o, w) {
-      if (!w) return;
-      const NS4 = "http://www.w3.org/2000/svg", g2 = document.createElementNS(NS4, "g");
-      g2.setAttribute("filter", "url(#vk-pixelate)");
-      g2.setAttribute("class", "px-all");
-      [...w.svg.childNodes].forEach((n) => g2.appendChild(n));
-      w.svg.appendChild(g2);
-    },
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, S: st, style: style2, seed } = ctx, c = (r) => style2.colour(r, r);
-        const [a, b] = st.time === "night" ? [c("night0"), c("night1")] : st.time === "dusk" ? [c("dusk0"), c("dusk1")] : [c("sky0"), c("sky1")];
-        let s2 = "";
-        for (let i = 0; i < 5; i++) s2 += `<rect x="-60" y="${-60 + i * 112}" width="${W + 120}" height="${H}" fill="${vk2.color.nearest(vk2.color.mix(a, b, i / 4), [a, b, vk2.color.mix(a, b, 0.5)])}"/>`;
-        s2 += `<rect x="${W * 0.78 - 40}" y="80" width="80" height="80" fill="${c("sun")}" stroke="${c("ink")}" stroke-width="6"/><rect x="${W * 0.78 - 56}" y="96" width="112" height="48" fill="${c("sun")}"/><rect x="${W * 0.78 - 24}" y="64" width="48" height="112" fill="${c("sun")}"/>`;
-        [[200, 120], [560, 70], [980, 210]].forEach(([x, y], i) => {
-          s2 += `<g fill="${c("cloud")}" stroke="${c("ink")}" stroke-width="5" paint-order="stroke"><rect x="${x}" y="${y}" width="160" height="32"/><rect x="${x + 32}" y="${y - 24}" width="64" height="32"/><rect x="${x + 80}" y="${y - 40}" width="48" height="48"/></g>`;
-        });
-        el2.innerHTML = s2;
-      },
-      far(el2, ctx, paint2) {
-        const { W, gy0, seed } = ctx;
-        el2.innerHTML = paint2([{ pts: stair(-64, W + 64, gy0 - 190, 48, 70, seed + 1, gy0 + 40), role: "far" }]);
-      },
-      mid(el2, ctx, paint2) {
-        const { W, gy0, seed } = ctx;
-        el2.innerHTML = paint2([{ pts: stair(-64, W + 64, gy0 - 90, 32, 40, seed + 3, gy0 + 40), role: "mid" }]);
-      },
-      props(el2, ctx, paint2) {
-        const { S: st, gy0 } = ctx, list2 = [], xs = st.place === "forest" ? [80, 240, 1e3, 1160] : [120, 1120];
-        xs.forEach((x, i) => {
-          list2.push({ pts: G3.rect(x - 12, gy0 - 96, 24, 100), role: "trunk" }, { pts: [[x - 64, gy0 - 96], [x + 64, gy0 - 96], [x + 64, gy0 - 160], [x + 40, gy0 - 160], [x + 40, gy0 - 200], [x - 40, gy0 - 200], [x - 40, gy0 - 160], [x - 64, gy0 - 160]], role: i % 2 ? "leaf2" : "leaf" });
-        });
-        [[520, gy0 - 210], [568, gy0 - 210]].forEach(([x, y]) => list2.push({ pts: G3.rect(x, y, 48, 48), role: "sun", orn: [] }));
-        el2.innerHTML = paint2(list2) + `<text x="544" y="${gy0 - 172}" text-anchor="middle" font-family="Archivo" font-weight="900" font-size="34" fill="#1a1c2c">?</text><text x="592" y="${gy0 - 172}" text-anchor="middle" font-family="Archivo" font-weight="900" font-size="34" fill="#1a1c2c">?</text>`;
-      },
-      ground(el2, ctx, paint2) {
-        const { W, H, gy0, style: style2 } = ctx, c = (r) => style2.colour(r, r);
-        let s2 = paint2([{ pts: G3.rect(-64, gy0, W + 128, 24), role: "ground" }, { pts: G3.rect(-64, gy0 + 24, W + 128, H), role: "ground2" }]);
-        for (let i = 0; i < 30; i++) s2 += `<rect x="${i * 48 - 32}" y="${gy0 + 40 + i % 2 * 24}" width="16" height="8" fill="${c("trunk")}" opacity=".6"/>`;
-        el2.innerHTML = s2;
-      }
-    },
-    worldOptions: { flat: true },
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.22), ink = S2.colour("ink"), y = S2.colour("yellow"), chars = [...String(text3)];
-      const svg3 = K.svgLayer(sc, { fixed: true, z: 20 }), g2 = K.svgEl(svg3, "g", { filter: "url(#vk-pixelate)" });
-      const T6 = K.svgEl(g2, "text", { x: p.x, y: p.y + 36, "text-anchor": "middle", "font-family": "Archivo, Noto Sans SC, sans-serif", "font-weight": 900, "font-size": o.size || 120, "letter-spacing": 8, fill: y, stroke: ink, "stroke-width": 10, "paint-order": "stroke", style: `filter:drop-shadow(8px 8px 0 ${ink})` });
-      let box = null, cur = null;
-      if (o.sub) {
-        const sw = String(o.sub).length * 15 + 80;
-        box = K.svgEl(g2, "g", {}, `<rect x="${p.x - sw / 2}" y="${p.y + 66}" width="${sw}" height="50" fill="#29366f" stroke="#f4f4f4" stroke-width="5"/><text x="${p.x - 14}" y="${p.y + 99}" text-anchor="middle" font-family="JetBrains Mono, Noto Sans SC, monospace" font-weight="700" font-size="24" fill="#f4f4f4">${K.esc(o.sub)}</text>`);
-        cur = K.svgEl(box, "path", { d: `M${p.x + sw / 2 - 34} ${p.y + 84} h16 l-8 10 z`, fill: "#f4f4f4" });
-      }
-      sc.on((l) => {
-        const n = Math.max(0, Math.min(chars.length, Math.floor((l - p.at) * 12))), str = chars.slice(0, n).join("");
-        if (T6.textContent !== str) T6.textContent = str;
-        K.attr(g2, "opacity", K.win(l, p.at, 0.01, p.out, 0.15) > 0 ? 1 : 0);
-        if (box) K.attr(box, "opacity", l > p.at + chars.length / 12 + 0.1 ? 1 : 0);
-        if (cur) K.attr(cur, "opacity", Math.floor(l * 4) % 2 ? 1 : 0);
-      });
-      chars.forEach((ch, i) => sc.sfx(p.at + i / 12, "chip", 0.4, 660 + i * 110));
-      return g2;
-    },
-    // signature: 8-bit coin burst (square coins on a pixelated layer, ballistic, from vk.particles) + screen shake
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), svg3 = K.svgLayer(sc, { fixed: true, z: 14 }), g2 = K.svgEl(svg3, "g", { filter: "url(#vk-pixelate)" });
-      const P2 = vk2.particles({ seed: 13, burst: [{ t: at, n: 16 }], x, y, angle: -90, spread: 150, speed: [380, 700], gravity: 1500, drag: 0.2, life: [0.9, 1.3], size: [16, 22], fadeOut: 0.2 });
-      const cols = [S2.colour("yellow"), S2.colour("white"), S2.colour("orange")], rs = Array.from({ length: 16 }, (_, i) => K.svgEl(g2, "rect", { fill: cols[i % 3], stroke: S2.colour("ink"), "stroke-width": 4, opacity: 0 }));
-      sc.on((l) => {
-        const A = P2.at(l);
-        rs.forEach((r) => K.attr(r, "opacity", 0));
-        A.forEach((q) => {
-          const r = rs[q.id % rs.length], w = q.size * (Math.floor(q.age * 8) % 2 ? 0.45 : 1);
-          K.attr(r, "x", (q.x - w / 2).toFixed(0));
-          K.attr(r, "y", (q.y - q.size / 2).toFixed(0));
-          K.attr(r, "width", w.toFixed(0));
-          K.attr(r, "height", q.size.toFixed(0));
-          K.attr(r, "opacity", q.alpha.toFixed(2));
-        });
-      });
-      sc.shake(at, 10, 0.35, 9);
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    music(v, o = {}) {
-      const N = vk2.style.scaleNotes(523.25, vk2.style.SCALES.penta, 2);
-      return vk2.style.bed(v, { bpm: 140, gain: o.gain != null ? o.gain : 0.8, seed: 8, fadeIn: 0.05, tracks: [
-        { voice: "chip", steps: "x.x.x.x.x.x.x.x.", notes: [N[0], N[2], N[4], N[2], N[5], N[2], N[4], N[2]], gain: 0.5 },
-        { voice: "bass", steps: "x...x...x...x...", notes: [130.81, 130.81, 110, 98], gain: 0.55 },
-        { voice: "chipNoise", steps: "..x...x...x...x.", gain: 0.5 }
-      ] });
-    }
-  };
-};
-
-// styles/crayon/style.json
-var style_default15 = {
-  id: "crayon",
-  order: 8,
-  name: "\u8721\u7B14\u7ED8\u672C",
-  en: "Crayon picture book",
-  description: "\u8721\u7B14\u7ED8\u672C\uFF1A\u6696\u767D\u753B\u7EB8\u7EB9\u7406\u3001\u8721\u8D28\u9897\u7C92\u4E0E\u900F\u51FA\u7684\u7EB8\u7EB9\u3001\u6296\u52A8\u63CF\u8FB9\uFF08\u6BCF\u79D2 8 \u6B21\u7EBF\u6761\u6CB8\u817E\uFF09\u3001\u7C89\u5F69\u5C71\u4E18\u4E0E\u5927\u592A\u9633\uFF0C\u7AD9\u9177\u5FEB\u4E50\u4F53\u624B\u5199\u6807\u9898\uFF0C\u5361\u6797\u5DF4\u4E0E\u9A6C\u6797\u5DF4\u3002",
-  tags: ["kids", "handmade", "warm", "storybook"],
-  theme: {
-    extends: "editorial",
-    label: "\u8721\u7B14\u7ED8\u672C\uFF08\u6696\u767D\u7EB8 \xB7 \u7C89\u5F69 \xB7 \u7AD9\u9177\u5FEB\u4E50\u4F53\uFF09",
-    fonts: { display: '"ZCOOL KuaiLe","Noto Sans SC",sans-serif', sans: '"ZCOOL KuaiLe","Noto Sans SC",sans-serif' },
-    weight: { display: 400, title: 400, sub: 400 },
-    fontsCheck: ['400 20px "ZCOOL KuaiLe"'],
-    modes: { light: { bg: "#fbf3e4", fg: "#3b2a20", muted: "#7a6250", surface: "#fff9ee", line: "#e0cdb0", accent: "#ef6f5e", accent2: "#4fa3d9", onAccent: "#ffffff" } },
-    mode: "light",
-    caption: { bg: "rgba(255,249,238,.92)", fg: "#3b2a20", karaoke: "#ef6f5e", font: '"ZCOOL KuaiLe","Noto Sans SC",sans-serif', weight: 400, radius: 14, border: ".12em dashed #ef6f5e" }
-  },
-  palette: {
-    sky0: "#bfe3f5",
-    sky1: "#fbf3e4",
-    dusk0: "#f7b28f",
-    dusk1: "#fbe3c4",
-    dawn0: "#f9d2c8",
-    dawn1: "#fbf3e4",
-    night0: "#3b4a8a",
-    night1: "#6a74b0",
-    sun: "#ffc93c",
-    moon: "#fff3b0",
-    star: "#ffe066",
-    cloud: "#ffffff",
-    far: "#a8d8a0",
-    mid: "#7cc576",
-    trunk: "#9a6a44",
-    leaf: "#5fb35a",
-    leaf2: "#9ad66a",
-    wall: "#ffe0b0",
-    roof: "#ef6f5e",
-    door: "#4fa3d9",
-    water: "#7cc4e8",
-    water2: "#b0dcf0",
-    ground: "#9ad66a",
-    ground2: "#7cc576",
-    flower: "#ef6f5e",
-    ink: "#3b2a20",
-    accent: "#ef6f5e",
-    paper: "#fbf3e4"
-  },
-  hues: {
-    skin: "#ffd6b0",
-    black: "#3b2a20",
-    white: "#ffffff",
-    cream: "#fff3d6",
-    red: "#ef6f5e",
-    deepred: "#c94a3e",
-    gold: "#ffc93c",
-    yellow: "#ffd84a",
-    blue: "#4fa3d9",
-    lightblue: "#8fcbef",
-    green: "#5fb35a",
-    teal: "#3fb3a8",
-    brown: "#9a6a44",
-    orange: "#ff9a4a",
-    pink: "#f79ac0",
-    purple: "#a07ad0",
-    grey: "#9a9a9a",
-    ink: "#3b2a20",
-    mouth: "#c94a3e",
-    cheek: "#ff8a8a"
-  },
-  material: "crayon",
-  P: { line: "#3b2a20", ornament: 1, boil: 8 },
-  video: { texture: { grain: { amount: 0.05 } }, fadeOut: 0.5 },
-  transitions: { default: "scribble:0.8", soft: "fade:0.5", strong: "scribble:0.5", list: ["scribble", "fade", "slide-left", "iris"] },
-  typography: { title: "ZCOOL KuaiLe hand lettering, each character a different crayon colour, bouncy entrance, scribble underline", subtitle: "rounded cream card with a dashed coral border", seal: "sticker star", fonts: ["ZCOOL KuaiLe", "Noto Sans SC"] },
-  sound: {
-    voice: { voice: "zh-CN-XiaoxiaoNeural", rate: "-2%" },
-    sfx: { hit: [["thump", 0.8]], big: [["kalimba", 0.8, 1046.5], ["kalimba", 0.7, 1318.5, 0.08], ["kalimba", 0.7, 1568, 0.16]], swish: [["rustle", 0.6]], title: [["marimba", 0.8, 784], ["marimba", 0.7, 1046.5, 0.12]], step: [["marimba", 0.18, 392]], pop: [["pop", 0.6]], transition: [["rustle", 0.7]] },
-    music: "kalimba + marimba on a C major pentatonic walk, shaker, 100 bpm, gentle",
-    scoreOptions: { pad: [130.81, 196, 261.63], padGain: 8e-3 }
-  },
-  pacing: { scene: 5, hold: 1.2, transition: 0.8, beat: "storybook page turns; read-aloud pace (narration first, action follows)" },
-  camera: { push: 0.015, punch: 0.05, establish: "wide", dialog: "full", action: "full", notes: "mostly flat page compositions; small gentle zooms; characters big and central" },
-  characters: { material: "crayon", conventions: "waxy fills with paper tooth, wobbly dark outline that boils 8\xD7/s, round friendly heads, rosy cheeks" },
-  effects: { signature: "doodle sparkle: crayon stars and hearts pop around the subject", list: ["doodles", "sun rays", "scribble"] },
-  demo: { setting: "field day flowers clouds", setting2: "garden day flowers", look: { hairStyle: "pony", hair: "brown", cloth: "yellow", cloth2: "yellow", trim: "blue", pants: "blue", shoe: "red", sash: "red", scarf: "red" }, title: "\u8721\u7B14\u7ED8\u672C", sub: "Crayon picture book" },
-  qa: ["paper tooth visible inside every fill (wax texture)", "outlines boil but shapes stay recognisable (\u2264 4 px wobble)", "pastel palette, no pure black", "hand-lettered font for all on-screen text", "faces big enough to read expressions"]
-};
-
-// styles/crayon/style.js
-var style_default16 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom;
-  const heart = (x, y, r) => {
-    const out = [];
-    for (let i = 0; i < 28; i++) {
-      const a = i / 28 * Math.PI * 2, X2 = 16 * Math.pow(Math.sin(a), 3), Y = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a));
-      out.push([x + X2 * r / 16, y + Y * r / 16]);
-    }
-    return out;
-  };
-  return {
-    install(v, S2) {
-      const fps = S2.charView.P && S2.charView.P.boil || 8;
-      v.onRender((t) => {
-        const el2 = document.querySelector("#cr-line .cr-boil");
-        if (el2) {
-          const s2 = String(2 + Math.floor(t * fps + 1e-6) % 6);
-          if (el2.getAttribute("seed") !== s2) el2.setAttribute("seed", s2);
-        }
-      });
-    },
-    layerAttrs(name) {
-      return name === "sky" ? "" : 'filter="url(#cr-line)"';
-    },
-    hooks: {
-      sky(el2, ctx) {
-        const { W, H, S: st, style: style2 } = ctx, c = (r) => style2.colour(r, r), M = vk2.style.material("crayon"), P2 = style2.P;
-        const [a, b] = st.time === "night" ? [c("night0"), c("night1")] : st.time === "dusk" ? [c("dusk0"), c("dusk1")] : [c("sky0"), c("sky1")];
-        let s2 = `<rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="${b}"/>`;
-        s2 += `<rect x="-60" y="-60" width="${W + 120}" height="${H * 0.62}" fill="${a}" filter="url(#cr-wax)" opacity=".9"/>`;
-        let st2 = "";
-        for (let i = 0; i < 9; i++) st2 += `M${-40 + G3.rnd(3, i) * 200} ${60 + i * 36} C${400} ${50 + i * 36 + 14 * Math.sin(i)}, ${800} ${66 + i * 36}, ${W + 40} ${58 + i * 36}`;
-        s2 += `<path d="${st2}" fill="none" stroke="${vk2.color.shade(a, -0.08)}" stroke-width="7" stroke-linecap="round" opacity=".35" filter="url(#cr-wax)"/>`;
-        const sx = W * 0.8, sy = 130;
-        s2 += `<g filter="url(#cr-line)">` + M.paint({ pts: G3.blob(sx, sy, 62, 62, 4, 0.06), col: st.time === "night" ? c("moon") : c("sun"), seed: 2 }, P2);
-        if (st.time !== "night") for (let i = 0; i < 12; i++) {
-          const ang = i / 12 * Math.PI * 2;
-          s2 += `<path d="M${(sx + Math.cos(ang) * 78).toFixed(0)} ${(sy + Math.sin(ang) * 78).toFixed(0)} L${(sx + Math.cos(ang) * 110).toFixed(0)} ${(sy + Math.sin(ang) * 110).toFixed(0)}" stroke="${c("sun")}" stroke-width="9" stroke-linecap="round"/>`;
-        }
-        [[220, 110], [600, 80], [1e3, 250]].forEach(([x, y], i) => {
-          s2 += M.paint({ pts: G3.blob(x, y, 86, 30, 9 + i, 0.25), col: c("cloud"), seed: 30 + i }, P2);
-        });
-        el2.innerHTML = s2 + "</g>";
-      },
-      far(el2, ctx, paint2) {
-        const { W, gy0, seed } = ctx;
-        el2.innerHTML = paint2([{ pts: G3.hills(-60, W + 60, gy0 - 170, 60, seed + 0.5, { base: gy0 + 40, freq: 5e-3 }), role: "far" }]);
-      },
-      mid(el2, ctx, paint2) {
-        const { W, gy0, seed } = ctx;
-        el2.innerHTML = paint2([{ pts: G3.hills(-60, W + 60, gy0 - 80, 40, seed + 2.2, { base: gy0 + 40, freq: 8e-3 }), role: "mid" }]);
-      }
-    },
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.2), cols = ["red", "blue", "green", "orange", "purple", "pink"].map((n) => S2.colour(n)), chars = [...String(text3)];
-      const el2 = K.overlay(sc, `<div style="position:absolute;left:0;right:0;top:${p.y - 66}px;text-align:center;font:400 ${o.size || 112}px/1.1 'ZCOOL KuaiLe','Noto Sans SC',sans-serif;filter:url(#cr-line)">${chars.map((ch, i) => `<span class="cr-ch" style="display:inline-block;color:${cols[i % cols.length]};-webkit-text-stroke:3px #3b2a20;paint-order:stroke fill">${K.esc(ch)}</span>`).join("")}</div>
-        ${o.sub ? `<div class="cr-s" style="position:absolute;left:50%;transform:translateX(-50%);top:${p.y + 70}px;padding:8px 22px;border-radius:16px;background:#fff9ee;border:3px dashed ${S2.colour("red")};font:400 28px 'ZCOOL KuaiLe','Noto Sans SC',sans-serif;color:#3b2a20;white-space:nowrap">${K.esc(o.sub)}</div>` : ""}`, { z: 20 });
-      const cs = [...el2.querySelectorAll(".cr-ch")], s2 = el2.querySelector(".cr-s");
-      sc.on((l) => {
-        const a = K.win(l, p.at, 0.2, p.out, 0.35);
-        K.css(el2, "opacity", a.toFixed(3));
-        cs.forEach((c, i) => {
-          const u = K.ease.back(K.prog(l, p.at + i * 0.1, 0.45));
-          K.css(c, "transform", `translateY(${(-40 * (1 - u)).toFixed(1)}px) rotate(${((i % 2 ? 4 : -4) * (1 - u) + (i % 2 ? 2 : -2)).toFixed(1)}deg) scale(${(0.3 + 0.7 * u).toFixed(3)})`);
-        });
-        if (s2) K.css(s2, "opacity", K.prog(l, p.at + 0.5, 0.3).toFixed(3));
-      });
-      if (o.sfx !== false) S2.sfx(sc, "title", p.at + 0.1);
-      return el2;
-    },
-    // signature: crayon doodles (stars + hearts) pop and float around the subject
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), M = vk2.style.material("crayon"), P2 = S2.charView.P;
-      const svg3 = K.svgLayer(sc, { fixed: true, z: 14 }), cols = ["yellow", "red", "blue", "pink", "orange", "green"].map((n) => S2.colour(n));
-      const items = [];
-      for (let i = 0; i < 9; i++) {
-        const a = -Math.PI * (0.08 + 0.84 * i / 8), R2 = 150 + 40 * G3.rnd(4, i);
-        const g2 = K.svgEl(svg3, "g", { filter: "url(#cr-line)", opacity: 0 });
-        g2.innerHTML = M.paint({ pts: i % 3 === 1 ? heart(0, 0, 26) : G3.star(0, 0, 30, 13, 5), col: cols[i % cols.length], seed: 40 + i }, P2);
-        items.push({ g: g2, a, R: R2, d: i * 0.05 });
-      }
-      sc.on((l) => items.forEach((it) => {
-        const u = K.ease.back(K.prog(l, at + it.d, 0.5)), f = l - at - it.d;
-        K.attr(it.g, "opacity", K.win(l, at + it.d, 0.05, at + 1.5, 0.4).toFixed(3));
-        K.attr(it.g, "transform", `translate(${(x + Math.cos(it.a) * it.R * u).toFixed(1)} ${(y + Math.sin(it.a) * it.R * u - 12 * Math.max(0, f)).toFixed(1)}) rotate(${(20 * Math.sin(f * 3 + it.a)).toFixed(1)}) scale(${(0.2 + 0.8 * u).toFixed(3)})`);
-      }));
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    music(v, o = {}) {
-      const N = vk2.style.scaleNotes(261.63, vk2.style.SCALES.penta, 3);
-      return vk2.style.bed(v, { bpm: 100, gain: o.gain != null ? o.gain : 0.8, seed: 10, fadeIn: 0.1, tracks: [
-        { voice: "kalimba", steps: "x..x..x.x..x.x..", notes: N.slice(3, 12), walk: true, rest: 0.15, gain: 0.55 },
-        { voice: "marimba", steps: "x.......x.......", notes: [130.81, 196, 164.81, 196], gain: 0.5 },
-        { voice: "shaker", steps: "..x...x...x...x.", gain: 0.6 }
-      ] });
-    }
-  };
-};
-
-// styles/reel/style.json
-var style_default17 = {
-  id: "reel",
-  order: 9,
-  name: "\u52A8\u6001\u6D77\u62A5",
-  en: "Motion reel (poster)",
-  description: "128 BPM \u52A8\u6001\u6D77\u62A5 / motion reel\uFF1A\u7EB8\u767D\u4E0E\u58A8\u9ED1\u5E95\u3001\u7C89 / \u9EC4 / \u9752 / \u7D2B\u56DB\u8272\u5E73\u6D82\uFF0CArchivo Black \u8D85\u7C97\u5927\u5B57 + \u786C\u6295\u5F71\uFF0C\u5F69\u6761\u8986\u76D6\u8F6C\u573A\u5361\u5728\u5C0F\u8282\u7EBF\u4E0A\uFF0C\u51B2\u51FB\u6CE2\u73AF + \u653E\u5C04\u7EBF + \u767D\u95EA\u505A\u9F13\u70B9\u91CD\u97F3\uFF0C\u5408\u6210\u9F13\u7EC4\uFF08kick / hat / clap / whoosh / riser / \u7ED3\u5C3E\u548C\u5F26\uFF09\u3002",
-  tags: ["motion", "poster", "kinetic", "beat", "flat", "bold"],
-  theme: {
-    extends: "tech-blue",
-    label: "\u52A8\u6001\u6D77\u62A5\uFF08\u7EB8\u767D / \u58A8\u9ED1 + \u56DB\u8272\uFF09",
-    mode: "light",
-    modes: {
-      light: { bg: "#F4EFE6", fg: "#0A0A12", muted: "#6A6A78", surface: "#FFFFFF", line: "#D9D2C4", accent: "#FF3B8B", accent2: "#5B3BFF", onAccent: "#0A0A12" },
-      dark: { bg: "#0A0A12", fg: "#F4EFE6", muted: "#9A9AB5", surface: "#1A1A2E", line: "#2A2A44", accent: "#FFD23F", accent2: "#25E1E8", onAccent: "#0A0A12" },
-      accent: { bg: "#FF3B8B", fg: "#0A0A12", muted: "#3A1426", surface: "#0A0A12", line: "#FF7AB0", accent: "#FFD23F", accent2: "#F4EFE6", onAccent: "#0A0A12" }
-    },
-    chart: ["#FF3B8B", "#FFD23F", "#25E1E8", "#5B3BFF", "#0A0A12", "#F4EFE6"],
-    fonts: { display: '"Archivo Black","Noto Sans SC",sans-serif', condensed: '"Archivo Black","Noto Sans SC",sans-serif' },
-    weight: { display: 900, title: 900, sub: 800 },
-    tracking: { display: "0em", title: "0em" },
-    radius: 28,
-    ease: "outExpo",
-    marker: "rgba(255,210,63,.9)",
-    caret: "#FF3B8B",
-    caption: { bg: "#0A0A12", fg: "#F4EFE6", karaoke: "#FFD23F", weight: 900 },
-    fontsCheck: ['400 20px "Archivo Black"']
-  },
-  palette: {
-    sky0: "#F4EFE6",
-    sky1: "#EDE4D3",
-    dusk0: "#F4EFE6",
-    dusk1: "#FFD23F",
-    dawn0: "#F4EFE6",
-    dawn1: "#FFC9DD",
-    night0: "#0A0A12",
-    night1: "#1A1A2E",
-    sun: "#FFD23F",
-    moon: "#F4EFE6",
-    star: "#FFD23F",
-    cloud: "#FFFFFF",
-    far: "#25E1E8",
-    mid: "#FF3B8B",
-    trunk: "#5B3BFF",
-    leaf: "#FFD23F",
-    leaf2: "#25E1E8",
-    wall: "#FF3B8B",
-    roof: "#0A0A12",
-    door: "#FFD23F",
-    water: "#25E1E8",
-    water2: "#5B3BFF",
-    ground: "#0A0A12",
-    ground2: "#1A1A2E",
-    flower: "#FF3B8B",
-    grid: "#0A0A12",
-    accent: "#FF3B8B",
-    accent2: "#5B3BFF",
-    ink: "#0A0A12",
-    paper: "#F4EFE6",
-    pink: "#FF3B8B",
-    yellow: "#FFD23F",
-    cyan: "#25E1E8",
-    violet: "#5B3BFF"
-  },
-  hues: {
-    skin: "#F6C7A8",
-    black: "#0A0A12",
-    white: "#F4EFE6",
-    cream: "#FFF6E8",
-    red: "#FF3B8B",
-    deepred: "#D81F6B",
-    gold: "#FFD23F",
-    yellow: "#FFD23F",
-    blue: "#5B3BFF",
-    lightblue: "#25E1E8",
-    green: "#25E1E8",
-    teal: "#25E1E8",
-    brown: "#5A3A2E",
-    orange: "#FF8A3D",
-    pink: "#FF3B8B",
-    purple: "#5B3BFF",
-    grey: "#6A6A78",
-    navy: "#1A1A2E",
-    ink: "#0A0A12",
-    mouth: "#A3164F",
-    cheek: "#FF9AC0"
-  },
-  material: "flat",
-  P: { ornament: 0 },
-  video: {},
-  transitions: { default: "stripes:0.44", soft: "fade:0.3", strong: "bars:0.5", list: ["stripes", "bars", "fade", "push-left", "zoom-through"] },
-  cover: { n: 6, colors: ["#FFD23F", "#FF3B8B", "#25E1E8", "#5B3BFF", "#F4EFE6", "#0A0A12"], stagger: 0.018 },
-  typography: { title: "Archivo Black slam-in (scale 2.8 \u2192 1, 20\xB0 turn, outExpo) with echo ghosts and a hard 10 px offset shadow; letters drop with squash & stretch", subtitle: "ink caption bar, paper Noto Sans SC 900, yellow karaoke", seal: "pill chip in a palette colour (vk.ui.chips)", fonts: ["Archivo Black", "Noto Sans SC", "JetBrains Mono"] },
-  sound: {
-    voice: { voice: "zh-CN-YunxiNeural", rate: "+8%" },
-    sfx: { hit: [["reel-kick", 1]], big: [["reel-kick", 1.2], ["reel-clap", 0.8]], swish: [["reel-whoosh", 0.8]], title: [["reel-kick", 1.1], ["reel-blip", 0.6, 660]], step: [["reel-hat", 0.5]], pop: [["reel-pop", 0.8]], transition: [["reel-whoosh", 0.7]], end: [["reel-kick", 1.4], ["reel-chord", 1]] },
-    music: "128 bpm drum bed: kick on every beat, off-beat hats, claps on 2 & 4, whoosh into every cut, end chord (A minor add9)",
-    bpm: 128
-  },
-  pacing: { scene: 1.875, hold: 0.3, transition: 0.44, beat: "one idea per bar (128 bpm \u2192 1.875 s); accents on every beat, cuts on the bar line" },
-  camera: { push: 0, punch: 0.06, establish: "wide", dialog: "medium", action: "medium", notes: "the frame stays locked like a poster; energy comes from type, shapes and beat accents, not camera moves" },
-  characters: { material: "flat", conventions: "flat vector in the four poster colours, no outline, hard ink shadow" },
-  effects: { signature: "shockwave rings + radial burst + white beat flash (vk.accents)", list: ["rings", "burst", "flash", "streaks", "orbit", "plus", "dotwave", "morphSeq"] },
-  demo: { setting: "city day", setting2: "field day", look: { hairStyle: "short", hair: "black", cloth: "pink", cloth2: "pink", trim: "yellow", pants: "navy", shoe: "white", sash: "lightblue" }, title: "REEL", sub: "Motion poster \xB7 128 BPM" },
-  qa: ["max four accent colours + ink / paper, flat fills only", "display type \u2265 100 px at 1080p with a hard ink shadow or outline", "every cut lands on a bar line under the stripe cover", "a visible accent on every beat (ring, burst, flash or morph)", "no text inside the 5 % safe margin except HUD marks"]
-};
-
-// styles/reel/style.js
-var style_default18 = (vk2) => {
-  const K = vk2.style.kit, G3 = vk2.geom, A = vk2.accents;
-  const C2 = { ink: "#0A0A12", paper: "#F4EFE6", pink: "#FF3B8B", yellow: "#FFD23F", cyan: "#25E1E8", violet: "#5B3BFF" };
-  const voices = {
-    "reel-kick": (k, t, v) => k.tone(t, "sine", 170, 45, 0.3, 0.95 * v),
-    "reel-hat": (k, t, v) => k.noise(t, 0.05, "highpass", 8e3, 1, 0.22 * v),
-    "reel-clap": (k, t, v) => [0, 0.012, 0.024].forEach((o) => k.noise(t + o, 0.09, "bandpass", 1800, 1.2, 0.35 * v)),
-    // whoosh peaking at t (starts 0.25 s earlier), band sweeping 300 → 5000 Hz
-    "reel-whoosh": (k, t, v) => {
-      const st = Math.max(0, t - 0.25), f = k.noise(st, 0.5, "bandpass", 300, 0.8, 0.5 * v, 0.25);
-      f.frequency.setValueAtTime(300, st);
-      f.frequency.exponentialRampToValueAtTime(5e3, st + 0.5);
-    },
-    // riser ending at t; f = length in seconds (default 2)
-    "reel-riser": (k, t, v, f) => {
-      const d = f || 2, st = Math.max(0, t - d), fl = k.noise(st, 0.08, "highpass", 400, 0.7, 0.4 * v, d * 0.95);
-      fl.frequency.setValueAtTime(400, st);
-      fl.frequency.exponentialRampToValueAtTime(7e3, st + d);
-      k.tone(st, "sawtooth", 110, 880, d * 1.9, 0.05 * v);
-    },
-    "reel-blip": (k, t, v, f) => k.tone(t, "square", f || 420, (f || 420) * 0.4, 0.12, 0.12 * v),
-    "reel-ping": (k, t, v, f) => k.tone(t, "triangle", f || 880, 0, 0.12, 0.2 * v),
-    "reel-click": (k, t, v) => k.tone(t, "sine", 2200, 1500, 0.05, 0.25 * v),
-    "reel-pop": (k, t, v) => k.tone(t, "triangle", 660, 1320, 0.2, 0.25 * v),
-    "reel-chord": (k, t, v) => [220, 261.63, 329.63, 493.88, 659.25].forEach((f, i) => k.tone(t + i * 0.03, "triangle", f, 0, 1.6, 0.16 * v))
-  };
-  const hook = (fn) => (el2, ctx) => {
-    const { W, H, seed, style: style2 } = ctx, c = (r) => style2.colour(r, r);
-    el2.innerHTML = fn({ ...ctx, W, H, seed, c });
-  };
-  return {
-    install(v, S2) {
-      for (const [n, f] of Object.entries(voices)) if (!vk2.sounds[n]) vk2.sounds[n] = f;
-      v.cfg.cover = { ...S2.base.cover || {}, ...v.cfg.cover || {} };
-    },
-    hooks: {
-      // flat paper field with two big drifting colour discs (poster composition)
-      sky: hook(({ W, H, c, seed }) => {
-        const r = G3.rnd(seed, 1) > 0.5;
-        return `<rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="${c("sky0")}"/><circle cx="${(r ? 0.82 : 0.18) * W}" cy="${0.2 * H}" r="${0.25 * H}" fill="${c("far")}"/><circle cx="${(r ? 0.1 : 0.9) * W}" cy="${0.62 * H}" r="${0.11 * H}" fill="${c("leaf")}"/>`;
-      }),
-      // hard-edged geometric skyline: blocks, half-discs and triangles in the four colours with ink offset shadows
-      far: hook(({ W, gy0, c, seed }) => {
-        let s2 = "";
-        const cols = ["mid", "trunk", "leaf", "far"];
-        for (let i = 0; i < 12; i++) {
-          const w = 70 + G3.rnd(seed, i) * 90, h3 = 50 + G3.rnd(seed + 2, i) * 150, x = i * (W / 11) - 30, k = cols[i % 4], kind = i % 3;
-          const shape = kind === 0 ? `<rect x="${x}" y="${gy0 - h3}" width="${w.toFixed(1)}" height="${h3 + 2}" rx="6"` : kind === 1 ? `<path d="M${x} ${gy0} A${w / 2} ${w / 2} 0 0 1 ${x + w} ${gy0} Z"` : `<path d="M${x} ${gy0} L${x + w / 2} ${gy0 - h3} L${x + w} ${gy0} Z"`;
-          s2 += shape.replace("<rect", `<rect transform="translate(8 8)" opacity=".9"`).replace("<path", `<path transform="translate(8 8)" opacity=".9"`) + ` fill="${c("ink")}"/>` + shape + ` fill="${c(k)}"/>`;
-        }
-        return s2;
-      }),
-      mid: false,
-      props(el2) {
-        el2.innerHTML = "";
-      },
-      ground: hook(({ W, H, gy0, c }) => `<rect x="-60" y="${gy0}" width="${W + 120}" height="${H - gy0 + 60}" fill="${c("ground")}"/><rect x="-60" y="${gy0}" width="${W + 120}" height="10" fill="${c("leaf")}"/>`)
-    },
-    worldOptions: { flat: true },
-    // title: mono kicker, Archivo Black hero slammed in (echo ghosts + hard shadow), paper sub on an ink bar
-    title(sc, text3, o = {}, S2) {
-      const p = K.placeOpts(sc, o, 0.5, 0.26), size2 = o.size || 132;
-      const el2 = K.overlay(sc, `<div class="rl-t" style="position:absolute;left:0;right:0;top:${p.y - size2 * 0.62}px;text-align:center">
-        <div class="rl-k" style="font:700 22px 'JetBrains Mono',monospace;letter-spacing:.3em;color:${C2.ink}">${K.esc(o.kicker || "\u25CF vidkit / style")}</div>
-        <div class="rl-h" style="display:inline-block;font:900 ${size2}px/1.05 'Archivo Black','Noto Sans SC',sans-serif;color:${o.color || C2.ink};margin-top:8px">${K.esc(text3)}</div>
-        ${o.sub ? `<div><span class="rl-s" style="display:inline-block;font:800 26px 'Noto Sans SC',sans-serif;color:${C2.paper};background:${C2.ink};padding:6px 16px;margin-top:14px">${K.esc(o.sub)}</span></div>` : ""}</div>`, { z: 20 });
-      const [k, h3, s2] = [".rl-k", ".rl-h", ".rl-s"].map((q) => el2.querySelector(q));
-      sc.fx(h3, "slam", { t: p.at, echo: 3, shadow: [10, 10, C2.pink], d: 0.42 });
-      sc.on((l) => {
-        K.css(el2, "opacity", K.win(l, p.at - 0.05, 0.05, p.out, 0.25).toFixed(3));
-        K.css(k, "opacity", K.prog(l, p.at + 0.2, 0.25).toFixed(3));
-        if (s2) K.css(s2, "transform", `scaleX(${K.ease.out(K.prog(l, p.at + 0.35, 0.35)).toFixed(3)})`);
-      });
-      if (o.sfx !== false) S2.sfx(sc, "title", p.at + 0.02);
-      return el2;
-    },
-    // signature: shockwave rings + radial burst + a white flash at the subject, on one canvas layer
-    effect(sc, name, o = {}, S2) {
-      const at = o.at || 0, [x, y] = sc.toScreen([o.x || 640, o.y || 300], at), W = sc.video.W, k = W / 1920;
-      sc.paint([
-        A.flash({ at, amount: 0.45 }),
-        A.rings({ times: [at, at + 0.12, at + 0.24], x, y, speed: 1150 * k, max: 900 * k, width: 9 * k, delay: 0, colors: [C2.pink, C2.yellow, C2.cyan] }),
-        A.burst({ at, x, y, n: 14, r0: 60 * k, spread: 420 * k, len: 120 * k, width: 7 * k, alpha: 0.9, color: C2.ink, d: 0.45 })
-      ], { fixed: true, zIndex: 14 });
-      if (o.sfx !== false) S2.sfx(sc, "big", at);
-      return null;
-    },
-    // 128 BPM bed: kick on the beat, off-beat hats, claps on 2 & 4; o.whoosh: whoosh into every cut; o.end: kick + chord
-    music(v, o = {}) {
-      const g2 = o.gain != null ? o.gain : 0.8;
-      const n = vk2.style.bed(v, { bpm: o.bpm || 128, gain: g2, seed: 9, fadeIn: 0.02, fadeOut: o.fadeOut != null ? o.fadeOut : 0.6, from: o.from || 0, to: o.to, tracks: [
-        { voice: "reel-kick", steps: "x...............", gain: 0.8 },
-        { voice: "reel-kick", steps: "....x...x...x...", gain: 0.68 },
-        { voice: "reel-hat", steps: "..x...x...x...x.", gain: 0.55 },
-        { voice: "reel-clap", steps: "....x.......x...", gain: 0.6 }
-      ].concat(o.tracks || []) });
-      if (o.whoosh !== false) v.scenes.slice(1).forEach((sc) => v.sfx(sc.start + (sc.transition ? sc.transition.d / 2 : 0), "reel-whoosh", 0.7 * g2));
-      if (o.end) {
-        const t = typeof o.end === "number" ? o.end : v.scenes.reduce((m, sc) => Math.max(m, sc.start + sc.dur), 0) - 1.4;
-        v.sfx(t, "reel-kick", 1.3 * g2);
-        v.sfx(t, "reel-chord", g2);
-      }
-      return n;
-    }
-  };
-};
-
 // src/styles/packs.js
-var PACKS = [
-  { data: style_default, make: style_default2 },
-  { data: style_default3, make: style_default4 },
-  { data: style_default5, make: style_default6 },
-  { data: style_default7, make: style_default8 },
-  { data: style_default9, make: style_default10 },
-  { data: style_default11, make: style_default12 },
-  { data: style_default13, make: style_default14 },
-  { data: style_default15, make: style_default16 },
-  { data: style_default17, make: style_default18 }
-];
+var PACK_IDS = ["ink", "papercut", "shadow", "opera", "tech", "neon", "pixel", "crayon", "reel"];
+
+// src/index.js
+init_schema();
 
 // src/styles/kit.js
 var kit_exports = {};
@@ -11183,6 +10007,7 @@ function burst(sc, o = {}) {
 var clamp2 = clamp01;
 
 // src/styles/sound.js
+init_random();
 var V2 = registry.sounds;
 var TAU5 = Math.PI * 2;
 var set = (n, f) => {
@@ -12520,6 +11345,8 @@ var mg = {
 var hudLayer = (video, o = {}) => video.canvas(hud(o), { blend: o.blend || "difference", zIndex: o.zIndex || 35 });
 
 // src/index.js
+init_strict();
+init_names();
 var version = "0.2.0";
 var current = null;
 var env = { base: (() => {
@@ -12713,7 +11540,29 @@ var vk = {
     SCALES,
     transitions: STYLE_TRANSITIONS,
     installTransitions: installStyleTransitions,
-    register: (data, make2) => registerStyle(data, typeof make2 === "function" ? make2(vk) : make2 || {})
+    register: (data, make2) => registerStyle(normalizeStyle(typeof data === "object" ? data : {}), typeof make2 === "function" ? make2(vk) : make2 || {}),
+    normalize: normalizeStyle,
+    validate: validateStyle,
+    mix: mixStyles,
+    fork: forkStyle,
+    matchBase: matchBaseFromPrompt,
+    ids: PACK_IDS,
+    // Runtime load: styles/boot.mjs (browser / CLI inject) or `import { loadAllNode, loadForVk } from './styles/loader.js'` (Node).
+    // Not inlined here so dist/vidkit.js never embeds pack sources — new styles need no rebuild.
+    load: async (id, o = {}) => {
+      if (typeof process !== "undefined" && process.versions && process.versions.node) {
+        const m = await Promise.resolve().then(() => (init_loader(), loader_exports));
+        return m.loadForVk(vk, id, o);
+      }
+      throw new Error("[vk.style.load] in the browser use styles/boot.mjs (CLI inject does this) or vk.style.register(json, factory)");
+    },
+    loadAll: async (o = {}) => {
+      if (typeof process !== "undefined" && process.versions && process.versions.node) {
+        const m = await Promise.resolve().then(() => (init_loader(), loader_exports));
+        return m.loadAllForVk(vk, o);
+      }
+      throw new Error("[vk.style.loadAll] in the browser import styles/boot.mjs and await boot(vk)");
+    }
   }),
   // story → styled narrated film (styles/film.js); vk make generates pages that call this
   film: Object.assign((story, o) => film(vk, story, o), { parse: parseStory }),
@@ -12745,7 +11594,6 @@ var vk = {
 Object.entries(registry.blocks).forEach(([n, f]) => {
   if (!(n in vk)) vk[n] = f;
 });
-PACKS.forEach((p) => registerStyle(p.data, p.make(vk)));
 var index_default = vk;
 export {
   index_default as default,

@@ -1,0 +1,269 @@
+{
+  "id": "shan-mo",
+  "order": 21,
+  "name": "水墨远山，留白与淡雾",
+  "en": "水墨远山，留白与淡雾",
+  "description": "水墨远山，留白与淡雾 — scaffolded from base \"ink\" via keyword match. Hand-tune palette/hooks; generation is scaffolding + peek checks, not magic.",
+  "tags": [
+    "chinese",
+    "ink",
+    "painterly",
+    "calm",
+    "scaffolded",
+    "from-prompt"
+  ],
+  "theme": "ink",
+  "palette": {
+    "sky0": "#e6e6da",
+    "sky1": "#dfe0d1",
+    "dusk0": "#e9dfcf",
+    "dusk1": "#e3e2d4",
+    "dawn0": "#e8e3d6",
+    "dawn1": "#e2e3d6",
+    "night0": "#cfd1c4",
+    "night1": "#dcddd1",
+    "sun": "#b5342a",
+    "moon": "#f3f3e9",
+    "star": "#9aa199",
+    "cloud": "#f2f2e8",
+    "far": "#a7aca3",
+    "mid": "#6d7671",
+    "near": "#3c4446",
+    "trunk": "#262c2f",
+    "leaf": "#39443f",
+    "leaf2": "#56625b",
+    "wall": "#ecebe0",
+    "roof": "#353d40",
+    "door": "#2b3134",
+    "water": "#cdd3c9",
+    "water2": "#b9c2b8",
+    "ground": "#d3d4c5",
+    "ground2": "#c3c6b6",
+    "flower": "#b5342a",
+    "ink": "#1f2529",
+    "paper": "#e4e5d8",
+    "accent": "#b5342a"
+  },
+  "hues": {
+    "skin": "#ead7bf",
+    "black": "#22292c",
+    "white": "#f4f2e8",
+    "cream": "#e8e1cc",
+    "red": "#b14a3c",
+    "deepred": "#8c3a30",
+    "gold": "#c9a24c",
+    "yellow": "#d2b261",
+    "blue": "#5d7a86",
+    "green": "#5f7a66",
+    "teal": "#4d6659",
+    "brown": "#7a5a42",
+    "orange": "#c27b4a",
+    "pink": "#d39a90",
+    "purple": "#76657a",
+    "grey": "#8c918a",
+    "ink": "#1f2529",
+    "mouth": "#9a4a40",
+    "cheek": "#d99a8a"
+  },
+  "material": "ink",
+  "P": {
+    "ink": "#1f2529",
+    "paper": "#e4e5d8",
+    "wash": 0.3,
+    "seed": 7,
+    "ornament": 0
+  },
+  "video": {
+    "texture": {
+      "rice": {
+        "amount": 0.55,
+        "seed": 4,
+        "vignette": 0.24
+      }
+    },
+    "fadeOut": 0.8
+  },
+  "transitions": {
+    "default": "ink:1.0",
+    "soft": "wash:1.2",
+    "strong": "ink:0.7",
+    "list": [
+      "ink",
+      "wash",
+      "fade"
+    ]
+  },
+  "typography": {
+    "title": "vertical brush calligraphy (Ma Shan Zheng) + serif subtitle + red seal (vk.vtitle)",
+    "subtitle": "paper caption bar with seal-red rule (Noto Serif SC)",
+    "seal": "vk.seal, 2 characters",
+    "fonts": [
+      "Ma Shan Zheng",
+      "Noto Serif SC"
+    ]
+  },
+  "sound": {
+    "voice": {
+      "voice": "zh-CN-YunxiNeural",
+      "rate": "-4%"
+    },
+    "sfx": {
+      "hit": [
+        [
+          "woodfish",
+          0.8
+        ]
+      ],
+      "big": [
+        [
+          "gong",
+          0.6,
+          110
+        ]
+      ],
+      "swish": [
+        [
+          "whoosh",
+          0.4
+        ]
+      ],
+      "title": [
+        [
+          "woodfish",
+          0.6
+        ]
+      ],
+      "step": [
+        [
+          "drop",
+          0.12,
+          900
+        ]
+      ],
+      "pop": [
+        [
+          "drop",
+          0.4
+        ]
+      ],
+      "transition": [
+        [
+          "ripple",
+          0.4
+        ]
+      ]
+    },
+    "music": "guqin plucks on a pentatonic walk (D gong mode) + bamboo flute phrases, 66 bpm, lots of silence",
+    "scoreOptions": {
+      "pad": [
+        73.42,
+        110,
+        146.83
+      ],
+      "padGain": 0.012
+    }
+  },
+  "pacing": {
+    "scene": 6,
+    "hold": 1.6,
+    "transition": 1,
+    "beat": "slow; let washes and mist breathe; one idea per shot"
+  },
+  "camera": {
+    "push": 0.02,
+    "punch": 0.06,
+    "establish": "extreme-wide",
+    "dialog": "medium-wide",
+    "action": "full",
+    "notes": "slow push-ins and lateral drifts like unrolling a scroll; avoid fast cuts"
+  },
+  "characters": {
+    "material": "ink",
+    "conventions": "pale colour washes inside a wobbling brush outline (ink-wob filter); faces simple, few details; no hard shadows"
+  },
+  "effects": {
+    "signature": "ink bloom: a brush stroke is written and bleeds into the paper (vk.gl.inkBleed)",
+    "list": [
+      "inkBleed",
+      "mist",
+      "inkDrops"
+    ]
+  },
+  "demo": {
+    "setting": "mountain dawn pine",
+    "setting2": "river day willow",
+    "look": {
+      "hairStyle": "bun",
+      "cloth": "cream",
+      "cloth2": "cream",
+      "trim": "teal",
+      "pants": "grey",
+      "sash": "teal",
+      "scarf": "teal"
+    },
+    "title": "水墨",
+    "sub": "Ink wash"
+  },
+  "qa": [
+    "generous empty paper (留白): at least a third of the frame is plain paper",
+    "far layers lighter and softer than near layers (aerial perspective)",
+    "only one saturated accent (seal red)",
+    "brush outlines wobble; nothing looks vector-perfect",
+    "titles vertical, top-right or top-left, never centred over the subject"
+  ],
+  "schemaVersion": 2,
+  "fonts": [
+    "Ma Shan Zheng",
+    "Noto Serif SC"
+  ],
+  "motion": {
+    "grammar": "slow; let washes and mist breathe; one idea per shot",
+    "pacing": {
+      "scene": 6,
+      "hold": 1.6,
+      "transition": 1,
+      "beat": "slow; let washes and mist breathe; one idea per shot"
+    },
+    "camera": {
+      "push": 0.02,
+      "punch": 0.06,
+      "establish": "extreme-wide",
+      "dialog": "medium-wide",
+      "action": "full",
+      "notes": "slow push-ins and lateral drifts like unrolling a scroll; avoid fast cuts"
+    },
+    "transitions": {
+      "default": "ink:1.0",
+      "soft": "wash:1.2",
+      "strong": "ink:0.7",
+      "list": [
+        "ink",
+        "wash",
+        "fade"
+      ]
+    }
+  },
+  "look": null,
+  "materials": {
+    "world": "ink",
+    "chars": "ink"
+  },
+  "lineage": {
+    "parents": [
+      "ink"
+    ],
+    "weights": [
+      1
+    ],
+    "note": "vk style new --from \"水墨远山，留白与淡雾\" → base ink"
+  },
+  "renderCost": {
+    "tier": "medium",
+    "modules": [
+      "svg",
+      "gl.mist",
+      "gl.inkBleed"
+    ],
+    "notes": "ink washes + mist GL"
+  }
+}

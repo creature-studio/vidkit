@@ -1,46 +1,317 @@
 {
-  "id": "crayon", "order": 8,
+  "id": "crayon",
+  "order": 8,
   "name": "蜡笔绘本",
   "en": "Crayon picture book",
   "description": "蜡笔绘本：暖白画纸纹理、蜡质颗粒与透出的纸纹、抖动描边（每秒 8 次线条沸腾）、粉彩山丘与大太阳，站酷快乐体手写标题，卡林巴与马林巴。",
-  "tags": ["kids", "handmade", "warm", "storybook"],
+  "tags": [
+    "kids",
+    "handmade",
+    "warm",
+    "storybook"
+  ],
   "theme": {
     "extends": "editorial",
     "label": "蜡笔绘本（暖白纸 · 粉彩 · 站酷快乐体）",
-    "fonts": { "display": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif", "sans": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif" },
-    "weight": { "display": 400, "title": 400, "sub": 400 },
-    "fontsCheck": ["400 20px \"ZCOOL KuaiLe\""],
-    "modes": { "light": { "bg": "#fbf3e4", "fg": "#3b2a20", "muted": "#7a6250", "surface": "#fff9ee", "line": "#e0cdb0", "accent": "#ef6f5e", "accent2": "#4fa3d9", "onAccent": "#ffffff" } },
+    "fonts": {
+      "display": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif",
+      "sans": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif"
+    },
+    "weight": {
+      "display": 400,
+      "title": 400,
+      "sub": 400
+    },
+    "fontsCheck": [
+      "400 20px \"ZCOOL KuaiLe\""
+    ],
+    "modes": {
+      "light": {
+        "bg": "#fbf3e4",
+        "fg": "#3b2a20",
+        "muted": "#7a6250",
+        "surface": "#fff9ee",
+        "line": "#e0cdb0",
+        "accent": "#ef6f5e",
+        "accent2": "#4fa3d9",
+        "onAccent": "#ffffff"
+      }
+    },
     "mode": "light",
-    "caption": { "bg": "rgba(255,249,238,.92)", "fg": "#3b2a20", "karaoke": "#ef6f5e", "font": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif", "weight": 400, "radius": 14, "border": ".12em dashed #ef6f5e" }
+    "caption": {
+      "bg": "rgba(255,249,238,.92)",
+      "fg": "#3b2a20",
+      "karaoke": "#ef6f5e",
+      "font": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif",
+      "weight": 400,
+      "radius": 14,
+      "border": ".12em dashed #ef6f5e"
+    }
   },
   "palette": {
-    "sky0": "#bfe3f5", "sky1": "#fbf3e4", "dusk0": "#f7b28f", "dusk1": "#fbe3c4", "dawn0": "#f9d2c8", "dawn1": "#fbf3e4", "night0": "#3b4a8a", "night1": "#6a74b0",
-    "sun": "#ffc93c", "moon": "#fff3b0", "star": "#ffe066", "cloud": "#ffffff",
-    "far": "#a8d8a0", "mid": "#7cc576", "trunk": "#9a6a44", "leaf": "#5fb35a", "leaf2": "#9ad66a",
-    "wall": "#ffe0b0", "roof": "#ef6f5e", "door": "#4fa3d9", "water": "#7cc4e8", "water2": "#b0dcf0",
-    "ground": "#9ad66a", "ground2": "#7cc576", "flower": "#ef6f5e", "ink": "#3b2a20", "accent": "#ef6f5e", "paper": "#fbf3e4"
+    "sky0": "#bfe3f5",
+    "sky1": "#fbf3e4",
+    "dusk0": "#f7b28f",
+    "dusk1": "#fbe3c4",
+    "dawn0": "#f9d2c8",
+    "dawn1": "#fbf3e4",
+    "night0": "#3b4a8a",
+    "night1": "#6a74b0",
+    "sun": "#ffc93c",
+    "moon": "#fff3b0",
+    "star": "#ffe066",
+    "cloud": "#ffffff",
+    "far": "#a8d8a0",
+    "mid": "#7cc576",
+    "trunk": "#9a6a44",
+    "leaf": "#5fb35a",
+    "leaf2": "#9ad66a",
+    "wall": "#ffe0b0",
+    "roof": "#ef6f5e",
+    "door": "#4fa3d9",
+    "water": "#7cc4e8",
+    "water2": "#b0dcf0",
+    "ground": "#9ad66a",
+    "ground2": "#7cc576",
+    "flower": "#ef6f5e",
+    "ink": "#3b2a20",
+    "accent": "#ef6f5e",
+    "paper": "#fbf3e4"
   },
   "hues": {
-    "skin": "#ffd6b0", "black": "#3b2a20", "white": "#ffffff", "cream": "#fff3d6", "red": "#ef6f5e", "deepred": "#c94a3e", "gold": "#ffc93c", "yellow": "#ffd84a",
-    "blue": "#4fa3d9", "lightblue": "#8fcbef", "green": "#5fb35a", "teal": "#3fb3a8", "brown": "#9a6a44", "orange": "#ff9a4a", "pink": "#f79ac0", "purple": "#a07ad0", "grey": "#9a9a9a",
-    "ink": "#3b2a20", "mouth": "#c94a3e", "cheek": "#ff8a8a"
+    "skin": "#ffd6b0",
+    "black": "#3b2a20",
+    "white": "#ffffff",
+    "cream": "#fff3d6",
+    "red": "#ef6f5e",
+    "deepred": "#c94a3e",
+    "gold": "#ffc93c",
+    "yellow": "#ffd84a",
+    "blue": "#4fa3d9",
+    "lightblue": "#8fcbef",
+    "green": "#5fb35a",
+    "teal": "#3fb3a8",
+    "brown": "#9a6a44",
+    "orange": "#ff9a4a",
+    "pink": "#f79ac0",
+    "purple": "#a07ad0",
+    "grey": "#9a9a9a",
+    "ink": "#3b2a20",
+    "mouth": "#c94a3e",
+    "cheek": "#ff8a8a"
   },
   "material": "crayon",
-  "P": { "line": "#3b2a20", "ornament": 1, "boil": 8 },
-  "video": { "texture": { "grain": { "amount": 0.05 } }, "fadeOut": 0.5 },
-  "transitions": { "default": "scribble:0.8", "soft": "fade:0.5", "strong": "scribble:0.5", "list": ["scribble", "fade", "slide-left", "iris"] },
-  "typography": { "title": "ZCOOL KuaiLe hand lettering, each character a different crayon colour, bouncy entrance, scribble underline", "subtitle": "rounded cream card with a dashed coral border", "seal": "sticker star", "fonts": ["ZCOOL KuaiLe", "Noto Sans SC"] },
-  "sound": {
-    "voice": { "voice": "zh-CN-XiaoxiaoNeural", "rate": "-2%" },
-    "sfx": { "hit": [["thump", 0.8]], "big": [["kalimba", 0.8, 1046.5], ["kalimba", 0.7, 1318.5, 0.08], ["kalimba", 0.7, 1568, 0.16]], "swish": [["rustle", 0.6]], "title": [["marimba", 0.8, 784], ["marimba", 0.7, 1046.5, 0.12]], "step": [["marimba", 0.18, 392]], "pop": [["pop", 0.6]], "transition": [["rustle", 0.7]] },
-    "music": "kalimba + marimba on a C major pentatonic walk, shaker, 100 bpm, gentle",
-    "scoreOptions": { "pad": [130.81, 196, 261.63], "padGain": 0.008 }
+  "P": {
+    "line": "#3b2a20",
+    "ornament": 1,
+    "boil": 8
   },
-  "pacing": { "scene": 5, "hold": 1.2, "transition": 0.8, "beat": "storybook page turns; read-aloud pace (narration first, action follows)" },
-  "camera": { "push": 0.015, "punch": 0.05, "establish": "wide", "dialog": "full", "action": "full", "notes": "mostly flat page compositions; small gentle zooms; characters big and central" },
-  "characters": { "material": "crayon", "conventions": "waxy fills with paper tooth, wobbly dark outline that boils 8×/s, round friendly heads, rosy cheeks" },
-  "effects": { "signature": "doodle sparkle: crayon stars and hearts pop around the subject", "list": ["doodles", "sun rays", "scribble"] },
-  "demo": { "setting": "field day flowers clouds", "setting2": "garden day flowers", "look": { "hairStyle": "pony", "hair": "brown", "cloth": "yellow", "cloth2": "yellow", "trim": "blue", "pants": "blue", "shoe": "red", "sash": "red", "scarf": "red" }, "title": "蜡笔绘本", "sub": "Crayon picture book" },
-  "qa": ["paper tooth visible inside every fill (wax texture)", "outlines boil but shapes stay recognisable (≤ 4 px wobble)", "pastel palette, no pure black", "hand-lettered font for all on-screen text", "faces big enough to read expressions"]
+  "video": {
+    "texture": {
+      "grain": {
+        "amount": 0.05
+      }
+    },
+    "fadeOut": 0.5
+  },
+  "transitions": {
+    "default": "scribble:0.8",
+    "soft": "fade:0.5",
+    "strong": "scribble:0.5",
+    "list": [
+      "scribble",
+      "fade",
+      "slide-left",
+      "iris"
+    ]
+  },
+  "typography": {
+    "title": "ZCOOL KuaiLe hand lettering, each character a different crayon colour, bouncy entrance, scribble underline",
+    "subtitle": "rounded cream card with a dashed coral border",
+    "seal": "sticker star",
+    "fonts": [
+      "ZCOOL KuaiLe",
+      "Noto Sans SC"
+    ]
+  },
+  "sound": {
+    "voice": {
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "rate": "-2%"
+    },
+    "sfx": {
+      "hit": [
+        [
+          "thump",
+          0.8
+        ]
+      ],
+      "big": [
+        [
+          "kalimba",
+          0.8,
+          1046.5
+        ],
+        [
+          "kalimba",
+          0.7,
+          1318.5,
+          0.08
+        ],
+        [
+          "kalimba",
+          0.7,
+          1568,
+          0.16
+        ]
+      ],
+      "swish": [
+        [
+          "rustle",
+          0.6
+        ]
+      ],
+      "title": [
+        [
+          "marimba",
+          0.8,
+          784
+        ],
+        [
+          "marimba",
+          0.7,
+          1046.5,
+          0.12
+        ]
+      ],
+      "step": [
+        [
+          "marimba",
+          0.18,
+          392
+        ]
+      ],
+      "pop": [
+        [
+          "pop",
+          0.6
+        ]
+      ],
+      "transition": [
+        [
+          "rustle",
+          0.7
+        ]
+      ]
+    },
+    "music": "kalimba + marimba on a C major pentatonic walk, shaker, 100 bpm, gentle",
+    "scoreOptions": {
+      "pad": [
+        130.81,
+        196,
+        261.63
+      ],
+      "padGain": 0.008
+    }
+  },
+  "pacing": {
+    "scene": 5,
+    "hold": 1.2,
+    "transition": 0.8,
+    "beat": "storybook page turns; read-aloud pace (narration first, action follows)"
+  },
+  "camera": {
+    "push": 0.015,
+    "punch": 0.05,
+    "establish": "wide",
+    "dialog": "full",
+    "action": "full",
+    "notes": "mostly flat page compositions; small gentle zooms; characters big and central"
+  },
+  "characters": {
+    "material": "crayon",
+    "conventions": "waxy fills with paper tooth, wobbly dark outline that boils 8×/s, round friendly heads, rosy cheeks"
+  },
+  "effects": {
+    "signature": "doodle sparkle: crayon stars and hearts pop around the subject",
+    "list": [
+      "doodles",
+      "sun rays",
+      "scribble"
+    ]
+  },
+  "demo": {
+    "setting": "field day flowers clouds",
+    "setting2": "garden day flowers",
+    "look": {
+      "hairStyle": "pony",
+      "hair": "brown",
+      "cloth": "yellow",
+      "cloth2": "yellow",
+      "trim": "blue",
+      "pants": "blue",
+      "shoe": "red",
+      "sash": "red",
+      "scarf": "red"
+    },
+    "title": "蜡笔绘本",
+    "sub": "Crayon picture book"
+  },
+  "qa": [
+    "paper tooth visible inside every fill (wax texture)",
+    "outlines boil but shapes stay recognisable (≤ 4 px wobble)",
+    "pastel palette, no pure black",
+    "hand-lettered font for all on-screen text",
+    "faces big enough to read expressions"
+  ],
+  "schemaVersion": 2,
+  "fonts": [
+    "ZCOOL KuaiLe",
+    "Noto Sans SC"
+  ],
+  "motion": {
+    "grammar": "storybook page turns; read-aloud pace (narration first, action follows)",
+    "pacing": {
+      "scene": 5,
+      "hold": 1.2,
+      "transition": 0.8,
+      "beat": "storybook page turns; read-aloud pace (narration first, action follows)"
+    },
+    "camera": {
+      "push": 0.015,
+      "punch": 0.05,
+      "establish": "wide",
+      "dialog": "full",
+      "action": "full",
+      "notes": "mostly flat page compositions; small gentle zooms; characters big and central"
+    },
+    "transitions": {
+      "default": "scribble:0.8",
+      "soft": "fade:0.5",
+      "strong": "scribble:0.5",
+      "list": [
+        "scribble",
+        "fade",
+        "slide-left",
+        "iris"
+      ]
+    }
+  },
+  "look": null,
+  "materials": {
+    "world": "crayon",
+    "chars": "crayon"
+  },
+  "lineage": {
+    "parents": [],
+    "weights": [],
+    "note": "hand-authored"
+  },
+  "renderCost": {
+    "tier": "low",
+    "modules": [
+      "svg"
+    ],
+    "notes": "wobbly crayon fills"
+  }
 }

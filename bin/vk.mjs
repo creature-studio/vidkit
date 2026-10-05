@@ -2,7 +2,7 @@
 // vk — vidkit CLI
 import path from 'node:path';
 import { PKG } from '../cli/lib.mjs';
-const cmds = { render: 'render', lint: 'lint', peek: 'peek', list: 'list', stills: 'stills', contact: 'contact', qa: 'qa', preview: 'preview', new: 'new', analyze: 'analyze', align: 'align', tts: 'tts', sync: 'sync', doctor: 'doctor', make: 'make', style: 'style', adopt: 'adopt', asset: 'asset', font3d: 'font3d' };
+const cmds = { render: 'render', lint: 'lint', peek: 'peek', list: 'list', stills: 'stills', contact: 'contact', qa: 'qa', preview: 'preview', studio: 'studio', new: 'new', analyze: 'analyze', align: 'align', tts: 'tts', sync: 'sync', doctor: 'doctor', make: 'make', style: 'style', adopt: 'adopt', asset: 'asset', font3d: 'font3d' };
 const [cmd, ...rest] = process.argv.slice(2);
 const HELP = `${PKG.name} ${PKG.version} — deterministic HTML/JS → video
 
@@ -31,6 +31,9 @@ frames, QA, preview:
   vk qa      page.html [--sample 0.5] [--order-step 1] [--json=report.json] [--no-strict]   layout/safe-area/caption/fonts/blank-frame/
                                                                    seek-order QA + text snapshot
   vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]      dev server: live reload + scrubber
+  vk studio  [page.html | dir] [--port 3210] [--no-open] [--draft]   Studio: composition list, live render(t) preview,
+                                  timeline (scenes/beats/captions/voice), inspector, Lint/Peek/Render buttons, MP4 download;
+                                  agent HTTP API: GET /api/state · POST /api/seek · GET /api/frame · POST /api/render (see AGENTS.md)
   vk new     video.html [--format 9:16] [--theme bold]             scaffold a page
              (vk new --style ink --story story.md -o dir/  → same as vk make)
 
@@ -39,6 +42,8 @@ style library (styles/<id>/):
                                   story (markdown/JSON scenes, narration, dialogue, actions) → styled narrated film page
   vk style   list | sample [id,…] | gallery [-o out/styles/index.html] [--shot png]
   vk style   extract ref.png [--id name] [--k 6] [-o dir]      k-means palette + grain estimate → starter pack
+  vk style   new --from "desc" | --ref img.png [--id slug] [--force]   scaffold v2 pack + peek loop (honest: not magic)
+  vk style   mix a b [--w .6] [--id slug] | fork <id> [--id slug]      lerp + look concat; writes lineage
 
 3D / assets:
   vk adopt   page.html|URL -o out.mp4 --duration s [--fps 30] [--size 1280x720] [--warmup 3] [--timers] [--canvas]
@@ -59,5 +64,5 @@ audio (Phase 2 · Python toolchain: tools/setup-audio.sh):
   vk doctor                       check the audio toolchain
 `;
 if (!cmd || cmd === '-h' || cmd === '--help' || !cmds[cmd]) { console.log(HELP); process.exit(cmd && !cmds[cmd] && cmd !== '-h' && cmd !== '--help' ? 1 : 0); }
-try { const name = cmd === 'new' && rest.includes('--story') ? 'make' : cmds[cmd]; const m = await import(`../cli/${name}.mjs`); await m.default(rest); if (cmd !== 'preview') process.exit(process.exitCode || 0); }
+try { const name = cmd === 'new' && rest.includes('--story') ? 'make' : cmds[cmd]; const m = await import(`../cli/${name}.mjs`); await m.default(rest); if (cmd !== 'preview' && cmd !== 'studio') process.exit(process.exitCode || 0); }
 catch (e) { console.error('[vk] ' + (e && e.message || e)); process.exit(1); }

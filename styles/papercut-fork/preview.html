@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>papercut-fork · vidkit style pack preview</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="../demo.js"></script>
+<script>
+const q = new URLSearchParams(location.search).get('style');
+vkStyleDemo(q ? q.split(',') : 'papercut-fork');
+</script>
+</body>
+</html>

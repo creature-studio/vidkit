@@ -1,0 +1,28 @@
+<!--
+vk-recipe
+id: popup-diorama
+title: Pop-up book diorama
+tags: [papercut, diorama, three]
+modules: [vk.three.diorama, vk.three.shapes]
+styles: [papercut]
+cost: high
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>recipe · popup diorama</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script src="../dist/vidkit-three.js"></script>
+<script>
+const v = vk.video({ fps: 30, theme: 'editorial' });
+vk.scene('book', 4, { bg: '#f3eee2' }, sc => {
+  sc.three(vk.three.diorama({ kind: 'popup', palette: 'dusk', open: { t: 0, d: 1.2 } }), {
+    background: 0xf3eee2,
+    camera: vk.three.rig.orbit({ target: [0, .2, 0], radius: 7, height: 2.2, from: -18, to: 18, dur: 4 }),
+    post: { look: 'papercut' },
+  });
+  sc.add(vk.h2('立体书', { at: .3 }));
+});
+</script>
+</body>
+</html>

@@ -618,9 +618,10 @@ vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2] [--capture …] [--no
 vk contact page.html [-o sheet.png] [--times a,b | --settle] [--cols 4]   联系表（每场景 2 帧，或 --settle 1 帧）
 vk qa      page.html [--sample 0.5] [--order-step 1] [--json=report.json] [--no-strict]   版面 QA + 渲染顺序确定性 + 可见文字快照（--json 同时写出每场落定帧 JPEG + summary）
 vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]   开发服务器：热更新 + 进度条（--dev 同时监听 src/ 重建）
+vk studio  [page.html | 目录] [--port 3210] [--no-open] [--draft] [--out-dir out/studio]   工作室（类 Remotion Studio，见下）
 vk new     video.html [--format 9:16] [--theme bold]          生成模板（带 --story 时等同 vk make）
 vk make    --style ink[,papercut.chars] --story story.md -o examples/<slug>/ [--tts] [--render]   故事 → 风格化配音短片页
-vk style   list | sample [id,…] | gallery [-o out/styles/index.html] | extract ref.png [--id x] [--k 6]
+vk style   list | sample | gallery | extract | new --from|--ref | mix a b | fork <id>
                                 [--lufs -14|off] [--duck -10] [--no-voice]   ← render 的混音参数
 
 # 3D / 资产
@@ -641,6 +642,28 @@ vk doctor
 `vk qa` 检查项：文字重叠、文字溢出容器、出画、标题安全区、平台 UI 区（竖屏）、字幕宽度/换行/阅读速度（中文按 ≤9 字/秒）、字体是否加载、空白帧（含转场中点）、配音缺失 / 配音超出场景、音乐文件缺失、词时间非单调，并打印每个场景的可见文字快照，方便核对文案。以及 `render(t)` 是否依赖渲染顺序（seek-order）。ISSUE 为必须修，WARN 为建议检查（转场中点的 dip/flash 预期会报空白帧）。
 
 ---
+
+### `vk studio`：工作室（Studio）
+
+```bash
+vk studio                      # examples/ 下所有作品；浏览器打开 http://127.0.0.1:3210/__studio/
+vk studio examples/reel/reel.html --port 3210 --no-open
+```
+
+本地网页工作台，布局参考 Remotion Studio（未复用其代码/素材）：
+
+- **左栏**：作品列表（扫描目录下调用 `vk.video` / `vk.film` 的页面，Ctrl+K 快速切换）+ 当前作品的场景列表。
+- **中间**：实时预览。页面以 `?render=1` 载入 iframe，每一帧都是 `window.__seek(t)`——与 `vk render` 逐帧调用的是同一个确定性路径。
+  播放/暂停、逐帧、倍速、循环、In/Out 区间、安全区叠层、音乐 + 配音 + SFX 预听。
+- **底部时间线**：场景块（转场重叠为斜纹）、节拍/小节（`bpm` / `beats`）、字幕、配音、音效提示点；拖动刻度尺即可 scrub，Ctrl+滚轮缩放。
+- **右栏检查器**：时长/帧率/尺寸/风格/主题/运动模糊/节拍/音频；**覆盖**（fps、画幅、草稿，作为 URL 参数，与 CLI 一致，不改页面文件）；
+  选中场景的运行时 JSON。`vk make` 生成的页面（内联 `STORY` JSON）可直接编辑并保存该场景 JSON（校验 + 备份到 `out/studio/backup/`）。
+- **顶栏**：Draft / Strict 开关，Lint、Peek（联系表与问题列表，点击跳到对应时间）、Render（调用 `vk render`，进度条，完成后下载 MP4 / 内嵌播放）。
+- **快捷键**：Space 播放 · J/K/L · ←/→ 逐帧 · Shift+←/→ 1 秒 · ↑/↓ 场景 · I/O/X 区间 · +/−/0 时间线缩放 · R 渲染 · P peek · D 草稿 · ? 帮助。
+- **面向 agent 的 HTTP API**：`GET /api/state`、`POST /api/seek`、`GET /api/frame`、`POST /api/render`、`/api/jobs`、SSE `/api/events`……
+  完整列表见 `GET /api` 与 `AGENTS.md`（Studio API）。没有打开浏览器时由无头浏览器提供信息与静帧。
+- 实现：`cli/studio.mjs`（服务器 + API + 任务队列，复用 `cli/lib.mjs` 的静态服务器与风格包注入）+ `studio/`（原生 ES 模块 + CSS，无构建步骤）。
+  演示脚本：`node scripts/studio-demo.mjs`（截图 → `out/studio-ui.png`）。
 
 ## 编写插件
 
@@ -790,6 +813,8 @@ sc.gl([                                                              // 场景�
 ---
 
 ## 风格库（`vk.style`，`styles/<id>/`）
+
+**Open style system (schema v2).** Packs are runtime-loaded from `styles/<id>/` via ES modules (`styles/boot.mjs` / CLI inject) — adding a pack does **not** require rebuilding `dist/vidkit.js`. Published schema: `docs/style.schema.json` (palette, fonts, motion grammar, look chain, materials, sound, `qa[]`, `lineage`, `renderCost`). CLI: `vk style new --from "…"` / `--ref img.png` (scaffold + peek loop; honest: not magic), `vk style mix a b --w .6`, `vk style fork <id>`, `vk style gallery` (lineage + cost on cards). Recipes: `recipes/*.html` with `vk-recipe` front-matter.
 
 一个**风格包**＝一个目录，全部离线可用（字体随包，纹理/材质为程序生成的 SVG 滤镜或 `vk.gl` 着色器，音乐为代码合成）：
 

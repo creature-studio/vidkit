@@ -7,6 +7,7 @@ import * as G from '../src/styles/geom.js';
 import { kmeans, mix, hex2rgb, nearest, luma } from '../src/styles/color.js';
 import { parseSetting } from '../src/styles/world.js';
 import { registerStyle, resolveParts, parseToken, Style, STYLES, ROLES } from '../src/styles/index.js';
+import { normalizeStyle, mixStyles, forkStyle, matchBaseFromPrompt, validateStyle } from '../src/styles/schema.js';
 import { tearEdge, pixelCols, scallop } from '../src/styles/transitions.js';
 import { bed, scaleNotes } from '../src/styles/sound.js';
 import { MATERIALS } from '../src/styles/materials.js';
@@ -15,7 +16,7 @@ import '../src/fx/ink.js';   // registers the ink theme some packs extend
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);
 const packs = fs.readdirSync(path.join(ROOT, 'styles')).filter(d => fs.existsSync(path.join(ROOT, 'styles', d, 'style.json')));
-const data = Object.fromEntries(packs.map(id => [id, JSON.parse(fs.readFileSync(path.join(ROOT, 'styles', id, 'style.json'), 'utf8'))]));
+const data = Object.fromEntries(packs.map(id => [id, normalizeStyle(JSON.parse(fs.readFileSync(path.join(ROOT, 'styles', id, 'style.json'), 'utf8')))]));
 packs.forEach(id => registerStyle(data[id], {}));
 
 test('geom: shapes, bbox/area, wobble keeps the outline close, resample spacing', () => {
@@ -49,9 +50,19 @@ test('style packs: every style.json is complete and uses a known material', () =
     for (const r of ['skin', 'black', 'white', 'red', 'gold']) assert.match(d.hues[r], /^#[0-9a-f]{6}$/i, `${id}.hues.${r}`);
     assert.ok(d.qa.length >= 4, `${id} qa checklist`);
     assert.ok(fs.existsSync(path.join(ROOT, 'styles', id, 'style.js')) && fs.existsSync(path.join(ROOT, 'styles', id, 'preview.html')), `${id} files`);
+    // v2 open style system
+    assert.equal(d.schemaVersion, 2, `${id} schemaVersion`);
+    assert.ok(Array.isArray(d.fonts), `${id}.fonts`);
+    assert.ok(d.motion && typeof d.motion.grammar === 'string', `${id}.motion.grammar`);
+    assert.ok(d.materials && MATERIALS[d.materials.world] && MATERIALS[d.materials.chars], `${id}.materials`);
+    assert.ok(d.lineage && Array.isArray(d.lineage.parents), `${id}.lineage`);
+    assert.ok(d.renderCost && d.renderCost.tier, `${id}.renderCost`);
   }
-  // distinct looks: no two packs share the same material + sky colour
-  const sig = packs.map(id => data[id].material + data[id].palette.sky0); assert.equal(new Set(sig).size, sig.length);
+  // distinct looks among hand-authored bases (scaffolds/mixes/forks intentionally inherit a parent palette)
+  const bases = packs.filter(id => !(data[id].lineage && data[id].lineage.parents && data[id].lineage.parents.length));
+  const sig = bases.map(id => data[id].material + data[id].palette.sky0); assert.equal(new Set(sig).size, sig.length);
+  assert.ok(fs.existsSync(path.join(ROOT, 'docs', 'style.schema.json')), 'published schema');
+  assert.ok(fs.existsSync(path.join(ROOT, 'styles', 'manifest.json')), 'runtime manifest');
 });
 test('style combination: base + role overrides (array, role tokens, object form)', () => {
   assert.deepEqual(parseToken('papercut-chars'), { id: 'papercut', role: 'chars' });
@@ -79,4 +90,17 @@ test('music bed: deterministic event list inside the video, notes from the scale
   const a = mk(), b = mk(); assert.deepEqual(a, b); assert.ok(a.length > 10);
   assert.ok(a.every(e => e[0] >= 0 && e[0] < 6));
   const notes = new Set(scaleNotes(220)); assert.ok(a.filter(e => e[1] === 'pluck').every(e => notes.has(e[3])));
+});
+
+test('style mix / fork / matchBase (v2)', () => {
+  const m = mixStyles(data.ink, data.neon, .4, { id: 'ink-x-neon-test' });
+  assert.equal(m.schemaVersion, 2);
+  assert.deepEqual(m.lineage.parents, ['ink', 'neon']);
+  assert.equal(m.lineage.weights.length, 2);
+  assert.ok(validateStyle(m).ok, validateStyle(m).errors);
+  const f = forkStyle(data.papercut, { id: 'papercut-fork-test' });
+  assert.deepEqual(f.lineage.parents, ['papercut']);
+  assert.equal(matchBaseFromPrompt('水墨远山'), 'ink');
+  assert.equal(matchBaseFromPrompt('赛博霓虹雨夜'), 'neon');
+  assert.equal(matchBaseFromPrompt('像素冒险'), 'pixel');
 });

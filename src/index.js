@@ -33,7 +33,8 @@ import * as CAM from './core/camera.js';
 import { motion } from './fx/motion.js';
 import { puppet, puppetBones } from './styles/puppet.js';
 import { style as makeStyle, registerStyle, listStyles, STYLES, Style, ROLES, material, MATERIALS, color, geom, parseSetting } from './styles/index.js';
-import { PACKS } from './styles/packs.js';
+import { PACKS, PACK_IDS } from './styles/packs.js';
+import { normalizeStyle, validateStyle, mixStyles, forkStyle, matchBaseFromPrompt } from './styles/schema.js';
 import * as STYLE_KIT from './styles/kit.js';
 import { bed as musicBed, scaleNotes, SCALES } from './styles/sound.js';
 import { STYLE_TRANSITIONS, installStyleTransitions } from './styles/transitions.js';
@@ -114,7 +115,25 @@ export const vk = {
   style: Object.assign(spec => makeStyle(spec), {
     list: listStyles, get: id => STYLES[id], get packs() { return STYLES; }, ROLES, Style, parseSetting, material, MATERIALS,
     kit: STYLE_KIT, bed: musicBed, scaleNotes, SCALES, transitions: STYLE_TRANSITIONS, installTransitions: installStyleTransitions,
-    register: (data, make) => registerStyle(data, typeof make === 'function' ? make(vk) : make || {}),
+    register: (data, make) => registerStyle(normalizeStyle(typeof data === 'object' ? data : {}), typeof make === 'function' ? make(vk) : make || {}),
+    normalize: normalizeStyle, validate: validateStyle, mix: mixStyles, fork: forkStyle, matchBase: matchBaseFromPrompt,
+    ids: PACK_IDS,
+    // Runtime load: styles/boot.mjs (browser / CLI inject) or `import { loadAllNode, loadForVk } from './styles/loader.js'` (Node).
+    // Not inlined here so dist/vidkit.js never embeds pack sources — new styles need no rebuild.
+    load: async (id, o = {}) => {
+      if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+        const m = await import('./styles/loader.js');
+        return m.loadForVk(vk, id, o);
+      }
+      throw new Error('[vk.style.load] in the browser use styles/boot.mjs (CLI inject does this) or vk.style.register(json, factory)');
+    },
+    loadAll: async (o = {}) => {
+      if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+        const m = await import('./styles/loader.js');
+        return m.loadAllForVk(vk, o);
+      }
+      throw new Error('[vk.style.loadAll] in the browser import styles/boot.mjs and await boot(vk)');
+    },
   }),
   // story → styled narrated film (styles/film.js); vk make generates pages that call this
   film: Object.assign((story, o) => film(vk, story, o), { parse: parseStory }),
@@ -127,6 +146,5 @@ export const vk = {
 };
 // blocks & charts registered in the registry are exposed as vk.<name> (terminal, cards, bar, line, …)
 Object.entries(registry.blocks).forEach(([n, f]) => { if (!(n in vk)) vk[n] = f; });
-// built-in style packs (styles/<id>/style.json + style.js), registered after vk exists (pack factories receive vk)
-PACKS.forEach(p => registerStyle(p.data, p.make(vk)));
+// built-in packs load at runtime (styles/<id>/ via ES modules) — see vk.style.load / styles/boot.mjs / CLI inject
 export default vk;

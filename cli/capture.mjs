@@ -58,7 +58,8 @@ export async function openWorker(mode, url, info, { scale = 1, type = 'jpeg', qu
     while (seenLog < page.logs.length) (onLog || console.log)('  [page] ' + page.logs[seenLog++]);
     while (seenErr < page.errors.length) onError && onError(page.errors[seenErr++]);
   };
-  await page.goto(url); await page.evaluate('window.__ready.then(() => true)'); flush();
+  // style-pack pages build after load (styles/boot.mjs defers the page script), so window.__ready may not exist yet: poll
+  await page.goto(url); await page.evaluate(`new Promise((res, rej) => { const t0 = Date.now(); (function w() { if (window.__ready) window.__ready.then(() => res(true), rej); else if (Date.now() - t0 > 180000) rej(new Error('vk.video() never finalised (window.__ready missing)')); else setTimeout(w, 20); })(); })`); flush();
   let last = null;
   const shot = fmt => ({ format: fmt, ...(fmt === 'jpeg' ? { quality } : {}) });
   return {

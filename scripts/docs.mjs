@@ -8,11 +8,19 @@ import path from 'node:path';
 import { startServer, LAUNCH, ROOT, PKG } from '../cli/lib.mjs';
 
 export async function collect() {
-  const { server, port } = await startServer({ extra: (req, res, p) => { if (p !== '/__docs.html') return false; res.writeHead(200, { 'content-type': 'text/html' }); res.end(`<!doctype html><meta charset=utf-8><script src="${ROOT}/dist/vidkit.js"></script><script src="${ROOT}/dist/vidkit-three.js"></script>`); return true; } });
+  const { server, port } = await startServer({ extra: (req, res, p) => { if (p !== '/__docs.html') return false; res.writeHead(200, { 'content-type': 'text/html' }); res.end(`<!doctype html><meta charset=utf-8><script src="${ROOT}/dist/vidkit.js"></script><script src="${ROOT}/dist/vidkit-three.js"></script>
+<script type="module">
+import { boot } from '${ROOT}/styles/boot.mjs';
+await boot(window.vk, { stylesUrl: '${ROOT}/styles/' });
+window.__vkStylesReady = true;
+window.__vkStyleCount = Object.keys(vk.style.packs).length;
+</script>`); return true; } });
   const browser = await chromium.launch(LAUNCH);
   try {
     const page = await browser.newPage(); const errs = []; page.on('pageerror', e => errs.push(e.message));
     await page.goto(`http://127.0.0.1:${port}/__docs.html`);
+    const expectStyles = JSON.parse(fs.readFileSync(path.join(ROOT, 'styles', 'manifest.json'), 'utf8')).ids.length;
+    await page.waitForFunction((n) => window.__vkStylesReady && window.__vkStyleCount >= n, expectStyles, { timeout: 60000 });
     const api = await page.evaluate(() => {
       const S = vk.schemas, P = o => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, S.param(v)]));
       const kinds = {};
@@ -53,9 +61,28 @@ export function render(api) {
   // llms.txt: template + a compact name index (one line per kind) — details live in docs/api.json
   const line = (k, label) => { const e = api.kinds[k]; if (!e) return ''; const names = e.entries.filter(x => bare(x) && !x.aliasOf).map(x => x.name + (x.lazy ? '' : '')); return `- ${label || k} (${names.length}): ${names.join(' ')}`; };
   const index = [line('elements', 'elements (vk.<name>(…) text / layout / raw-code nodes)'), line('fx', 'fx (entrance/exit effects)'), line('transitions'), line('textures'), line('backgrounds', 'backgrounds (bg.type)'), line('blocks', 'blocks (vk.<name>(…) element factories)'), line('themes'), line('formats'), line('styles', 'styles (style packs)'), line('eases'), line('sounds', 'sounds (sfx)'), line('materials', 'materials (style material)'), line('three', 'three (vk.three.* modules/options)'), line('threeMaterials', 'threeMaterials (vk.three.materials.*)'), line('threeRigs', 'threeRigs (vk.three.rig.*)')].filter(Boolean).join('\n');
+  const recipesDir = path.join(ROOT, 'recipes');
+  const recipes = fs.existsSync(recipesDir) ? fs.readdirSync(recipesDir).filter(f => f.endsWith('.html')).map(file => {
+    const raw = fs.readFileSync(path.join(recipesDir, file), 'utf8');
+    const m = raw.match(/<!--\s*vk-recipe\s*([\s\S]*?)-->/);
+    const fm = {};
+    if (m) for (const line of m[1].split(/\n/)) { const mm = /^\s*([\w-]+)\s*:\s*(.+?)\s*$/.exec(line); if (!mm) continue; const k = mm[1], v = mm[2]; fm[k] = v.startsWith('[') && v.endsWith(']') ? v.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean) : v; }
+    return `- recipes/${file}: ${fm.title || file} · cost ${fm.cost || fm.renderCost || '?'} · modules ${(fm.modules || []).join(', ') || '—'} · tags ${(fm.tags || []).join(', ')}`;
+  }).join('\n') : '(none yet)';
   const llms = fs.readFileSync(path.join(ROOT, 'scripts/docs/llms.md'), 'utf8').replace('@VERSION@', api.version).replace('@INDEX@', index)
-    .replace('@LOOKS@', api.three ? (api.three.looks || []).join(' ') : '').replace('@LOOK_PASSES@', api.three ? Object.keys(api.three.lookPasses || {}).join(' ') : '');
-  return { 'docs/api.json': JSON.stringify(api, null, 1) + '\n', 'docs/vk.d.ts': dts, 'llms.txt': llms };
+    .replace('@LOOKS@', api.three ? (api.three.looks || []).join(' ') : '').replace('@LOOK_PASSES@', api.three ? Object.keys(api.three.lookPasses || {}).join(' ') : '')
+    .replace('@RECIPES@', recipes);
+  // Keep AGENTS.md recipes/style blurb in sync when present
+  const agentsPath = path.join(ROOT, 'AGENTS.md');
+  let agents = null;
+  if (fs.existsSync(agentsPath)) {
+    let a = fs.readFileSync(agentsPath, 'utf8');
+    if (a.includes('<!--RECIPES-->')) a = a.replace(/<!--RECIPES-->[\s\S]*?<!--\/RECIPES-->/, `<!--RECIPES-->\n${recipes}\n<!--/RECIPES-->`);
+    agents = a;
+  }
+  const out = { 'docs/api.json': JSON.stringify(api, null, 1) + '\n', 'docs/vk.d.ts': dts, 'llms.txt': llms };
+  if (agents) out['AGENTS.md'] = agents;
+  return out;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

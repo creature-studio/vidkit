@@ -1,0 +1,28 @@
+<!--
+vk-recipe
+id: shader-plate
+title: Metaballs shader plate
+tags: [glsl, three, bloom]
+modules: [vk.three.shaderPlate]
+styles: [neon, three-tech]
+cost: high
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>recipe · shaderPlate</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script src="../dist/vidkit-three.js"></script>
+<script>
+const v = vk.video({ fps: 30, theme: 'tech-blue' });
+vk.scene('plate', 4, { bg: '#05070d' }, sc => {
+  sc.three(vk.three.shaderPlate({ preset: 'metaballs' }), {
+    background: 0x05070d,
+    camera: vk.three.rig.orbit({ radius: 5, dur: 4 }),
+    post: { bloom: { strength: .55 }, grade: 'cyber' },
+  });
+  sc.add(vk.h2('SDF plate', { at: .3 }));
+});
+</script>
+</body>
+</html>

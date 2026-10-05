@@ -15,8 +15,11 @@ run `npm run build` (pages load `dist/`). Run commands from the repo root; outpu
    Use real facts from real sources; never invent numbers. Write a table first: scene · duration · background ·
    on-screen text (≤ 8 words) · caption/narration · layout · key motion · sound. 3–7 s per scene, one idea per scene.
    With music, choose the BPM first and give durations in beats (`'b:8'`).
-2. **Pick the look.** A style pack (`vk list styles`) or a theme (`vk list themes`) is a *starting point*: take its
-   palette/type/texture/transition and override freely. Read its `qa[]` checklist (`vk list styles <id>`).
+2. **Pick the look.** A style pack (`vk list styles` / `vk style list`) or a theme (`vk list themes`) is a *starting point*: take its
+   palette/type/texture/transition and override freely. Packs are **schema v2** (`docs/style.schema.json`) and
+   **runtime-loaded** from `styles/<id>/` (no `dist` rebuild). Read `qa[]`, `lineage`, `renderCost`. Scaffold:
+   `vk style new --from "水墨远山" --id shan-mo` (peek loop; honest scaffold, not magic). Mix/fork:
+   `vk style mix a b --w .6` · `vk style fork id`. Recipes: see below.
 3. **Build.** One page: `examples/<slug>/<slug>.html` (or anywhere; script paths are relative to the page).
    Compose primitives (title/h2/sub/stack/bar/cards/code/terminal/device …, `vk list blocks`), and drop to raw code
    wherever a preset does not fit: `sc.html` + `sc.tween` + `sc.on`, `sc.canvas`, `sc.webgl`, `vk.svg`, `vk.el`,
@@ -26,7 +29,8 @@ run `npm run build` (pages load `dist/`). Run commands from the repo root; outpu
 5. **`vk peek page.html`** (add `--draft` for 3D) → open `out/peek/<name>/peek.json`, then *look at*
    `out/peek/<name>/sheet.png` (and stills you doubt). Fix, re-peek. Use `--at 2.4,2.5` or `--every 0.5` to inspect
    specific moments. Self-review each sheet against: the beat sheet, the style's `qa[]`, and the checklist below.
-   Repeat until `ok: true` and every remaining warn is understood. (`vk preview page.html` is for humans.)
+   Repeat until `ok: true` and every remaining warn is understood. (`vk preview page.html` / `vk studio` are for humans;
+   `vk studio` also has an HTTP API you can drive — see *Studio API* below.)
 6. **`vk render page.html -o out/<slug>.mp4 [--srt] [--scale 1.5]`** (strict by default; `--draft` for a quick
    low-res cut). Then `vk contact page.html -o out/<slug>-sheet.png` for the final contact sheet and check the MP4
    duration/resolution (`ffprobe`). Deliver: MP4, sheet, page path, captions/SRT.
@@ -103,6 +107,43 @@ theme, textures, default transition, push, mix and caption look; `v.style` gives
 - Assets: `vk asset add x.glb --licence CC0-1.0 --author …` (meshopt + `assets.lock.json` + thumbnail; check the
   licence). Existing realtime three.js demo you must not rewrite: `vk adopt demo.html -o out.mp4 --duration 10`
   (virtual clock; sequential only — slow, not seekable, no parallel workers; prefer porting to vk.video).
+
+
+### Recipes (`recipes/*.html`)
+<!--RECIPES-->
+- recipes/popup-diorama.html: Pop-up book diorama · cost high · modules vk.three.diorama, vk.three.shapes · tags papercut, diorama, three
+- recipes/shader-plate.html: Metaballs shader plate · cost high · modules vk.three.shaderPlate · tags glsl, three, bloom
+- recipes/terrain-ink.html: Ink-wash terrain (vk.three.terrain + look) · cost high · modules vk.three.terrain, vk.three.look · tags ink, three, terrain, look
+<!--/RECIPES-->
+
+## Studio API (`vk studio`)
+
+`vk studio [page.html | dir] [--port 3210] [--no-open] [--draft]` serves a Remotion-Studio-like workbench (compositions,
+live preview, timeline with scenes / beats / captions / voice, inspector, Lint / Peek / Render, MP4 download) at
+`http://127.0.0.1:3210/__studio/`. Every frame the preview shows is `window.__seek(t)` on the page loaded with
+`?render=1` — the same call `vk render` makes — so what you scrub is what renders. The studio is also an agent API
+(JSON in/out; `GET /api` lists everything). A UI is optional: without one, info/frames come from a headless twin.
+
+```text
+GET  /api/state[?wait=1]          composition, info {duration, fps, size, scenes[{index,name,start,dur,end,transition,settle,vo}],
+                                  beats {bpm, beats[], bars[]}, captions, voice, motionBlur, errors}, playhead, range, settings, jobs
+POST /api/open    {file|id}       switch composition (id = path under the root without .html, e.g. "reel/reel")
+POST /api/seek    {t | frame | scene[, settle] | delta, wait?}   → {t, frame, scene{index,name,local}, rendered, frameUrl}
+                                  wait:true resolves after a connected UI rendered that t
+GET  /api/frame?t=2.5[&scale=.5][&type=png][&save=1]   still at t (bytes; save=1 → {path} under out/studio/frames/)
+POST /api/range   {in, out}       in/out points (render uses them unless {range:false})
+POST /api/settings {draft?, strict?, fps?, format?}    = ?draft=1 ?strict=1 ?fps= ?format= (preview AND render)
+POST /api/lint    {file?}         vk lint report (JSON)
+POST /api/peek    {at?, every?, draft?}                 job → result {ok, summary, sheet, stills, issues}
+POST /api/render  {from?, to?, range?, draft?, fps?, scale?, format?, motionBlur?, out?, wait?}
+                                  vk render job → {id, status, progress, out, download}; wait:true blocks until done
+GET  /api/jobs · /api/jobs/:id · POST /api/jobs/:id/cancel · GET /api/download/:id (MP4 attachment)
+GET|POST /api/scene-source {index, scene}   STORY.scenes[i] of a `vk make` page (validated JSON, backup in out/studio/backup)
+GET  /api/events                  SSE: seek, play, open, settings, range, job, reload
+```
+Loop: `curl -s localhost:3210/api/state?wait=1` → `POST /api/seek {"scene":"hero","settle":true}` →
+`GET /api/frame?t=…&save=1` (look at it) → edit the page (studio live-reloads) → `POST /api/render {"draft":true,"wait":true}`.
+Renders land in `out/studio/` (git-ignored). Example session: `node scripts/studio-demo.mjs`.
 
 ## Motion blur
 

@@ -318,6 +318,7 @@ export class Video {
       // frameT: the nominal frame time when `vk render` samples sub-frames for motion blur (HUDs/timecodes stay sharp on it)
       __seek: (t, frameT) => { this.render(t, frameT); return Promise.all(this.pendingMedia).then(() => t); },
       __motionBlur: this.motionBlur, __strict: this.strict, __draft: this.draft,
+      __beats: this.beatsInfo(),   // beat/bar grid inside [0, duration] (vk studio draws it on the timeline)
       __qa: t => { if (t != null) this.render(t); return runQA(this); },
       __textBoxes: t => { if (t != null) this.render(t); return textBoxes(this); },
     });
@@ -327,6 +328,16 @@ export class Video {
     if (RENDER) this.render(+Q.get('t') || 0);
     else setTimeout(() => { this.ui = buildPreviewUI(this, Q); }, 0);
     return this;
+  }
+
+  // the beat grid as plain times (bpm / beats / bars inside the film) — read by `vk studio`; null without bpm/beats
+  beatsInfo() {
+    const g = this.beats, D = this.duration;
+    if (!g || !g.active || !(D > 0) || !(g.beat > 0)) return null;
+    const beats = [], bars = [];
+    for (let n = Math.ceil(g.index(0) - 1e-6), t; beats.length < 4000 && (t = g.at(n)) <= D + 1e-6; n++) if (t >= -1e-6) beats.push(+t.toFixed(4));
+    for (let k = Math.ceil(g.barIndex(0) - 1e-6), t; bars.length < 1000 && (t = g.measure(k)) <= D + 1e-6; k++) if (t >= -1e-6) bars.push(+t.toFixed(4));
+    return { bpm: +(+g.bpm || 60 / g.beat).toFixed(3), meter: g.meter, beats, bars };
   }
 
   /* ---------------- render(t): pure ---------------- */
