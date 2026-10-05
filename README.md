@@ -9,6 +9,7 @@
 - **可下沉**：随时 `scene.on(t => …)`、`vk.el(ctx => …)`、`scene.canvas()`、`scene.webgl()` 写原生代码。
 - **可扩展**：所有效果都是插件注册出来的，第三方插件与内置预设能力完全相同（`vk.use(plugin)`）。
 - **离线**：字体随包（均为 OFL 1.1），音效由 OfflineAudioContext 合成，渲染不联网。
+- **对 agent 友好**：严格模式（未知名称报错 + did-you-mean + 文件:行号）、带参数 schema 的注册表（`vk list`、`docs/api.json`、`docs/vk.d.ts`、`llms.txt`）、确定性静态检查 `vk lint`、一次启动看全片的 `vk peek`（静帧 + 联系表 + `peek.json` 自动视觉检查）、`--draft` 草稿模式；工作流见 [`AGENTS.md`](AGENTS.md)。
 - **音频与节奏（Phase 2）**：`vk analyze` 节拍/强拍/段落/响度分析 → 画面卡点（提前一帧）；`vk align` 中英文词级对齐 → 卡拉 OK 字幕与歌词 MV；`vk tts` 配音驱动场景时长；渲染时自动 ducking + −14 LUFS 响度归一；`vk sync` 实测音画同步。
 
 ## 目录
@@ -30,7 +31,8 @@
 15. [镜头与动作（Phase 3）](#镜头与动作phase-3)
 16. [动态图形套件（`vk.mg`）与运动模糊](#动态图形套件vkmg与运动模糊)
 17. [3D：`vk.three`（three.js r186，可选）](#3dvkthreethreejs-r186可选)
-18. [字体与素材许可](#字体许可)
+18. [面向 agent：严格模式、注册表、lint、peek、草稿](#面向-agent严格模式注册表lintpeek草稿)
+19. [字体与素材许可](#字体许可)
 
 ---
 
@@ -43,6 +45,8 @@ cd vidkit && npm install && npm run build   # 生成 dist/vidkit.js（单文件 
 npm link                                     # 可选：全局命令 vk
 vk new hello.html --format 9:16 --theme bold # 生成模板
 vk preview hello.html                        # 本地预览：热更新 + 进度条 + 场景列表（按 s 显示安全区）
+vk lint hello.html                           # 确定性静态检查（render 闭包里的 Math.random / Date.now / 定时器 …，未知名称）
+vk peek hello.html                           # 一次启动：低清静帧 + 联系表 + peek.json（版面 / 对比度 / 闪烁 / 确定性检查）
 vk qa hello.html                             # 版面 QA（重叠 / 溢出 / 安全区 / 字幕 / 字体 / 空帧）
 vk render hello.html -o hello.mp4 --srt      # 逐帧渲染 → H.264 MP4（+ SRT 字幕）
 ```
@@ -87,6 +91,7 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 | `reel/reel.html` | **15 s / 128 BPM 动态海报 reel**（8 个一小节场景）：`vk.mg` 全套——彩条覆盖转场卡在小节线、冲击波环 / 速度线 / 放射线 / 白闪、字母砸落挤压拉伸、汉字 slam + 回声残影 + 硬投影、逐拍形变、点阵波浪背景、数据弹性柱、手机里的 UI 微交互、半拍关键词快切、汇聚收束 logo、HUD；子帧运动模糊 + 合成鼓组。`out/reel-original.mp4` 为参考原片逐帧渲染，`out/reel-compare.png` 为对照表 | `out/reel.mp4` |
 | `wusong/wusong-v2-scene.html` | 《武松打虎》**打斗两场重做**（一棒劈下 · 骑虎挥拳）：镜头系统（近景/跟拍/打击推近、头部不出画）、脚步锁定的走路、竖直劈棒、可见的拳、帽带跟随运动（原片 `wusong.html` 未改） | `out/wusong-v2-scene.mp4` |
 | `three-basics.html` | **`vk.three` 入门**（11 s）：粒子星系 → 文字、耳机转台 + 灯条扫光、手机 orbit + 景深（需 `dist/vidkit-three.js`） | — |
+| `agent-test/agent-test.html` | **agent 自测片**（10 s）：只按 `llms.txt` + `AGENTS.md` 写成——`tech` 风格 + 原生 canvas 星空 + 小的 `vk.three` 环面结，lint → peek 循环（见[面向 agent](#面向-agent严格模式注册表lintpeek草稿)） | `out/agent-test.mp4` · `out/agent-test-sheet.png` |
 | `three-promo/three-promo.html` | **3D 产品宣传片**（24 s，1080p，虚构耳机 LUMEN Buds）：粒子 logo 组装、转台主镜头 + 扫光、CatmullRom 穿梭、三色并排、crane 片尾，`bars` 覆盖转场，合成器铺底 + edge-tts 中文旁白，运动模糊 | `out/three-promo.mp4` · `out/three-promo-sheet.png` |
 
 `npm run examples` 会依次对每个示例做 QA、渲染 MP4+SRT、生成联系表与静帧到 `out/`。
@@ -114,24 +119,27 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 vidkit/
 ├─ package.json          name / bin(vk) / scripts
 ├─ bin/vk.mjs            CLI 入口
-├─ cli/                  render · capture(beginframe/screenshot 捕获) · cdp(CDP pipe 客户端) · stills · contact · qa · preview · new · lib · analyze · align · tts · sync · doctor · mix(混音/ducking/loudnorm) · py
+├─ AGENTS.md · llms.txt    agent 工作流 / 简明指南（llms.txt 由 npm run docs 生成）
+├─ docs/                 api.json（完整注册表 + 参数 schema）· vk.d.ts（类型）——均由 npm run docs 生成
+├─ cli/                  lint · lintcore(acorn AST) · peek · list · render · capture(beginframe/screenshot 捕获) · cdp(CDP pipe 客户端) · stills · contact · qa · preview · new · lib · analyze · align · tts · sync · doctor · mix(混音/ducking/loudnorm) · py
 ├─ tools/                vkaudio.py（Python 音频工具链）· setup-audio.sh · requirements-audio.txt
 ├─ src/
 │  ├─ index.js           vk 对象（ES module 入口）
 │  ├─ browser.js         IIFE 入口 → window.vk
-│  ├─ core/              ease · random · time(BeatGrid) · stagger · interp · camera · timeline · plugin · scene · video
+│  ├─ meta/              注册表元数据：schemas.js（每个 fx/转场/质感/背景/区块/元素/three 模块的参数）· index.js（vk.list detail）
+│  ├─ core/              strict(严格模式 / Math.random 守卫) · names(Levenshtein) · ease · random · time(BeatGrid) · stagger · interp · camera · timeline · plugin · scene · video
 │  ├─ layers/            canvas.js · webgl.js
 │  ├─ fx/                apply · text · transitions · svg · shapes · charts · blocks · textures · backgrounds · rhythm · lyrics
 │  ├─ authoring/         api(元素工厂) · node(公共选项/md) · themes · formats · declarative(data-* 兼容)
 │  ├─ audio/             score(离线音效合成) · music(节拍/包络/段落 MusicInfo) · words(对齐→字幕/卡拉 OK)
 │  ├─ runtime/           css · preview · qa · bake(静态层缓存)
-│  └─ three/             可选 3D 包入口 index · layer · post · math(纯函数) · loaders · env · materials · products · turntable · particles
+│  └─ three/             可选 3D 包入口 index · layer · post · math(纯函数) · loaders · env · materials · products · turntable · particles · cache(PMREM/粒子目标磁盘缓存)
 ├─ dist/                 vidkit.js（IIFE，~200 KB）· vidkit.esm.js · vidkit-three.js（可选 3D 包，含 three r186）
-├─ vendor/               three r186 + addons（MIT）· Draco 解码器（Apache-2.0）· hdri/studio_loft_1k.hdr（Poly Haven CC0）；许可见 vendor/LICENSES.md
+├─ vendor/               acorn 8（MIT，vk lint 用）· three r186 + addons（MIT）· Draco 解码器（Apache-2.0）· hdri/studio_loft_1k.hdr（Poly Haven CC0）；许可见 vendor/LICENSES.md
 ├─ fonts/                Noto Sans SC · JetBrains Mono · Archivo · Anton · Instrument Serif（OFL 1.1）
 ├─ examples/             promo · explainer · vertical · gallery · mv · explainer-vo · plugin-demo · data/ · assets/(music) · mv/ · plugins/
 ├─ scripts/              build · render-examples · list-presets · debug/probe 工具 · profile-render/profile-cpu · compare-capture/compare-video
-├─ test/                core.test.mjs（缓动/时间/随机/节拍/插值）· audio.test.mjs（节拍网格/小节/提前一帧/词映射/混音表达式/分析器）· ink.test.mjs · capture.test.mjs（分块调度/捕获参数/烘焙辅助函数 + 浏览器往返）
+├─ test/                core.test.mjs（缓动/时间/随机/节拍/插值）· audio.test.mjs（节拍网格/小节/提前一帧/词映射/混音表达式/分析器）· ink.test.mjs · capture.test.mjs（分块调度/捕获参数/烘焙辅助函数 + 浏览器往返）· agent.test.mjs（did-you-mean、lint 规则、文档是否最新、严格模式、vk list/lint/peek）
 └─ out/                  渲染产物（git 忽略）
 ```
 
@@ -597,9 +605,14 @@ vk render  page.html -o out.mp4 [--fps 30] [--scale 2] [--format 16:9|9:16|1:1|4
                                 [--capture beginframe|screenshot] [--gpu soft|swiftshader|off] [--no-cache]
                                 [--timing] [--chunk 帧数] [--x264-threads n]      （--workers 默认 = CPU 核数）
                                 [--shutter 1/40 --samples 4 | --no-motion-blur]   子帧运动模糊（覆盖页面 vk.video({motionBlur})）
+                                [--strict | --no-strict] [--draft]               未知名称报错（CLI 默认开）· 草稿画质（低分辨率、3D res .35/aa 1/无景深泛光）
+vk lint    page.html [more.html …] [--json] [--quiet]          确定性静态检查 + 未知名称（文件:行:列 + 修复提示；有 error 时退出码 1）
+vk peek    page.html [--at 0,2.5,5 | --every 1] [--draft] [--json] [-o dir] [--scale .5] [--no-determinism] [--no-flicker]
+                                一次浏览器启动：静帧 + 带标注的联系表 + peek.json（有 error 时退出码 1）
+vk list    [kind] [name] [--json]                              注册表：种类 → 名称 → 单个条目的参数 schema / 示例
 vk stills  page.html [--at 1.5,4,9.2] [-o dir] [--scale 2] [--capture …] [--no-cache]   静帧 PNG（默认每个场景动画落定后的一帧）
 vk contact page.html [-o sheet.png] [--times a,b | --settle] [--cols 4]   联系表（每场景 2 帧，或 --settle 1 帧）
-vk qa      page.html [--sample 0.5] [--order-step 1] [--json=report.json]   版面 QA + 渲染顺序确定性 + 可见文字快照
+vk qa      page.html [--sample 0.5] [--order-step 1] [--json=report.json] [--no-strict]   版面 QA + 渲染顺序确定性 + 可见文字快照（--json 同时写出每场落定帧 JPEG + summary）
 vk preview page.html [--port 5173] [--host 0.0.0.0] [--dev]   开发服务器：热更新 + 进度条（--dev 同时监听 src/ 重建）
 vk new     video.html [--format 9:16] [--theme bold]          生成模板（带 --story 时等同 vk make）
 vk make    --style ink[,papercut.chars] --story story.md -o examples/<slug>/ [--tts] [--render]   故事 → 风格化配音短片页
@@ -653,6 +666,8 @@ vk.use({
 | `backgrounds` | `(scene, opts, video) => ({el, update?(local)})` |
 | `blocks` | `(...args) => Node`（用 `vk.node(o, build, defaultFx)` 创建） |
 
+元数据（`vk list` / 文档 / 严格模式的名称表都会用到）：`vk.register('fx', 'tilt', impl, { description, params: { amount: 'number|1|0..3|强度' }, example })`，或 `impl.meta = {…}`，或 `vk.use({ …, meta: { fx: { tilt: {…} } } })`；不写时从函数源码里推断 `o.x || 默认值` 形式的参数。`vk lint` 会读页面里的 `vk.use` / `vk.register`，插件注册的名字不会被当成未知名称。
+
 完整可运行示例：`examples/plugins/hello-plugin.js` + `examples/plugin-demo.html`。
 
 ---
@@ -663,6 +678,7 @@ vk.use({
 npm run build        # esbuild → dist/vidkit.js（IIFE, window.vk）+ dist/vidkit.esm.js
 npm test             # node --test：缓动端点/单调性、cubic-bezier 解析、stagger、BeatGrid（小节/提前一帧/网格切点）、种子随机、插值、代码高亮、词映射/字幕切分、混音表达式、分块调度（每帧恰好一次/工作窃取）、捕获参数、滤镜区域/引用收集，以及一个真实浏览器往返（beginframe vs screenshot、烘焙 vs 不烘焙 SSIM ≥ 0.99、同一 t 帧字节一致）；有 .venv 时额外跑 click-track 分析测试
 npm run examples     # 渲染全部示例到 out/
+npm run docs         # 由注册表生成 llms.txt · docs/api.json · docs/vk.d.ts（改了预设/schema 后先 npm run build 再跑；测试会检查它们是否最新）
 node scripts/list-presets.mjs   # 打印已注册预设（同步本文档）
 node scripts/debug-page.mjs /abs/page.html   # 打印页面报错与 console
 ```
@@ -978,7 +994,9 @@ v.three(...)                         // 全片层（默认 z:'front'）；场景
 | `three-basics` | 330 · 1280×720 | 109 s（3.0 fps） | 1.66 s + 0.17 s | 1 分 56 秒 |
 | `three-tech` 样片 | 165 · 1280×720 | — | — | 64 s |
 
-每个 worker 启动时要做 PMREM、粒子目标采样和 shader 编译，这部分约 55 s（8 个 worker 同时启动时 CPU 被占满）。想加速可以调低 `res` 或 `motionBlur.samples`，或者用 `aa: 1`。
+**冷启动**：每个 worker 启动时要做 PMREM 预滤波、粒子目标采样和 shader 编译。现在 PMREM 环境与粒子目标按内容哈希（three 版本、GL 渲染器、参数、生成函数源码、栅格化像素）缓存到磁盘（`~/.cache/vidkit`，`VK_CACHE_DIR` 可改；`?cache3d=0` 关闭），同一次渲染的 8 个 worker 与之后的渲染共用；`__ready` 前只在 64 px 的内部尺寸上预热一帧（编译程序、上传缓冲），不再在 t=0 全尺寸画一遍。three-promo 实测（8 核，8 个 worker 同时打开到第一帧，平均每个 worker）：旧 57.5 s → 无缓存 16.3 s → 有缓存 9.3 s → `--draft` 8.0 s；单 worker 12.0 s → 3.0 s（+首帧 1.0 s）。缓存命中与未命中的帧与旧版逐像素相同。
+
+**草稿**：`vk peek --draft` / `vk render --draft`（或 `vk.video({draft:true})`）让 3D 层用 `res` ≤ .35、`aa` 1、关闭层内运动模糊、景深与泛光（2D 页面 render 默认 `--scale .5`、CRF 26、preset veryfast）。想再加速可以调低 `res` 或 `motionBlur.samples`，或者用 `aa: 1`。
 
 ### 限制
 
@@ -987,6 +1005,32 @@ v.three(...)                         // 全片层（默认 z:'front'）；场景
 - 接触阴影每个输出帧渲染一次（取第一个子帧），不是每个子帧都渲染。
 - 没有随包提供 TextGeometry 用的 typeface 字体，文字建议用粒子文字或 DOM 叠加。
 - 地板反射是镜像克隆，不处理遮挡和粗糙度模糊。
+
+## 面向 agent：严格模式、注册表、lint、peek、草稿
+
+目标：让 agent（和人）写页面时**更快发现错误**，但不限制创作——预设、风格、模块只是起点，原生 DOM / CSS / SVG / Canvas / WebGL / three.js 代码始终是一等公民。agent 的入口文档：`llms.txt`（模型、黄金规则、最小示例、名称索引）与 [`AGENTS.md`](AGENTS.md)（工作流、手艺要点、坑）。
+
+**严格模式**（`vk.video({ strict: true })`；`vk peek` / `vk qa` / `vk render` 默认开启，`--no-strict` 关闭；页面 API 默认仍只警告，旧页面行为不变）：
+- 未知的 fx / 转场 / 缓动 / 质感 / 背景 / 主题 / 风格 / 音效 / 3D 材质 / 产品 / 环境 / 调色 / 粒子目标名直接抛错，信息里带 did-you-mean（注册表上的 Levenshtein）、可用名称列表，以及写下这个元素的页面 `文件:行号`；
+- 渲染一帧期间调用 `Math.random()` 抛错（非严格模式只警告一次；setup 阶段的种子随机序列不变）。
+
+**注册表元数据**：每个条目都有 `{description, params:{名: {type, default, range, description}}, example}`（`src/meta/schemas.js`；插件见[编写插件](#编写插件)）。
+```js
+vk.list()                              // 种类：elements fx transitions textures backgrounds blocks eases themes formats sounds materials styles three threeMaterials threeRigs
+vk.list('fx')                          // 名称（与旧版相同）
+vk.list('fx', { detail: true })        // [{name, description, params, example, aliases, …}]
+```
+命令行 `vk list` / `vk list fx` / `vk list three layer` / `vk list options`（vk.video / vk.scene / 元素公共选项）。`npm run docs` 由同一份注册表生成 `llms.txt`、`docs/api.json`、`docs/vk.d.ts`，并提交进仓库；`npm test` 会检查它们是否最新。
+
+**`vk lint page.html`**（acorn AST，`vendor/acorn`）：找出渲染时会执行的闭包（`sc.on` / `v.onRender` / `sc.canvas` / `sc.paint` / `api.fn` / three 的 `update`、`{update|draw|render|…}` 成员、第一个参数叫 `t`/`local` 的函数，以及它们在同文件里调用的函数），标出 `Math.random`、`Date.now` / `new Date()`、`performance.now`、`requestAnimationFrame`、`setTimeout` / `setInterval`、`THREE.Clock` / `getDelta`、`mixer.update`、在闭包里调用的种子生成器、跨帧累加的外部变量，以及字面量里的未知名称——每条带行号和修复提示（`vk.rand(seed)` 在 setup 里预计算、`vk.hash(i)`、`t`、`vk.three.mixer(...).at(t)`）。页面里 `vk.use` / `vk.register` 注册的名字会先收集，不算未知。行尾或上一行写 `// vk-lint-ignore` 可忽略。现有示例：除 `nezha-ref/nezha-rig-demo.html`（不是 vidkit 页面，3 条顶层定时器/时钟警告）外均为 0 error / 0 warning。
+
+**`vk peek page.html`**：一次浏览器启动完成 agent 的"看片"循环：静态 lint → 打开页面（严格模式）→ 在 t=0（封面）与每个场景的入场中/落定两个时刻截低清静帧（或 `--at` / `--every`）→ 页内版面 QA → 像素分析 → 第二个全新页面在若干时刻重渲染做确定性比对 → 带标注的联系表。输出目录（默认 `out/peek/<name>/`）里有 `still-*.jpg`、`sheet.png`、`peek.json`：
+`{ ok, issues: [{severity, code, message, t, times?, hint, el?}], stills: [{t, file, scene}], sheet, timings, duration, scenes, warnings, lint, determinism }`。
+检查项（code）：`page-error`（含严格模式错误）、`unknown-name`、`lint/*`、`text-overlap`、`text-overflow-x/y`、`text-cut-by-frame`、`outside-safe-area`、`out-of-frame`、`in-platform-ui-zone`、`caption-*`、`fonts-not-loaded`、`blank-frame` / `blank-first-frame` / `dark-frame`、`low-contrast`（在渲染出的像素上测文字与背景对比度）、`flicker`（t−1/fps · t · t+1/fps 三帧中间一帧突变）、`nondeterministic`（同一 t 在全新页面上渲染结果不同；无损 PNG 比对，容忍几级栅格噪声，并保存 `fresh-t*.png` 供对照）。落定帧上的版面问题是 error，入场动画中是 warn；有 error 时退出码 1。实测（8 核、无 GPU）：promo 51.8 s / 27 帧 6.9 s，vertical 14.7 s（1080×1920）6.2 s，reel 15 s（1080p）8.2 s；examples/agent-test（10 s，含 3D）`--draft` 2.5 s。
+
+**草稿模式**：`vk peek --draft` / `vk render --draft`（见 [3D 示例与性能](#示例与性能)）。
+
+**示例**：`examples/agent-test/agent-test.html`——只按 `llms.txt` + `AGENTS.md` 写成的 10 s 自测片：`tech` 风格 + 原生 canvas 星空（无状态）+ 一个小的 `vk.three` 环面结，经 lint → peek 循环后渲染为 `out/agent-test.mp4`（联系表 `out/agent-test-sheet.png`）。
 
 ## 字体许可
 

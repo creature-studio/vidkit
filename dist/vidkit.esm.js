@@ -5,6 +5,109 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// src/core/names.js
+function lev(a, b) {
+  a = String(a);
+  b = String(b);
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j), cur = new Array(n + 1);
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    [prev, cur] = [cur, prev];
+  }
+  return prev[n];
+}
+function suggest(name, valid, k = 3) {
+  const s2 = String(name).toLowerCase(), max = Math.max(2, Math.ceil(s2.length / 3));
+  return [...new Set(valid)].map((v) => {
+    const w = String(v).toLowerCase();
+    return { v, d: lev(s2, w) - (w.startsWith(s2) || s2.startsWith(w) ? 1 : 0) };
+  }).filter((x) => x.d <= max).sort((a, b) => a.d - b.d || String(a.v).length - String(b.v).length).slice(0, k).map((x) => x.v);
+}
+
+// src/core/strict.js
+var G = typeof globalThis !== "undefined" ? globalThis : {};
+var STRICT = G.__vkStrictState || (G.__vkStrictState = { on: false, frame: 0, t: null, warnedRandom: false });
+var SRC = G.__vkSrcState || (G.__vkSrcState = { err: null });
+function setStrict(on) {
+  STRICT.on = !!on;
+  return STRICT.on;
+}
+function userFrame(stack2) {
+  if (stack2 == null && SRC.err) {
+    const f = userFrame(SRC.err.stack || "");
+    if (f) return f;
+  }
+  if (stack2 == null) {
+    const L = Error.stackTraceLimit;
+    Error.stackTraceLimit = 60;
+    stack2 = new Error().stack;
+    Error.stackTraceLimit = L;
+  }
+  for (const line of String(stack2 || "").split("\n").slice(1)) {
+    const m = /\(?((?:https?|file):\/\/[^\s()]+?):(\d+):(\d+)\)?\s*$/.exec(line);
+    if (!m) continue;
+    const url = m[1];
+    if (/\/dist\/vidkit[^/]*\.js$|\/src\/(core|fx|authoring|styles|runtime|audio|three|layers|meta)\/|\/vendor\//.test(url)) continue;
+    let f = url;
+    try {
+      f = decodeURIComponent(new URL(url).pathname).split("/").pop();
+    } catch (e) {
+    }
+    return `${f}:${m[2]}:${m[3]}`;
+  }
+  return null;
+}
+var LABEL = { fx: "fx", transitions: "transition", textures: "texture", backgrounds: "background", eases: "ease", themes: "theme", materials: "material", styles: "style", formats: "format", sounds: "sound", blocks: "block", threeMaterials: "vk.three material", products: "vk.three product", grades: "vk.three grade", envs: "vk.three env", targets: "particle target" };
+function unknownMessage(kind, name, valid, where) {
+  const s2 = suggest(name, valid), at = where || userFrame();
+  return `[vk] unknown ${LABEL[kind] || kind} "${name}"${s2.length ? ` \u2014 did you mean ${s2.map((x) => `"${x}"`).join(" or ")}?` : ""}${at ? ` (at ${at})` : ""}
+  valid ${LABEL[kind] || kind} names: ${[...new Set(valid)].join(", ")}`;
+}
+var warned = G.__vkWarned || (G.__vkWarned = /* @__PURE__ */ new Set());
+function unknownName(kind, name, valid, { fatal = false, where } = {}) {
+  const msg = unknownMessage(kind, name, valid, where);
+  if (STRICT.on || fatal) {
+    const e = new Error(msg);
+    e.vkStrict = true;
+    e.kind = kind;
+    e.vkName = name;
+    throw e;
+  }
+  const key = kind + ":" + name;
+  if (!warned.has(key)) {
+    warned.add(key);
+    if (typeof console !== "undefined") console.warn(msg.split("\n")[0] + " \u2014 falling back (use vk.video({strict:true}) to make this an error)");
+  }
+  return null;
+}
+function guardedRandom(r) {
+  return function random() {
+    if (STRICT.frame > 0 && (STRICT.on || !STRICT.warnedRandom)) {
+      const L = Error.stackTraceLimit;
+      Error.stackTraceLimit = 60;
+      const st = new Error().stack || "";
+      Error.stackTraceLimit = L;
+      if (!/vidkit-three\.js|three\.module\.js|three\.core\.js|\/src\/three\//.test(st.split("\n").slice(2, 4).join("\n"))) {
+        const at = userFrame(st), msg = `[vk] Math.random() called while rendering t=${STRICT.t != null ? STRICT.t.toFixed(3) : "?"}${at ? ` (at ${at})` : ""}: its value depends on which frames were rendered before (parallel workers render out of order). Use vk.hash(i + frame) / vk.noise1(t), or a vk.rand(seed) created and consumed in setup`;
+        if (STRICT.on) {
+          const e = new Error(msg);
+          e.vkStrict = true;
+          throw e;
+        }
+        if (!STRICT.warnedRandom) {
+          STRICT.warnedRandom = true;
+          console.warn(msg);
+        }
+      }
+    }
+    return r();
+  };
+}
+
 // src/core/ease.js
 function bezier(x1, y1, x2, y2) {
   const A = (a, b) => 1 - 3 * b + 3 * a, B4 = (a, b) => 3 * b - 6 * a, C2 = (a) => 3 * a;
@@ -118,7 +221,7 @@ function getEase(e) {
   }
   m = /^steps\((\d+)\)$/.exec(e);
   if (m) return EASE[e] = steps(+m[1]);
-  if (typeof console !== "undefined") console.warn("[vk] unknown ease", e);
+  unknownName("eases", e, Object.keys(EASE).filter((n) => !/[(]/.test(n)).concat(["cubic-bezier(x1,y1,x2,y2)", "spring(k,w)", "steps(n)"]));
   return EASE.outCubic;
 }
 
@@ -458,12 +561,15 @@ var registry = {
   sounds: {},
   layers: {},
   hooks: { init: [], frame: [], qa: [] },
-  plugins: []
+  plugins: [],
+  meta: {}
+  // kind → name → schema {description, params, example} (src/meta); vk.list(kind, {detail:true})
 };
 var KINDS = ["fx", "transitions", "textures", "backgrounds", "blocks", "themes", "formats", "sounds", "layers"];
-function register(kind, name, impl) {
-  if (!registry[kind]) throw new Error("[vk] unknown registry kind " + kind);
+function register(kind, name, impl, meta) {
+  if (!registry[kind] || kind === "meta" || kind === "hooks" || kind === "plugins") throw new Error("[vk] unknown registry kind " + kind + " (have: " + KINDS.join(", ") + ")");
   registry[kind][name] = impl;
+  if (meta) (registry.meta[kind] || (registry.meta[kind] = {}))[name] = meta;
   return impl;
 }
 function use(vk2, plugin, opts) {
@@ -478,6 +584,9 @@ function use(vk2, plugin, opts) {
   KINDS.forEach((k) => {
     if (plugin[k]) Object.entries(plugin[k]).forEach(([n, impl]) => register(k, n, impl));
   });
+  if (plugin.meta) Object.entries(plugin.meta).forEach(([k, m]) => Object.entries(m || {}).forEach(([n, x]) => {
+    (registry.meta[k] || (registry.meta[k] = {}))[n] = x;
+  }));
   if (plugin.hooks) Object.entries(plugin.hooks).forEach(([h3, fn]) => registry.hooks[h3] && registry.hooks[h3].push(fn));
   if (plugin.install) plugin.install(vk2, opts || {});
   if (plugin.blocks) Object.entries(plugin.blocks).forEach(([n, f]) => {
@@ -489,8 +598,8 @@ function list(kind) {
   return Object.keys(registry[kind] || {});
 }
 var lazy = { fx: {}, transitions: {}, backgrounds: {}, textures: {}, sounds: {} };
-function lazyRegister(kind, names, install) {
-  [].concat(names).forEach((n) => {
+function lazyRegister(kind, names2, install) {
+  [].concat(names2).forEach((n) => {
     lazy[kind][n] = install;
   });
 }
@@ -826,6 +935,2456 @@ function shotCamera(list2, o = {}) {
   };
 }
 
+// src/styles/geom.js
+var geom_exports = {};
+__export(geom_exports, {
+  arc: () => arc,
+  area: () => area,
+  bbox: () => bbox,
+  blob: () => blob,
+  capsule: () => capsule,
+  cloudScroll: () => cloudScroll,
+  ellipse: () => ellipse,
+  grass: () => grass,
+  hills: () => hills,
+  house: () => house,
+  peaks: () => peaks,
+  perimeter: () => perimeter,
+  polyD: () => polyD,
+  r1: () => r1,
+  rect: () => rect,
+  resample: () => resample,
+  rnd: () => rnd,
+  rotate: () => rotate,
+  scale: () => scale,
+  smoothD: () => smoothD,
+  spiral: () => spiral,
+  star: () => star,
+  strokeOutline: () => strokeOutline,
+  translate: () => translate,
+  tree: () => tree,
+  waves: () => waves,
+  wobble: () => wobble
+});
+var TAU = Math.PI * 2;
+var r1 = (x) => Math.round(x * 10) / 10;
+var rnd = (seed, i) => hash(seed * 7.31 + i * 1.618 + 0.5);
+function ellipse(cx, cy, rx, ry = rx, rot = 0, n = 28) {
+  const c = Math.cos(rot * Math.PI / 180), s2 = Math.sin(rot * Math.PI / 180), out = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
+    out.push([cx + x * c - y * s2, cy + x * s2 + y * c]);
+  }
+  return out;
+}
+function capsule(x0, y0, r0, x1, y1, r1_, n = 10) {
+  const a = Math.atan2(y1 - y0, x1 - x0), out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = a + Math.PI / 2 + i / n * Math.PI;
+    out.push([x0 + Math.cos(t) * r0, y0 + Math.sin(t) * r0]);
+  }
+  for (let i = 0; i <= n; i++) {
+    const t = a - Math.PI / 2 + i / n * Math.PI;
+    out.push([x1 + Math.cos(t) * r1_, y1 + Math.sin(t) * r1_]);
+  }
+  return out;
+}
+function blob(cx, cy, rx, ry = rx, seed = 1, k = 0.18, n = 30) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU, r = 1 + k * (noise1(seed * 9.1 + Math.cos(a) * 1.3 + 4) - 0.5) * 2 + k * 0.5 * (noise1(seed * 3.3 + Math.sin(a) * 2.1) - 0.5);
+    out.push([cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r]);
+  }
+  return out;
+}
+var rect = (x, y, w, h3) => [[x, y], [x + w, y], [x + w, y + h3], [x, y + h3]];
+function star(cx, cy, r0, r1_, n = 5, rot = -90) {
+  const out = [];
+  for (let i = 0; i < n * 2; i++) {
+    const a = (rot + i * 180 / n) * Math.PI / 180, r = i % 2 ? r1_ : r0;
+    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return out;
+}
+var translate = (pts, dx, dy) => pts.map((p) => [p[0] + dx, p[1] + dy]);
+var scale = (pts, sx, sy = sx, cx = 0, cy = 0) => pts.map((p) => [cx + (p[0] - cx) * sx, cy + (p[1] - cy) * sy]);
+function rotate(pts, deg, cx = 0, cy = 0) {
+  const c = Math.cos(deg * Math.PI / 180), s2 = Math.sin(deg * Math.PI / 180);
+  return pts.map((p) => [cx + (p[0] - cx) * c - (p[1] - cy) * s2, cy + (p[0] - cx) * s2 + (p[1] - cy) * c]);
+}
+function bbox(pts) {
+  let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+  for (const p of pts) {
+    a = Math.min(a, p[0]);
+    b = Math.min(b, p[1]);
+    c = Math.max(c, p[0]);
+    d = Math.max(d, p[1]);
+  }
+  return [a, b, c, d];
+}
+function area(pts) {
+  let s2 = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    s2 += p[0] * q[1] - q[0] * p[1];
+  }
+  return s2 / 2;
+}
+function perimeter(pts, closed = true) {
+  let L = 0;
+  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    L += Math.hypot(q[0] - p[0], q[1] - p[1]);
+  }
+  return L;
+}
+function resample(pts, step = 6, closed = true) {
+  const L = perimeter(pts, closed), n = Math.max(closed ? 6 : 2, Math.round(L / step)), out = [];
+  const segs = [];
+  let acc = 0;
+  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length], l = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    segs.push([p, q, acc, l]);
+    acc += l;
+  }
+  for (let k = 0; k < (closed ? n : n + 1); k++) {
+    const d = L * k / n;
+    let s2 = segs[segs.length - 1];
+    for (const g2 of segs) if (d <= g2[2] + g2[3]) {
+      s2 = g2;
+      break;
+    }
+    const u = s2[3] ? (d - s2[2]) / s2[3] : 0;
+    out.push([s2[0][0] + (s2[1][0] - s2[0][0]) * u, s2[0][1] + (s2[1][1] - s2[0][1]) * u]);
+  }
+  return out;
+}
+function wobble(pts, o = {}) {
+  const amp = o.amp != null ? o.amp : 0.9, step = o.step || 5, seed = o.seed || 1, closed = o.closed !== false;
+  const q = resample(pts, step, closed), m = q.length;
+  return q.map((p, i) => {
+    if (!closed && (i === 0 || i === m - 1)) return p;
+    const a = q[(i - 1 + m) % m], b = q[(i + 1) % m], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const nick = rnd(seed * 3.1, i * 1.93) > 0.94 ? 1.9 : 1, k = amp * (rnd(seed * 13.7, i * 0.731) - 0.5) * 2 * nick;
+    return [p[0] - dy / l * k, p[1] + dx / l * k];
+  });
+}
+var polyD = (pts, closed = true) => pts.length ? "M" + pts.map((p) => r1(p[0]) + " " + r1(p[1])).join(" L") + (closed ? " Z" : "") : "";
+function smoothD(pts, closed = true, k = 1) {
+  const n = pts.length;
+  if (n < 3) return polyD(pts, closed);
+  const P2 = (i) => closed ? pts[(i + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
+  let d = `M${r1(pts[0][0])} ${r1(pts[0][1])}`;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const p0 = P2(i - 1), p1 = P2(i), p2 = P2(i + 1), p3 = P2(i + 2);
+    d += ` C${r1(p1[0] + (p2[0] - p0[0]) / 6 * k)} ${r1(p1[1] + (p2[1] - p0[1]) / 6 * k)} ${r1(p2[0] - (p3[0] - p1[0]) / 6 * k)} ${r1(p2[1] - (p3[1] - p1[1]) / 6 * k)} ${r1(p2[0])} ${r1(p2[1])}`;
+  }
+  return d + (closed ? " Z" : "");
+}
+function strokeOutline(pts, w = 4, taper = true) {
+  const n = pts.length, L = [], R2 = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const u = n > 1 ? i / (n - 1) : 0.5, ww = (typeof w === "function" ? w(u) : w) / 2 * (taper ? Math.pow(Math.sin(Math.PI * Math.min(1, 0.06 + u * 0.9)), 0.7) : 1);
+    L.push([pts[i][0] - dy / l * ww, pts[i][1] + dx / l * ww]);
+    R2.push([pts[i][0] + dy / l * ww, pts[i][1] - dx / l * ww]);
+  }
+  return L.concat(R2.reverse());
+}
+function arc(a, b, bend = 0, n = 8) {
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, cx = mx - dy / l * bend, cy = my + dx / l * bend, out = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n, v = 1 - u;
+    out.push([v * v * a[0] + 2 * u * v * cx + u * u * b[0], v * v * a[1] + 2 * u * v * cy + u * u * b[1]]);
+  }
+  return out;
+}
+function spiral(cx, cy, r0, turns = 1.5, grow = 0.5, rot = 0, dir = 1, n = 40) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n, a = rot + dir * u * turns * TAU, r = r0 * (1 - grow * u);
+    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return out;
+}
+function hills(x0, x1, top, amp, seed = 1, o = {}) {
+  const step = o.step || 16, freq = o.freq || 6e-3, base2 = o.base != null ? o.base : 760, out = [[x0, base2]];
+  for (let x = x0; x <= x1 + 0.1; x += step) {
+    const n = noise1(x * freq + seed * 17.3) * 0.7 + noise1(x * freq * 2.7 + seed * 5.1) * 0.3;
+    const peak = o.peaks ? Math.pow(Math.max(0, n), o.peaks) : n;
+    out.push([x, top + amp * (1 - 2 * peak)]);
+  }
+  out.push([x1, base2]);
+  return out;
+}
+function peaks(x0, x1, base2, hMin, hMax, n = 5, seed = 1) {
+  const out = [];
+  const w = (x1 - x0) / n;
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + w * (i + 0.5) + (rnd(seed, i) - 0.5) * w * 0.4, h3 = hMin + (hMax - hMin) * rnd(seed + 3, i), ww = w * (0.55 + 0.4 * rnd(seed + 7, i));
+    const pts = [];
+    for (let k = 0; k <= 16; k++) {
+      const u = k / 16, a = Math.PI * u;
+      pts.push([cx - ww * Math.cos(a), base2 - h3 * Math.pow(Math.sin(a), 0.65) * (1 + 0.06 * Math.sin(a * 5 + i))]);
+    }
+    out.push({ cx, h: h3, pts: [[cx - ww, base2 + 40], ...pts, [cx + ww, base2 + 40]] });
+  }
+  return out;
+}
+function tree(x, y, h3, o = {}) {
+  const kind = o.kind || "round", seed = o.seed || 1, lean = o.lean || 0, tw = o.trunk || h3 * 0.07;
+  const top = [x + lean * h3, y - h3 * (kind === "pine" ? 0.95 : 0.62)];
+  const trunk = [[x - tw, y], [x - tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [top[0] - tw * 0.35, top[1]], [top[0] + tw * 0.35, top[1]], [x + tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [x + tw, y]];
+  const crown = [];
+  if (kind === "pine") {
+    for (let i = 0; i < 4; i++) {
+      const yy = y - h3 * (0.38 + i * 0.17), ww = h3 * (0.36 - i * 0.07);
+      crown.push([[x + lean * h3 * (0.4 + i * 0.15) - ww, yy + h3 * 0.05], [x + lean * h3 * (0.5 + i * 0.15), yy - h3 * 0.2], [x + lean * h3 * (0.4 + i * 0.15) + ww, yy + h3 * 0.05]]);
+    }
+  } else if (kind === "willow") {
+    crown.push(blob(top[0], top[1], h3 * 0.3, h3 * 0.2, seed, 0.22));
+    for (let i = 0; i < 5; i++) {
+      const sx = top[0] - h3 * 0.28 + i * h3 * 0.14;
+      crown.push(strokeOutline(arc([sx, top[1]], [sx - h3 * 0.05, top[1] + h3 * 0.45], 8), h3 * 0.05));
+    }
+  } else {
+    const n = o.lobes || 3;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n - 0.5) * 1.8, r = h3 * (0.26 + 0.06 * rnd(seed, i));
+      crown.push(blob(top[0] + Math.sin(a) * h3 * 0.22, top[1] - Math.cos(a) * h3 * 0.1 + h3 * 0.04, r, r * 0.85, seed + i, 0.14));
+    }
+  }
+  return { trunk, crown, top, kind };
+}
+function house(x, y, w, h3, o = {}) {
+  const kind = o.kind || "cottage", rh = h3 * (kind === "temple" ? 0.55 : 0.45), ov2 = w * 0.12, curl = kind === "temple" ? h3 * 0.12 : 0;
+  const walls = rect(x - w / 2, y - h3, w, h3);
+  const roof = kind === "flat" ? rect(x - w / 2 - ov2 * 0.3, y - h3 - h3 * 0.1, w + ov2 * 0.6, h3 * 0.1) : [[x - w / 2 - ov2, y - h3 + curl * 0.2], [x - w / 2 - ov2 - curl * 0.6, y - h3 - curl], [x - w / 2 - ov2 * 0.2, y - h3 - rh * 0.1], [x, y - h3 - rh], [x + w / 2 + ov2 * 0.2, y - h3 - rh * 0.1], [x + w / 2 + ov2 + curl * 0.6, y - h3 - curl], [x + w / 2 + ov2, y - h3 + curl * 0.2]];
+  const door = rect(x - w * 0.1, y - h3 * 0.55, w * 0.2, h3 * 0.55), win2 = rect(x + w * 0.18, y - h3 * 0.7, w * 0.18, h3 * 0.2), win22 = rect(x - w * 0.36, y - h3 * 0.7, w * 0.18, h3 * 0.2);
+  return { walls, roof, door, windows: [win2, win22] };
+}
+function waves(x0, x1, y, amp = 8, len2 = 90, phase = 0, base2 = 760, step = 8) {
+  const out = [[x0, base2]];
+  for (let x = x0; x <= x1 + 0.1; x += step) out.push([x, y + amp * Math.sin(x / len2 * TAU + phase) + amp * 0.4 * Math.sin(x / len2 * 2.3 * TAU + phase * 1.7)]);
+  out.push([x1, base2]);
+  return out;
+}
+function grass(x, y, h3 = 28, n = 5, seed = 1) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const dx = (i - (n - 1) / 2) * 5, lean = (i - (n - 1) / 2) * 0.22 + (rnd(seed, i) - 0.5) * 0.3, hh = h3 * (0.6 + 0.5 * rnd(seed + 2, i));
+    out.push(strokeOutline(arc([x + dx, y], [x + dx + lean * hh, y - hh], -lean * 6, 6), 4.2));
+  }
+  return out;
+}
+function cloudScroll(cx, cy, w, o = {}) {
+  const seed = o.seed || 1, h3 = w * 0.32, body = [];
+  const bumps = 4;
+  for (let i = 0; i <= bumps; i++) {
+    const u = i / bumps, x = cx - w / 2 + u * w;
+    const r = h3 * (0.55 + 0.35 * Math.sin(Math.PI * u)) * (0.9 + 0.2 * rnd(seed, i));
+    for (let k = 0; k <= 6; k++) {
+      const a = Math.PI + k / 6 * Math.PI;
+      body.push([x + Math.cos(a) * r * 0.6, cy + Math.sin(a) * r]);
+    }
+  }
+  body.push([cx + w / 2 + h3 * 0.2, cy + h3 * 0.25], [cx - w / 2 - h3 * 0.2, cy + h3 * 0.25]);
+  const curls = [spiral(cx - w / 2 + h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.1, -1), spiral(cx + w / 2 - h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.9, 1), spiral(cx - w * 0.08, cy - h3 * 0.45, h3 * 0.42, 1.1, 0.7, Math.PI * 0.5, 1)];
+  return { body, curls, h: h3 };
+}
+
+// src/styles/color.js
+var color_exports = {};
+__export(color_exports, {
+  hex2rgb: () => hex2rgb,
+  kmeans: () => kmeans,
+  luma: () => luma,
+  mix: () => mix,
+  nearest: () => nearest,
+  rgb2hex: () => rgb2hex,
+  rgba: () => rgba,
+  shade: () => shade
+});
+function hex2rgb(c) {
+  const s2 = String(c).trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(s2);
+  if (m) return [...m[1]].map((ch) => parseInt(ch + ch, 16));
+  m = /^#([0-9a-f]{6})/i.exec(s2);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  m = /rgba?\(([^)]+)\)/i.exec(s2);
+  if (m) return m[1].split(/[ ,/]+/).slice(0, 3).map(Number);
+  return [0, 0, 0];
+}
+var rgb2hex = (c) => "#" + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+var mix = (a, b, t) => {
+  const A = hex2rgb(a), B4 = hex2rgb(b);
+  return rgb2hex(A.map((v, i) => v + (B4[i] - v) * t));
+};
+var shade = (c, k) => k >= 0 ? mix(c, "#ffffff", k) : mix(c, "#000000", -k);
+var luma = (c) => {
+  const [r, g2, b] = hex2rgb(c);
+  return (0.2126 * r + 0.7152 * g2 + 0.0722 * b) / 255;
+};
+function rgba(c, a) {
+  const [r, g2, b] = hex2rgb(c);
+  return `rgba(${r},${g2},${b},${a})`;
+}
+function nearest(c, palette) {
+  const A = hex2rgb(c);
+  let best = palette[0], bd = Infinity;
+  for (const p of palette) {
+    const B4 = hex2rgb(p), d = (A[0] - B4[0]) ** 2 * 0.3 + (A[1] - B4[1]) ** 2 * 0.59 + (A[2] - B4[2]) ** 2 * 0.11;
+    if (d < bd) {
+      bd = d;
+      best = p;
+    }
+  }
+  return best;
+}
+function kmeans(px4, k = 6, o = {}) {
+  let s2 = (o.seed || 7) >>> 0;
+  const R2 = () => (s2 = s2 * 1664525 + 1013904223 >>> 0) / 4294967296;
+  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+  const C2 = [px4[Math.floor(R2() * px4.length)].slice()];
+  while (C2.length < k) {
+    const D = px4.map((p) => Math.min(...C2.map((c) => d2(p, c)))), tot = D.reduce((a, b) => a + b, 0) || 1;
+    let r = R2() * tot, i = 0;
+    for (; i < D.length - 1 && r > D[i]; i++) r -= D[i];
+    C2.push(px4[i].slice());
+  }
+  let lab = new Array(px4.length).fill(0);
+  for (let it = 0; it < (o.iter || 16); it++) {
+    lab = px4.map((p) => {
+      let bi = 0, bd = Infinity;
+      C2.forEach((c, j) => {
+        const d = d2(p, c);
+        if (d < bd) {
+          bd = d;
+          bi = j;
+        }
+      });
+      return bi;
+    });
+    const S2 = C2.map(() => [0, 0, 0, 0]);
+    px4.forEach((p, i) => {
+      const a = S2[lab[i]];
+      a[0] += p[0];
+      a[1] += p[1];
+      a[2] += p[2];
+      a[3]++;
+    });
+    S2.forEach((a, j) => {
+      if (a[3]) C2[j] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]];
+    });
+  }
+  const n = C2.map((_, j) => lab.filter((l) => l === j).length);
+  return C2.map((c, j) => ({ rgb: c.map(Math.round), hex: rgb2hex(c), share: n[j] / px4.length })).sort((a, b) => b.share - a.share);
+}
+
+// src/styles/materials.js
+var holesD = (piece, f) => (piece.holes || []).map((h3) => " " + f(h3)).join("");
+var farCol = (piece, k = -0.16) => piece.far ? shade(piece.col, k) : piece.col;
+function svgDefs(v, id, inner) {
+  if (document.getElementById(id)) return;
+  const w = document.createElement("div");
+  w.innerHTML = `<svg id="${id}" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>${inner}</defs></svg>`;
+  (v.stage || document.body).appendChild(w.firstElementChild);
+}
+var lineOf = (piece, f = 1) => polyD(strokeOutline(piece.line, (piece.w || 3) * f, piece.taper !== false), true);
+var MATERIALS = {
+  // 剪纸: scissor-cut edges (seeded normal wobble), flat colour, ornaments cut out as holes (evenodd), lifted shadow
+  cut: {
+    label: "\u526A\u7EB8\uFF08\u526A\u5200\u6BDB\u8FB9 \xB7 \u5E73\u6D82 \xB7 \u9542\u7A7A \xB7 \u6295\u5F71\uFF09",
+    defs(v, P2) {
+      if (v && v.stage && window.vk) window.vk.gl.paperCut(v, { prefix: "pc", seed: P2.seed || 4, shadow: P2.shadow || [3, 5, 3, 0.35] });
+    },
+    group: (P2, kind) => kind === "char" ? 'filter="url(#pc-shadow)"' : kind === "layer" ? 'filter="url(#pc)"' : "",
+    paint(p, P2) {
+      const amp = P2.cutAmp != null ? P2.cutAmp : 0.9, W = (pts) => polyD(wobble(pts, { amp, step: p.step || 5, seed: p.seed || 1 }), true);
+      if (p.line) return `<path d="${W(strokeOutline(p.line, (p.w || 3) * 1.15))}" fill="${farCol(p)}"/>`;
+      const holes = (p.holes || []).concat(p.orn || []);
+      return `<path d="${W(p.pts)}${holes.map((h3) => " " + W(h3)).join("")}" fill="${farCol(p)}"${holes.length ? ' fill-rule="evenodd"' : ""}${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+    },
+    dyn: (P2, col3) => `fill="${col3}"`
+  },
+  // 水墨: pale wash fill + wobbling brush outline (ink-line filter from vk.installInk)
+  ink: {
+    label: "\u6C34\u58A8\uFF08\u6DE1\u5F69\u6655\u67D3 + \u6BDB\u7B14\u52FE\u7EBF\uFF09",
+    defs(v, P2) {
+      if (v && v.stage && window.vk && !document.querySelector("#ink-line")) window.vk.installInk({ seed: P2.seed || 7 });
+    },
+    group: (P2, kind) => kind === "char" ? 'filter="url(#ink-wob)"' : "",
+    paint(p, P2) {
+      const ink = P2.ink || "#1f2529", paper2 = P2.paper || "#e4e5d8";
+      if (p.line) return `<path d="${lineOf(p, 1.25)}" fill="${ink}" opacity="${p.op != null ? p.op : 0.92}"/>`;
+      const wash = mix(farCol(p, -0.1), paper2, P2.wash != null ? P2.wash : 0.28), lw = p.role === "skin" || p.role === "eyeW" ? 1.8 : 2.6;
+      return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${wash}" fill-rule="evenodd" stroke="${ink}" stroke-width="${p.lw || lw}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+    },
+    dyn: (P2, col3) => `fill="${mix(col3, P2.paper || "#e4e5d8", 0.2)}" stroke="${P2.ink || "#1f2529"}" stroke-width="1.6" stroke-linejoin="round"`
+  },
+  // flat vector (product promo): clean smooth shapes, no outline, soft back-side shade
+  flat: {
+    label: "\u6241\u5E73\u77E2\u91CF\uFF08\u5E73\u6ED1\u5F62 \xB7 \u65E0\u63CF\u8FB9 \xB7 \u4FA7\u5149\uFF09",
+    defs() {
+    },
+    group: () => "",
+    paint(p, P2) {
+      if (p.line) return `<path d="${lineOf(p)}" fill="${p.col}"/>`;
+      return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.22)}" fill-rule="evenodd"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+    },
+    dyn: (P2, col3) => `fill="${col3}"`
+  },
+  // 皮影: translucent dyed leather, dark tooled outline, carved ornaments (holes), multiply onto the lit screen
+  leather: {
+    label: "\u76AE\u5F71\uFF08\u534A\u900F\u660E\u67D3\u8272\u76AE \xB7 \u9542\u523B\u82B1\u7EB9 \xB7 \u80CC\u5149\uFF09",
+    defs(v) {
+      svgDefs(v, "vk-sp-defs", `<filter id="sp-leather" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".035 .09" numOctaves="3" seed="11" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 .35  0 0 0 0 .2  0 0 0 0 .08  0 0 0 -.9 .55" result="v"/><feComposite in="v" in2="SourceAlpha" operator="in" result="vv"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="vv"/></feMerge></filter>`);
+    },
+    group: (P2, kind) => kind === "char" ? 'filter="url(#sp-leather)" style="mix-blend-mode:multiply"' : kind === "layer" ? 'style="mix-blend-mode:multiply"' : "",
+    paint(p, P2) {
+      const line = P2.line || "#3a2112";
+      if (p.line) return `<path d="${lineOf(p, 1.1)}" fill="${line}"/>`;
+      const holes = (p.holes || []).concat(p.orn || []), d = polyD(p.pts, true) + holes.map((h3) => " " + polyD(h3, true)).join("");
+      return `<path d="${d}" fill="${farCol(p, -0.12)}" fill-opacity="${p.op != null ? p.op : P2.alpha || 0.8}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 2.2}" stroke-linejoin="round"/>`;
+    },
+    dyn: (P2, col3) => `fill="${col3}" fill-opacity=".75" stroke="${P2.line || "#3a2112"}" stroke-width="1.6"`
+  },
+  // 重彩装饰 (大闹天宫): saturated flat colour, bold dark contour, gilded ornaments
+  decor: {
+    label: "\u91CD\u5F69\u88C5\u9970\uFF08\u9971\u548C\u5E73\u6D82 \xB7 \u7C97\u58A8\u7EBF \xB7 \u63CF\u91D1\u7EB9\u6837\uFF09",
+    defs() {
+    },
+    group: () => "",
+    paint(p, P2) {
+      const line = P2.line || "#2a160e", gold = P2.gold || "#e9b949";
+      if (p.line) return `<path d="${lineOf(p, 1.15)}" fill="${line}"/>`;
+      let s2 = `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.14)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 3.2}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${gold}" stroke="${line}" stroke-width="1.1"/>`;
+      return s2;
+    },
+    dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#2a160e"}" stroke-width="2.4" stroke-linejoin="round"`
+  },
+  // 赛博霓虹: dark body, glowing coloured contour (SVG blur-merge glow in each stroke's own colour)
+  neon: {
+    label: "\u9713\u8679\u7EBF\u63CF\uFF08\u6697\u5E95 \xB7 \u53D1\u5149\u8F6E\u5ED3\uFF09",
+    defs(v) {
+      svgDefs(v, "vk-neon-defs", `<filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b1"/><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b2"/><feColorMatrix in="b2" type="matrix" values="1.6 0 0 0 0  0 1.6 0 0 0  0 0 1.6 0 0  0 0 0 1.4 0" result="b3"/><feMerge><feMergeNode in="b3"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
+    },
+    group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#neon-glow)"' : "",
+    paint(p, P2) {
+      const body = P2.body || "#07050f";
+      if (p.line) return `<path d="${polyD(p.line, false)}" fill="none" stroke="${p.col}" stroke-width="${(p.w || 3) * 0.8}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      const col3 = p.far ? mix(p.col, body, 0.35) : p.col;
+      let s2 = `<path d="${smoothD(p.pts, true)}" fill="${p.fill || body}" fill-opacity="${p.fillOp != null ? p.fillOp : 0.92}" stroke="${col3}" stroke-width="${p.lw || 2.6}" stroke-linejoin="round"/>`;
+      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="none" stroke="${col3}" stroke-width="1.3" opacity=".8"/>`;
+      return s2;
+    },
+    dyn: (P2, col3) => `fill="${P2.body || "#07050f"}" fill-opacity=".6" stroke="${col3}" stroke-width="2.4" stroke-linejoin="round"`
+  },
+  // 像素: flat fills + thick dark outline; the scene is pixelated by the pack's post filter (vk.style … post.pixel)
+  pixel: {
+    label: "\u50CF\u7D20\uFF08\u5E73\u6D82 + \u7C97\u63CF\u8FB9\uFF0C\u6574\u5E27\u50CF\u7D20\u5316\uFF09",
+    defs() {
+    },
+    group: () => "",
+    paint(p, P2) {
+      const line = P2.line || "#1a1c2c";
+      if (p.line) return `<path d="${lineOf(p, 1.6)}" fill="${line}"/>`;
+      return `<path d="${polyD(p.pts, true)}${holesD(p, (h3) => polyD(h3, true))}" fill="${farCol(p, -0.2)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 5}" stroke-linejoin="miter" paint-order="stroke"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+    },
+    dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#1a1c2c"}" stroke-width="4" paint-order="stroke"`
+  },
+  // 蜡笔绘本: waxy fill with paper tooth showing through, rough wobbly outline, boil (seed stepped by the pack)
+  crayon: {
+    label: "\u8721\u7B14\uFF08\u8721\u8D28\u9897\u7C92 \xB7 \u7EB8\u7EB9\u900F\u51FA \xB7 \u6296\u52A8\u63CF\u8FB9\uFF09",
+    defs(v, P2) {
+      svgDefs(v, "vk-cr-defs", `<filter id="cr-wax" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence type="fractalNoise" baseFrequency=".9 .12" numOctaves="2" seed="3" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -3.2 2.15" result="tooth"/><feComposite in="SourceGraphic" in2="tooth" operator="in" result="wax"/><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="2" seed="5" result="w"/><feDisplacementMap in="wax" in2="w" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter><filter id="cr-line" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence class="cr-boil" type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="2" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4.5" xChannelSelector="R" yChannelSelector="G"/></filter>`);
+    },
+    group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#cr-line)"' : "",
+    paint(p, P2) {
+      const line = P2.line || "#3b2a20";
+      if (p.line) return `<path d="${lineOf(p, 1.2)}" fill="${shade(p.col, -0.2)}" opacity=".9"/>`;
+      const col3 = farCol(p, -0.14), d = smoothD(p.pts, true) + holesD(p, (h3) => smoothD(h3, true));
+      let s2 = `<path d="${d}" fill="${col3}" fill-rule="evenodd" filter="url(#cr-wax)"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
+      if (p.role !== "eye" && p.role !== "mouth" && p.role !== "pupil") s2 += `<path d="${smoothD(p.pts, true)}" fill="none" stroke="${p.outline || shade(col3, -0.42)}" stroke-width="${p.lw || 2.4}" stroke-linejoin="round" opacity=".85"/>`;
+      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${shade(col3, 0.35)}" filter="url(#cr-wax)"/>`;
+      return s2;
+    },
+    dyn: (P2, col3) => `fill="${col3}" stroke="${shade(col3, -0.4)}" stroke-width="2"`
+  }
+};
+var material = (id) => {
+  if (id && typeof id === "string" && !MATERIALS[id]) unknownName("materials", id, Object.keys(MATERIALS));
+  return MATERIALS[id] || MATERIALS.flat;
+};
+
+// src/authoring/themes.js
+var SANS = '"Noto Sans SC","Noto Sans CJK SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif';
+var MONO = '"JetBrains Mono","Noto Sans Mono CJK SC",ui-monospace,Menlo,Consolas,"Noto Sans SC",monospace';
+var T = registry.themes;
+T["tech-blue"] = {
+  label: "\u79D1\u6280\u84DD\uFF08Spark / One \u5BA3\u4F20\u7247\u98CE\u683C\uFF09",
+  modes: {
+    dark: { bg: "#0B1020", fg: "#FFFFFF", muted: "#9AA6CC", surface: "#151B33", line: "#2A3358", accent: "#3355FF", accent2: "#7C93FF", onAccent: "#FFFFFF" },
+    light: { bg: "#E8ECF4", fg: "#0B1020", muted: "#3A4468", surface: "#FFFFFF", line: "#B7BFD6", accent: "#3355FF", accent2: "#7C93FF", onAccent: "#FFFFFF" },
+    accent: { bg: "#3355FF", fg: "#FFFFFF", muted: "#DDE3FF", surface: "#0B1020", line: "#6F88FF", accent: "#0B1020", accent2: "#FFFFFF", onAccent: "#FFFFFF" }
+  },
+  mode: "dark",
+  warn: "#FF5A36",
+  ok: "#2ED47A",
+  yellow: "#FFC83D",
+  chart: ["#3355FF", "#7C93FF", "#2ED47A", "#FFC83D", "#FF5A36", "#B6C0E2"],
+  fonts: { sans: SANS, display: SANS, mono: MONO, serif: SANS },
+  weight: { display: 900, title: 900, sub: 700 },
+  tracking: { display: "-.05em", title: "-.02em" },
+  scale: { hero: 260, h1: 84, h2: 60, h3: 36, body: 27, small: 22, label: 22, caption: 30 },
+  radius: 18,
+  ease: "house",
+  cascade: 0.35,
+  marker: "rgba(51,85,255,.35)",
+  caret: "#7C93FF",
+  caption: { bg: "rgba(8,11,20,.82)", fg: "#FFFFFF", karaoke: "#7C93FF" }
+};
+T.editorial = {
+  label: "\u6696\u8272\u6742\u5FD7\u98CE\uFF08\u7EB8\u5F20\u3001\u886C\u7EBF\u3001\u8D6D\u7EA2\uFF09",
+  modes: {
+    light: { bg: "#F3ECE0", fg: "#1F1A17", muted: "#6B5E53", surface: "#FFFaf2", line: "#D8CBB8", accent: "#C8492B", accent2: "#2F5D50", onAccent: "#FFF8EE" },
+    dark: { bg: "#1F1A17", fg: "#F3ECE0", muted: "#B8A999", surface: "#2B2420", line: "#4A3F37", accent: "#E0673F", accent2: "#8FB8A8", onAccent: "#1F1A17" },
+    accent: { bg: "#C8492B", fg: "#FFF8EE", muted: "#F6D2C2", surface: "#1F1A17", line: "#E08A70", accent: "#1F1A17", accent2: "#FFF8EE", onAccent: "#FFF8EE" }
+  },
+  mode: "light",
+  warn: "#C8492B",
+  ok: "#2F5D50",
+  yellow: "#D9A441",
+  chart: ["#C8492B", "#2F5D50", "#D9A441", "#6B5E53", "#8FB8A8", "#E0673F"],
+  fonts: { sans: SANS, display: '"Instrument Serif",' + SANS, mono: MONO, serif: '"Instrument Serif",' + SANS },
+  weight: { display: 400, title: 800, sub: 600 },
+  tracking: { display: "-.02em", title: "-.01em" },
+  scale: { hero: 230, h1: 78, h2: 56, h3: 34, body: 27, small: 22, label: 20, caption: 29 },
+  radius: 6,
+  ease: "smooth",
+  cascade: 0.4,
+  marker: "rgba(217,164,65,.5)",
+  caret: "#C8492B",
+  caption: { bg: "rgba(31,26,23,.86)", fg: "#F3ECE0", karaoke: "#E0673F" }
+};
+T.bold = {
+  label: "\u5F3A\u5BF9\u6BD4\u77ED\u89C6\u9891\u98CE\uFF08\u9ED1\u9EC4\u7C89\u3001\u8D85\u7C97\u538B\u7F29\u5B57\uFF09",
+  modes: {
+    dark: { bg: "#0A0A0A", fg: "#FFFFFF", muted: "#BDBDBD", surface: "#1C1C1C", line: "#333333", accent: "#FFE600", accent2: "#FF2E63", onAccent: "#0A0A0A" },
+    light: { bg: "#FFE600", fg: "#0A0A0A", muted: "#3D3700", surface: "#FFFFFF", line: "#0A0A0A", accent: "#FF2E63", accent2: "#0A0A0A", onAccent: "#FFFFFF" },
+    accent: { bg: "#FF2E63", fg: "#FFFFFF", muted: "#FFD3DE", surface: "#0A0A0A", line: "#FF7A9A", accent: "#FFE600", accent2: "#0A0A0A", onAccent: "#0A0A0A" }
+  },
+  mode: "dark",
+  warn: "#FF2E63",
+  ok: "#00E08A",
+  yellow: "#FFE600",
+  chart: ["#FFE600", "#FF2E63", "#00E08A", "#3FA9FF", "#FFFFFF", "#FF8A00"],
+  fonts: { sans: SANS, display: '"Archivo",' + SANS, mono: MONO, serif: SANS, condensed: '"Anton",' + SANS },
+  weight: { display: 900, title: 900, sub: 800 },
+  tracking: { display: "-.03em", title: "-.02em" },
+  scale: { hero: 250, h1: 96, h2: 68, h3: 40, body: 30, small: 24, label: 24, caption: 32 },
+  radius: 14,
+  ease: "snappy",
+  cascade: 0.3,
+  marker: "#FFE600",
+  caret: "#FFE600",
+  caption: { bg: "#0A0A0A", fg: "#FFFFFF", karaoke: "#FFE600" }
+};
+T.noir = {
+  label: "\u9ED1\u767D\u6781\u7B80\uFF08\u5355\u8272 + \u4E00\u70B9\u7EA2\uFF09",
+  modes: {
+    dark: { bg: "#000000", fg: "#F5F5F5", muted: "#8A8A8A", surface: "#141414", line: "#2A2A2A", accent: "#FF3B30", accent2: "#F5F5F5", onAccent: "#FFFFFF" },
+    light: { bg: "#F5F5F5", fg: "#000000", muted: "#666666", surface: "#FFFFFF", line: "#CCCCCC", accent: "#FF3B30", accent2: "#000000", onAccent: "#FFFFFF" },
+    accent: { bg: "#FF3B30", fg: "#FFFFFF", muted: "#FFD0CC", surface: "#000000", line: "#FF8A80", accent: "#000000", accent2: "#FFFFFF", onAccent: "#FFFFFF" }
+  },
+  mode: "dark",
+  warn: "#FF3B30",
+  ok: "#34C759",
+  yellow: "#FFCC00",
+  chart: ["#F5F5F5", "#FF3B30", "#8A8A8A", "#FFCC00", "#34C759", "#555555"],
+  fonts: { sans: SANS, display: '"Archivo",' + SANS, mono: MONO, serif: '"Instrument Serif",' + SANS },
+  weight: { display: 800, title: 800, sub: 600 },
+  tracking: { display: "-.04em", title: "-.02em" },
+  scale: { hero: 240, h1: 80, h2: 58, h3: 34, body: 26, small: 21, label: 20, caption: 29 },
+  radius: 2,
+  ease: "house",
+  cascade: 0.35,
+  marker: "rgba(255,59,48,.45)",
+  caret: "#FF3B30",
+  caption: { bg: "rgba(0,0,0,.85)", fg: "#FFFFFF", karaoke: "#FF3B30" }
+};
+function resolveTheme(t) {
+  if (!t) return T["tech-blue"];
+  if (typeof t === "string") {
+    if (!T[t]) unknownName("themes", t, Object.keys(T));
+    return T[t] || T["tech-blue"];
+  }
+  if (t.extends && !T[t.extends]) unknownName("themes", t.extends, Object.keys(T));
+  const base2 = T[t.extends || "tech-blue"] || T["tech-blue"];
+  return deepMerge(JSON.parse(JSON.stringify(base2)), t);
+}
+function deepMerge(a, b) {
+  for (const k in b) {
+    if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k]) && a[k] && typeof a[k] === "object") deepMerge(a[k], b[k]);
+    else a[k] = b[k];
+  }
+  return a;
+}
+function modeVars(theme, mode) {
+  const m = theme.modes[mode] || theme.modes[theme.mode];
+  return {
+    "--bg": m.bg,
+    "--fg": m.fg,
+    "--muted": m.muted,
+    "--surface": m.surface,
+    "--line": m.line,
+    "--accent": m.accent,
+    "--accent2": m.accent2,
+    "--on-accent": m.onAccent,
+    // colour for terminal prompts etc. drawn on --surface: accent2 unless it would vanish into the surface
+    "--prompt": m.prompt || (m.accent2.toLowerCase() === m.surface.toLowerCase() ? m.muted : m.accent2)
+  };
+}
+
+// src/fx/rig.js
+var D2R = Math.PI / 180;
+var R2D = 180 / Math.PI;
+var f2 = (x) => Math.round(x * 100) / 100;
+var mat = {
+  id: () => [1, 0, 0, 1, 0, 0],
+  mul: (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]],
+  // = SVG `translate(x y) rotate(rot) scale(sx sy)`
+  trs: (x = 0, y = 0, rot = 0, sx = 1, sy = sx) => {
+    const c = Math.cos(rot * D2R), s2 = Math.sin(rot * D2R);
+    return [c * sx, s2 * sx, -s2 * sy, c * sy, x, y];
+  },
+  inv: (m) => {
+    const det = m[0] * m[3] - m[1] * m[2], a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
+    return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
+  },
+  apply: (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]
+};
+var rootMatrix = (r = {}) => {
+  const s2 = r.scale == null ? 1 : r.scale;
+  return mat.trs(r.x || 0, r.y || 0, r.rot || 0, s2 * (r.flip || 1), s2);
+};
+function solve2BoneIK(tx, ty, l1, l2, bend = 1) {
+  const d = Math.max(1e-6, Math.hypot(tx, ty));
+  const cd = clamp(d, Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
+  const base2 = Math.atan2(ty, tx);
+  const a = Math.acos(clamp((l1 * l1 + cd * cd - l2 * l2) / (2 * l1 * cd), -1, 1));
+  const sh = base2 - bend * a;
+  const ex = Math.cos(sh) * l1, ey = Math.sin(sh) * l1;
+  const fore = Math.atan2(Math.sin(base2) * cd - ey, Math.cos(base2) * cd - ex);
+  let el2 = (fore - sh) * R2D;
+  el2 = (el2 + 540) % 360 - 180;
+  return { a1: sh * R2D, a2: fore * R2D, elbow: el2, shoulder: sh * R2D, reach: d / (l1 + l2) };
+}
+function blink(t, o = {}) {
+  const per2 = o.period || 4.4, dur = o.dur || 0.24, ph = ((t + (o.offset || 0)) % per2 + per2) % per2;
+  if (ph < per2 - dur) return 0;
+  return o.smooth ? Math.sin((ph - (per2 - dur)) / dur * Math.PI) : 1;
+}
+function blendPose(a, b, w, defaults = {}) {
+  if (w <= 0) return { ...a };
+  if (w >= 1) return { ...b };
+  const out = {}, keys = /* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) {
+    const va = k in a ? a[k] : k in defaults ? defaults[k] : b[k];
+    const vb = k in b ? b[k] : k in defaults ? defaults[k] : va;
+    out[k] = typeof va === "number" && typeof vb === "number" ? va + (vb - va) * w : w < 0.5 ? va : vb;
+  }
+  return out;
+}
+function valueAt(v, t) {
+  if (v == null) return v;
+  if (typeof v === "function") return v(t);
+  if (Array.isArray(v) && Array.isArray(v[0])) return kf(t, v);
+  return v;
+}
+function createRig(def) {
+  const bones = [], byId = {};
+  for (const b of def.bones) {
+    const bb = { parent: null, x: 0, y: 0, rot: 0, s: 1, ...b };
+    bones.push(bb);
+    byId[bb.id] = bb;
+  }
+  const order = [], seen = /* @__PURE__ */ new Set();
+  const visit = (b) => {
+    if (seen.has(b.id)) return;
+    if (b.parent && !byId[b.parent]) throw new Error("[vk.rig] unknown parent " + b.parent + " of " + b.id);
+    if (b.parent) visit(byId[b.parent]);
+    seen.add(b.id);
+    order.push(b);
+  };
+  bones.forEach(visit);
+  const clips = def.clips || {}, chains = def.ik || {};
+  const defaults = {};
+  for (const b of order) defaults[b.id] = 0;
+  for (const n of Object.keys(chains)) defaults[n + ".w"] = 0;
+  Object.assign(defaults, def.defaults || {});
+  const rootEl = def.root || null;
+  const find = def.el || ((id) => rootEl && rootEl.querySelector(`[data-bone="${id}"]`));
+  const els = {};
+  if (rootEl || def.el) for (const b of order) els[b.id] = b.el || find(b.id) || null;
+  const local = (id, pose = {}) => {
+    const b = byId[id];
+    return mat.trs(b.x + (pose[id + ".x"] || 0), b.y + (pose[id + ".y"] || 0), b.rot + (pose[id] || 0), b.s * (pose[id + ".s"] == null ? 1 : pose[id + ".s"]));
+  };
+  const base2 = (pose = {}, root = {}) => mat.mul(rootMatrix(root), mat.trs(pose["root.x"] || 0, pose["root.y"] || 0, pose["root.rot"] || 0));
+  function matrix(id, pose = {}, root = {}) {
+    const chain = [];
+    for (let b = byId[id]; b; b = b.parent ? byId[b.parent] : null) chain.unshift(b.id);
+    let m = base2(pose, root);
+    for (const c of chain) m = mat.mul(m, local(c, pose));
+    return m;
+  }
+  const point = (id, x = 0, y = 0, pose, root) => mat.apply(matrix(id, pose, root), x, y);
+  const toLocal = (p, root = {}) => mat.apply(mat.inv(rootMatrix(root)), p[0], p[1]);
+  function solveIK(name, target, pose = {}, root = {}, o = {}) {
+    const ch = chains[name] || name, [ia, ib, ic] = ch.chain, A = byId[ia], B4 = byId[ib], C2 = byId[ic];
+    const F2 = mat.mul(A.parent ? matrix(A.parent, pose, root) : base2(pose, root), mat.trs(A.x + (pose[ia + ".x"] || 0), A.y + (pose[ia + ".y"] || 0)));
+    const [tx, ty] = mat.apply(mat.inv(F2), target[0], target[1]);
+    const bx = B4.x + (pose[ib + ".x"] || 0), by = B4.y + (pose[ib + ".y"] || 0), cx = C2.x + (pose[ic + ".x"] || 0), cy = C2.y + (pose[ic + ".y"] || 0);
+    const l1 = Math.hypot(bx, by), l2 = Math.hypot(cx, cy), o1 = Math.atan2(by, bx) * R2D, o2 = Math.atan2(cy, cx) * R2D;
+    const s2 = solve2BoneIK(tx, ty, l1, l2, o.bend != null ? o.bend : ch.bend != null ? ch.bend : 1);
+    const ra = s2.a1 - o1, rb = s2.a2 - o2 - ra;
+    const w = o.weight == null ? 1 : o.weight, out = { ...pose };
+    const wrap = (x) => (x % 360 + 540) % 360 - 180;
+    const angA = ra - A.rot, angB = rb - B4.rot, fkA = pose[ia] || 0, fkB = pose[ib] || 0;
+    out[ia] = fkA + wrap(angA - fkA) * w;
+    out[ib] = fkB + wrap(angB - fkB) * w;
+    return out;
+  }
+  const clipPose = (item, t) => {
+    const c = typeof item.clip === "string" ? clips[item.clip] : item.clip;
+    if (!c) throw new Error("[vk.rig] unknown clip " + item.clip);
+    const ct = (item.local ? t - item.at : t) * (item.speed || 1) + (item.offset || 0);
+    const p = typeof c === "function" ? c(ct, item) : { ...c };
+    for (const n of Object.keys(chains)) if (n + ".tx" in p && !(n + ".w" in p)) p[n + ".w"] = 1;
+    return item.pose ? { ...p, ...item.pose } : p;
+  };
+  function sample2(track, t, n = null) {
+    const k = n == null ? track.length : n;
+    let i = -1;
+    for (let j = 0; j < k; j++) if (t >= track[j].at) i = j;
+    if (i < 0) i = 0;
+    const cur = clipPose(track[i], t), bl = track[i].blend == null ? 0.3 : track[i].blend;
+    if (i === 0 || bl <= 0 || t >= track[i].at + bl) return cur;
+    const w = smooth01((t - track[i].at) / bl);
+    return blendPose(sample2(track, t, i), cur, w, defaults);
+  }
+  function resolve(pose, t, root, opts = {}) {
+    let p = pose;
+    for (const name of Object.keys(chains)) {
+      const wt = opts.ik ? valueAt(opts.ik[name], t) : null;
+      const mix3 = opts.ikMix && opts.ikMix[name] != null ? clamp(valueAt(opts.ikMix[name], t), 0, 1) : 1;
+      let target = null;
+      const own = name + ".tx" in p ? mat.apply(base2(p, root), p[name + ".tx"], p[name + ".ty"]) : null;
+      if (wt && own) target = [own[0] + (wt[0] - own[0]) * mix3, own[1] + (wt[1] - own[1]) * mix3];
+      else if (wt) target = wt;
+      else target = own;
+      const weight = opts.ikWeight && opts.ikWeight[name] != null ? clamp(valueAt(opts.ikWeight[name], t), 0, 1) : wt && !own ? 1 : name + ".w" in p ? clamp(p[name + ".w"], 0, 1) : own ? 1 : 0;
+      if (target && weight > 0) p = solveIK(name, target, p, root, { weight, bend: opts.bend && opts.bend[name] });
+    }
+    return p;
+  }
+  function apply(pose = {}, root = {}) {
+    if (rootEl) {
+      const s2 = root.scale == null ? 1 : root.scale;
+      rootEl.setAttribute("transform", `translate(${f2(root.x || 0)} ${f2(root.y || 0)}) rotate(${f2(root.rot || 0)}) scale(${f2(s2 * (root.flip || 1))} ${f2(s2)}) translate(${f2(pose["root.x"] || 0)} ${f2(pose["root.y"] || 0)}) rotate(${f2(pose["root.rot"] || 0)})`);
+    }
+    for (const b of order) {
+      const e = els[b.id];
+      if (!e) continue;
+      const sc = b.s * (pose[b.id + ".s"] == null ? 1 : pose[b.id + ".s"]);
+      e.setAttribute("transform", `translate(${f2(b.x + (pose[b.id + ".x"] || 0))} ${f2(b.y + (pose[b.id + ".y"] || 0))}) rotate(${f2(b.rot + (pose[b.id] || 0))})${sc !== 1 ? ` scale(${f2(sc)})` : ""}`);
+    }
+    if (debugEl) drawDebug(pose);
+  }
+  let debugEl = null;
+  function debug(on = true) {
+    if (!rootEl) return;
+    if (on && !debugEl) {
+      debugEl = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      debugEl.setAttribute("class", "vk-rig-debug");
+      debugEl.setAttribute("pointer-events", "none");
+      rootEl.appendChild(debugEl);
+    }
+    if (!on && debugEl) {
+      debugEl.remove();
+      debugEl = null;
+    }
+  }
+  function drawDebug(pose) {
+    const P2 = (id) => point(id, 0, 0, { ...pose, "root.x": 0, "root.y": 0, "root.rot": 0 }, {});
+    let s2 = "";
+    for (const b of order) {
+      const q = P2(b.id);
+      if (b.parent) {
+        const p = P2(b.parent);
+        s2 += `<line x1="${f2(p[0])}" y1="${f2(p[1])}" x2="${f2(q[0])}" y2="${f2(q[1])}" stroke="#6b58d1" stroke-width="3.5" stroke-linecap="round" opacity=".92"/>`;
+      }
+      s2 += `<circle cx="${f2(q[0])}" cy="${f2(q[1])}" r="5" fill="#fff" stroke="#6b58d1" stroke-width="3"/>`;
+    }
+    debugEl.innerHTML = s2;
+  }
+  const rig = {
+    def,
+    bones: order,
+    byId,
+    clips,
+    chains,
+    els,
+    local,
+    matrix,
+    point,
+    toLocal,
+    solveIK,
+    sample: sample2,
+    resolve,
+    apply,
+    debug,
+    clip: (name, t) => clipPose({ clip: name, at: 0 }, t),
+    blend: (a, b, w) => blendPose(a, b, w, defaults),
+    // timeline player: pose(t, root) → final pose; render(t, root, extra) → apply (extra(pose, t) may post-edit)
+    play(track, opts = {}) {
+      const tr = [...track].sort((a, b) => a.at - b.at);
+      const player = {
+        track: tr,
+        opts,
+        clipPose: (t) => sample2(tr, t),
+        pose(t, root = {}, edit) {
+          let p = sample2(tr, t);
+          if (edit) p = edit(p, t) || p;
+          return resolve(p, t, root, opts);
+        },
+        render(t, root = {}, edit) {
+          const p = player.pose(t, root, edit);
+          apply(p, root);
+          return p;
+        }
+      };
+      return player;
+    }
+  };
+  return rig;
+}
+
+// src/fx/gl/math.js
+var clamp012 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+var sm2 = (x) => {
+  x = clamp012(x);
+  return x * x * (3 - 2 * x);
+};
+function stepT(t, fps = 12) {
+  return fps > 0 ? Math.floor(t * fps + 1e-6) / fps : t;
+}
+function boilFrame(t, fps = 12, frames = 0) {
+  const f = Math.floor(t * fps + 1e-6);
+  return frames > 0 ? (f % frames + frames) % frames : f;
+}
+function rgb(c) {
+  if (Array.isArray(c)) return c.some((v) => v > 1) ? c.slice(0, 3).map((v) => v / 255) : c.slice(0, 3);
+  const s2 = String(c || "#000").trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(s2);
+  if (m) return [...m[1]].map((ch) => parseInt(ch + ch, 16) / 255);
+  m = /^#([0-9a-f]{6})/i.exec(s2);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
+  m = /rgba?\(([^)]+)\)/i.exec(s2);
+  if (m) return m[1].split(/[ ,/]+/).slice(0, 3).map((v) => +v / 255);
+  return [0, 0, 0];
+}
+function bleedCurve(local, o = {}) {
+  const at = o.at || 0, draw2 = o.draw != null ? o.draw : 0.8, dur = o.dur != null ? o.dur : 2.5;
+  const x = local - at;
+  const d = draw2 > 0 ? clamp012(x / draw2) : x >= 0 ? 1 : 0;
+  const w = dur > 0 ? clamp012((x - draw2 * 0.35) / dur) : x >= draw2 * 0.35 ? 1 : 0;
+  const wet = Math.sqrt(w);
+  const fade = o.fade ? 1 - sm2((local - o.fade[0]) / Math.max(1e-6, o.fade[1] - o.fade[0])) : 1;
+  return {
+    on: x >= 0 && fade > 0,
+    draw: d,
+    wet,
+    alpha: (x >= 0 ? sm2(d * 2.2) : 0) * fade,
+    core: 0.98 - 0.48 * sm2(d),
+    // core threshold .98 → .5 (skeleton → exact shape)
+    halo: 1 - (1 - (o.haloEnd != null ? o.haloEnd : 0.12)) * wet,
+    // halo threshold 1 → .12 (front moves out)
+    done: x >= Math.max(draw2, draw2 * 0.35 + dur) && (!o.fade || local < o.fade[0])
+  };
+}
+function levelSigma(i) {
+  let s2 = 0;
+  for (let k = 1; k <= i; k++) s2 += 4 ** k;
+  return Math.sqrt(s2 + (i ? 0 : 0.25));
+}
+function levelFor(sigma, maxLevel = 6) {
+  if (sigma <= levelSigma(1)) return clamp012((sigma - 0.5) / (levelSigma(1) - 0.5));
+  for (let i = 1; i < maxLevel; i++) {
+    const a = levelSigma(i), b = levelSigma(i + 1);
+    if (sigma <= b) return i + (sigma - a) / (b - a);
+  }
+  return maxLevel;
+}
+function haloSigma(spread, th = 0.12) {
+  return spread / Math.max(0.2, probit(1 - th));
+}
+function probit(p) {
+  p = Math.min(1 - 1e-12, Math.max(1e-12, p));
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
+  const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+  const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+  const q0 = Math.min(p, 1 - p);
+  if (q0 < 0.02425) {
+    const q2 = Math.sqrt(-2 * Math.log(q0)), x = (((((c[0] * q2 + c[1]) * q2 + c[2]) * q2 + c[3]) * q2 + c[4]) * q2 + c[5]) / ((((d[0] * q2 + d[1]) * q2 + d[2]) * q2 + d[3]) * q2 + 1);
+    return p < 0.5 ? x : -x;
+  }
+  const q = p - 0.5, r = q * q;
+  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+}
+function jitterPath(d, t, o = {}) {
+  const amp = o.amp != null ? o.amp : 1.5, fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm22 = o.smooth || 3;
+  if (!amp) return d;
+  let k = 0;
+  const f = (x) => Math.round(x * 100) / 100;
+  return String(d).replace(/([MLCQSTmlcqst])([^MLCQSTAHVZmlcqstahvz]*)/g, (all, cmd, args) => {
+    const nums = args.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+    if (!nums || nums.length < 2) return all;
+    const rel = cmd === cmd.toLowerCase();
+    const out = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      const u = k++ / sm22;
+      const dx = rel ? 0 : (noise1(u + seed) - 0.5) * 2 * amp, dy = rel ? 0 : (noise1(u + seed + 91.7) - 0.5) * 2 * amp;
+      out.push(f(+nums[i] + dx) + "," + f(+nums[i + 1] + dy));
+    }
+    return cmd + out.join(" ") + " ";
+  }).trim();
+}
+function jitterPoints(pts, t, o = {}) {
+  const amp = o.amp != null ? o.amp : 1.5, fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm22 = o.smooth || 3;
+  return pts.map((p, i) => [p[0] + (noise1(i / sm22 + seed) - 0.5) * 2 * amp, p[1] + (noise1(i / sm22 + seed + 91.7) - 0.5) * 2 * amp]);
+}
+
+// src/fx/motion.js
+var TAU2 = Math.PI * 2;
+var frac2 = (x) => x - Math.floor(x);
+function gait(o = {}) {
+  const S2 = o.stride || 120, duty = o.duty != null ? o.duty : 0.62, lift = o.lift != null ? o.lift : S2 * 0.14;
+  const hip = o.hip || 190, leg = o.leg || hip * 1.04, offs = o.offsets || [0, 0.5], ahead = o.ahead != null ? o.ahead : 0.5;
+  const flight = o.flight != null ? o.flight : duty < 0.5 ? S2 * 0.08 : 0, toe = o.toe != null ? o.toe : 18;
+  function foot(d, phi) {
+    const c = d / S2 + phi, k = Math.floor(c), u = c - k;
+    const land = (j) => (j - phi) * S2 + S2 * duty * ahead;
+    if (u < duty) return { x: land(k), y: 0, contact: true, u, angle: 0 };
+    const v = (u - duty) / (1 - duty), e = (1 - Math.cos(Math.PI * v)) / 2;
+    return { x: land(k) + S2 * e, y: lift * Math.pow(Math.sin(Math.PI * v), 0.9) * (1 + 0.25 * Math.sin(Math.PI * v) * (1 - v)), contact: false, u, angle: toe * Math.sin(Math.PI * v) * (v < 0.6 ? 1 : (1 - v) / 0.4) };
+  }
+  function at(d) {
+    d = Math.max(0, d);
+    const feet = offs.map((p) => foot(d, p));
+    let h3 = hip, planted = 0;
+    for (const f of feet) if (f.contact) {
+      planted++;
+      const dx = f.x - d;
+      const reach = Math.sqrt(Math.max(0, leg * leg - dx * dx));
+      h3 = Math.min(h3, reach);
+    }
+    if (!planted && flight) {
+      const ups = offs.map((p) => {
+        const u = frac2(d / S2 + p);
+        return u >= duty ? (u - duty) / (1 - duty) : null;
+      }).filter((x) => x != null);
+      const v = Math.min(...ups.map((x) => Math.min(x, 1 - x))) * 2;
+      h3 = hip + flight * Math.sin(Math.PI * clamp(v, 0, 1) / 2);
+    }
+    return { feet, hipX: d, hipY: h3, phase: frac2(d / S2) };
+  }
+  function rest(d) {
+    for (let i = 0; i < 400; i++) {
+      const x = d + i * S2 / 400;
+      if (offs.every((p) => frac2(x / S2 + p) < duty - 0.02 && frac2(x / S2 + p) > 0.02)) return x;
+    }
+    return d;
+  }
+  return { at, foot, rest, stride: S2, duty, o: { ...o, stride: S2, duty, lift, hip, leg, offsets: offs } };
+}
+function cycle(t, o = {}) {
+  const g2 = o.gait || gait(o), per2 = o.period || 1.1;
+  return g2.at(Math.max(0, t) * g2.stride / per2);
+}
+function travel(t, keys, ease2 = smooth01) {
+  if (t <= keys[0][0]) return 0;
+  let d = 0;
+  for (let i = 1; i < keys.length; i++) {
+    const [t0, x0] = keys[i - 1], [t1, x1] = keys[i];
+    if (t >= t1) {
+      d += Math.abs(x1 - x0);
+      continue;
+    }
+    return d + Math.abs(x1 - x0) * ease2((t - t0) / (t1 - t0 || 1));
+  }
+  return d;
+}
+var VISEMES = ["M", "A", "E", "O"];
+function mouth(seg2, lt, o = {}) {
+  const closed = { open: 0, shape: "M", i: 0 };
+  if (!seg2) return closed;
+  const fps = o.fps != null ? o.fps : 12, tq = fps ? Math.floor(lt * fps + 1e-6) / fps : lt, u = tq - seg2.at;
+  if (u < -0.05 || seg2.end != null && tq > seg2.end + 0.1) return closed;
+  const env2 = seg2.env || seg2.entry && seg2.entry.env;
+  if (env2 && env2.rms && env2.rms.length) {
+    const fi = u * env2.rate, i0 = Math.floor(fi), w = fi - i0, g2 = (j) => env2.rms[Math.max(0, Math.min(env2.rms.length - 1, j))] || 0;
+    if (fi < 0 || i0 >= env2.rms.length) return closed;
+    const r = (g2(i0) * (1 - w) + g2(i0 + 1) * w) * (o.gain || 1);
+    const open = smooth01((r - (o.threshold != null ? o.threshold : 0.08)) / 0.5);
+    if (open < 0.12) return { open, shape: "M", i: 0 };
+    const c = env2.cen ? env2.cen[Math.max(0, Math.min(env2.cen.length - 1, i0))] || 0.5 : 0.5;
+    const shape = c < 0.2 ? "O" : c > 0.6 && open < 0.75 ? "E" : "A";
+    return { open, shape, i: VISEMES.indexOf(shape) };
+  }
+  const W = seg2.words || [];
+  for (let j = 0; j < W.length; j++) {
+    const a = W[j].t, b = W[j].end != null ? W[j].end : a + 0.2;
+    if (u >= a && u < b) {
+      const v = (u - a) / Math.max(0.05, b - a), open = Math.pow(Math.sin(Math.PI * clamp(v, 0, 1)), 0.55);
+      if (open < 0.15) return { open, shape: "M", i: 0 };
+      const ch = String(W[j].w || "").codePointAt(0) || j, pick = Math.floor(hash(ch * 0.713 + 3.1) * 3) + 1;
+      return { open, shape: VISEMES[pick], i: pick };
+    }
+  }
+  if (!W.length && seg2.dur) {
+    const open = Math.abs(Math.sin(u * Math.PI * 4));
+    return open < 0.2 ? { open, shape: "M", i: 0 } : { open, shape: "A", i: 1 };
+  }
+  return closed;
+}
+function boilPoints(pts, t, o = {}) {
+  const amp = o.amp != null ? o.amp : 1.2;
+  if (!amp) return pts;
+  const fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm5 = o.smooth || 3;
+  return pts.map((p, i) => [p[0] + (noise1(i / sm5 + seed) - 0.5) * 2 * amp, p[1] + (noise1(i / sm5 + seed + 91.7) - 0.5) * 2 * amp]);
+}
+function follow(f, t, lag = 0.12, spread = null, n = 6) {
+  const sp = spread == null ? lag : spread;
+  if (!(sp > 0)) return f(t - lag);
+  let acc = null;
+  for (let i = 0; i < n; i++) {
+    const v = f(t - lag - sp * i / (n - 1));
+    if (acc == null) acc = Array.isArray(v) ? v.map(() => 0) : 0;
+    if (Array.isArray(v)) v.forEach((x, j) => {
+      acc[j] += x / n;
+    });
+    else acc += v / n;
+  }
+  return acc;
+}
+function spring2(f, t, o = {}) {
+  const w = TAU2 * (o.freq || 2.2), z = o.damping != null ? o.damping : 0.35, win2 = o.window || 1.6, dt = o.dt || 1 / 120;
+  const n = Math.ceil(win2 / dt), t0 = t - n * dt, first = f(t0), arr = Array.isArray(first);
+  let x = arr ? first.slice() : [first], v = x.map(() => 0);
+  for (let i = 1; i <= n; i++) {
+    const tt = t0 + i * dt, g2 = f(tt), gv = arr ? g2 : [g2];
+    for (let j = 0; j < x.length; j++) {
+      v[j] += (w * w * (gv[j] - x[j]) - 2 * z * w * v[j]) * dt;
+      x[j] += v[j] * dt;
+    }
+  }
+  return arr ? x : x[0];
+}
+function drag(f, t, o = {}) {
+  const h3 = o.h || 1 / 30, gain = o.gain != null ? o.gain : 0.06, max = o.max || 40;
+  const vel = (u) => (f(u + h3 / 2) - f(u - h3 / 2)) / h3;
+  const v = o.spring === false ? follow(vel, t, o.lag || 0.06) : spring2(vel, t, { freq: o.freq || 2.4, damping: o.damping || 0.45, window: o.window || 1.2, dt: o.dt || 1 / 90 });
+  return clamp(-gain * v, -max, max);
+}
+function ribbon(anchor, t, o = {}) {
+  const n = o.n || 8, len2 = o.len || 16, lag = o.lag != null ? o.lag : 0.045, hang = o.hang || [0, 1], sag = o.sag != null ? o.sag : 1;
+  const fl = o.flutter != null ? o.flutter : 4, fq = o.freq || 1.6, wave = o.wave != null ? o.wave : 0.8, wind = o.wind || [0, 0], seed = o.seed || 0;
+  const raw = [];
+  for (let i = 0; i <= n; i++) {
+    const a = anchor(t - i * lag);
+    raw.push([a[0] + (hang[0] * sag * len2 + wind[0]) * i, a[1] + (hang[1] * sag * len2 + wind[1]) * i]);
+  }
+  const pts = [raw[0].slice()];
+  for (let i = 1; i <= n; i++) {
+    const p = pts[i - 1], q = raw[i];
+    let dx = q[0] - p[0], dy = q[1] - p[1];
+    const l = Math.hypot(dx, dy) || 1;
+    dx /= l;
+    dy /= l;
+    const k = fl * (i / n) * Math.sin(TAU2 * fq * t - wave * i + seed) + fl * 0.4 * (i / n) * (noise1(t * fq * 0.7 + i * 0.37 + seed * 3.1) - 0.5);
+    pts.push([p[0] + dx * len2 - dy * k * 0.35, p[1] + dy * len2 + dx * k * 0.35]);
+  }
+  return pts;
+}
+function ribbonPath(pts, w0 = 10, w1 = 3, o = {}) {
+  const n = pts.length;
+  if (n < 2) return "";
+  const L = [], R2 = [], f = (x) => Math.round(x * 10) / 10;
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const u = i / (n - 1), w = (w0 + (w1 - w0) * u) / 2 * (o.twist ? 0.55 + 0.45 * Math.abs(Math.cos(u * Math.PI * o.twist + (o.phase || 0))) : 1);
+    L.push([pts[i][0] - dy / l * w, pts[i][1] + dx / l * w]);
+    R2.push([pts[i][0] + dy / l * w, pts[i][1] - dx / l * w]);
+  }
+  return "M" + L.concat(R2.reverse()).map((p) => f(p[0]) + " " + f(p[1])).join(" L") + " Z";
+}
+var motion = { gait, cycle, travel, mouth, VISEMES, boilPoints, follow, spring: spring2, drag, ribbon, ribbonPath };
+
+// src/styles/puppet.js
+var NS = "http://www.w3.org/2000/svg";
+var f1 = (x) => Math.round(x * 10) / 10;
+var f3 = (x) => Math.round(x * 1e3) / 1e3;
+var S = Math.sin;
+var C = Math.cos;
+var PI2 = Math.PI;
+var sm3 = smooth01;
+var BONES = [
+  { id: "hips" },
+  { id: "chest", parent: "hips", x: 0, y: -4 },
+  { id: "head", parent: "chest", x: 4, y: -126 },
+  { id: "tail", parent: "head", x: -30, y: -66 },
+  { id: "upperArmN", parent: "chest", x: 2, y: -114 },
+  { id: "foreArmN", parent: "upperArmN", y: 58 },
+  { id: "handN", parent: "foreArmN", y: 50 },
+  { id: "upperArmF", parent: "chest", x: -6, y: -112 },
+  { id: "foreArmF", parent: "upperArmF", y: 58 },
+  { id: "handF", parent: "foreArmF", y: 50 },
+  { id: "thighN", parent: "hips", x: -2, y: 4 },
+  { id: "shinN", parent: "thighN", y: 86 },
+  { id: "footN", parent: "shinN", y: 84 },
+  { id: "thighF", parent: "hips", x: 6, y: 2 },
+  { id: "shinF", parent: "thighF", y: 86 },
+  { id: "footF", parent: "shinF", y: 84 },
+  { id: "flapN", parent: "hips", x: 10, y: 6 },
+  { id: "flapB", parent: "hips", x: -14, y: 6 }
+];
+var IK = {
+  armN: { chain: ["upperArmN", "foreArmN", "handN"], bend: -1 },
+  armF: { chain: ["upperArmF", "foreArmF", "handF"], bend: -1 },
+  legN: { chain: ["thighN", "shinN", "footN"], bend: 1 },
+  legF: { chain: ["thighF", "shinF", "footF"], bend: 1 }
+};
+var SOLE = 188;
+var ANKLE = 14;
+var HIP = 180;
+var HEAD_R = 44;
+var HC = [8, -50];
+function skull() {
+  const out = [];
+  for (let i = 0; i < 44; i++) {
+    const a = i / 44 * PI2 * 2 - PI2;
+    let rx = 42, ry = 45;
+    const nose = 8 * Math.exp(-Math.pow((a - 0.2) / 0.11, 2)), chin = 3 * Math.exp(-Math.pow((a - 0.95) / 0.25, 2)), jaw = a > 0.5 && a < 2.2 ? -4 * S((a - 0.5) / 1.7 * PI2) : 0;
+    const r = 1 + (nose + chin + jaw) / 44;
+    out.push([HC[0] + C(a) * rx * r, HC[1] + S(a) * ry * r]);
+  }
+  return out;
+}
+function hairCap(kind) {
+  const out = [];
+  for (let i = 0; i <= 26; i++) {
+    const a = -1.15 - i / 26 * (PI2 * 2 - 1.15 - 2.45 + 0);
+    const k = 1.08;
+    out.push([HC[0] + C(a) * 42 * k, HC[1] + S(a) * 45 * k]);
+  }
+  const fringe = kind === "short" || kind === "long" || kind === "pony" ? [[18, -78], [30, -76], [34, -84]] : [[22, -84], [33, -82]];
+  return out.concat([[-14, -18], [-10, -36], [-4, -52], [2, -66], ...fringe]);
+}
+var sleeve = (len2, w0, w1) => capsule(0, -6, w0, 0, len2, w1, 8);
+var shoe = () => [[-11, -10], [11, -10], [13, 0], [26, 3], [34, 9], [35, 14], [-12, 14], [-14, 4]];
+function torso(o) {
+  const hem = o.robe === "long" ? 64 : 22;
+  return [[10, -128], [26, -116], [34, -96], [33, -64], [30, -34], [33, hem - 6], [36, hem], [-34, hem], [-31, hem - 8], [-30, -40], [-31, -80], [-28, -112], [-16, -124], [-6, -130]];
+}
+var MOUTH = [42, -27];
+var VIS = {
+  M: () => strokeOutline([[35, -27], [40, -26.4], [45, -27.6]], 2.6, true),
+  A: () => ellipse(40.5, -24.5, 5.2, 6.5, -8, 18),
+  E: () => ellipse(40, -25.5, 6.8, 3.4, -6, 18),
+  O: () => ellipse(40.5, -24.5, 3.8, 4.8, 0, 16)
+};
+var base = { crouch: 0, air: 0, armSwing: 1, look: 0, lean: 0 };
+var CLIPS = {
+  idle: (t) => ({ ...base, chest: -1 + S(t * 2) * 0.8, head: S(t * 1.1) * 1.6, upperArmN: -8 + S(t * 2) * 1.5, foreArmN: -18, upperArmF: 8, foreArmF: -16, armSwing: 1 }),
+  walk: (t) => ({ ...base, chest: 4, head: -3, foreArmN: -22, foreArmF: -18, armSwing: 1 }),
+  run: (t) => ({ ...base, chest: 14, head: -10, upperArmN: 0, foreArmN: -80, upperArmF: 0, foreArmF: -80, armSwing: 1.7, lean: 6 }),
+  talk: (t) => {
+    const g2 = 0.5 + 0.5 * S(t * 5.3) * S(t * 2.1 + 1);
+    return { ...base, chest: -2 + 2 * S(t * 2.4), head: -4 + 5 * S(t * 3.3) * g2, upperArmN: -34 - 18 * g2, foreArmN: -62 - 22 * S(t * 4.1), upperArmF: 8, foreArmF: -20, armSwing: 0, talk: g2 };
+  },
+  wave: (t) => ({ ...base, chest: -3, head: -6, upperArmN: -118, foreArmN: -50 + 28 * S(t * 9), upperArmF: 10, foreArmF: -20, armSwing: 0 }),
+  point: (t) => ({ ...base, chest: 2, head: -4, upperArmN: -84 + 2 * S(t * 3), foreArmN: -6, upperArmF: 12, foreArmF: -24, armSwing: 0 }),
+  cheer: (t) => {
+    const b = Math.abs(S(t * 6));
+    return { ...base, chest: -8, head: -12, upperArmN: -214 - 8 * b, foreArmN: 12, upperArmF: -142 - 10 * b, foreArmF: -24, crouch: 10 * b, armSwing: 0 };
+  },
+  bow: (t) => ({ ...base, chest: 30, head: 18, upperArmN: -30, foreArmN: -50, upperArmF: -20, foreArmF: -50, crouch: 6, armSwing: 0 }),
+  surprise: (t) => ({ ...base, chest: -14, head: -16, upperArmN: -110, foreArmN: -60, upperArmF: -96, foreArmF: -50, crouch: -2, armSwing: 0, look: -0.4, lean: -6 }),
+  think: (t) => ({ ...base, chest: 4, head: 8 + 2 * S(t * 1.3), upperArmN: -36, foreArmN: -128, upperArmF: 22, foreArmF: -70, armSwing: 0, look: -0.6 }),
+  look: (t) => ({ ...base, chest: -6, head: -22 + 2 * S(t * 1.2), upperArmN: -10, foreArmN: -16, upperArmF: 8, foreArmF: -14, armSwing: 0, look: -1 }),
+  sad: (t) => ({ ...base, chest: 12, head: 22, upperArmN: 4, foreArmN: -6, upperArmF: 8, foreArmF: -6, armSwing: 0, look: 1, crouch: 4 }),
+  // jump: 0–.25 crouch, .25–.85 airborne, .85–1.1 land (clip-local time; play with local:true)
+  jump: (t) => {
+    const c = sm3(t / 0.25) * (1 - sm3((t - 0.25) / 0.08)) + sm3((t - 0.85) / 0.06) * (1 - sm3((t - 1) / 0.2)), air = sm3((t - 0.25) / 0.08) * (1 - sm3((t - 0.8) / 0.08));
+    return { ...base, chest: 10 * c - 6 * air, head: -6 * air, upperArmN: -40 * c - 172 * air, foreArmN: -20 + 30 * air, upperArmF: -30 * c - 196 * air, foreArmF: -24, crouch: 34 * c, air, armSwing: 0, hop: 120 * Math.max(0, S(PI2 * clamp((t - 0.25) / 0.6))) };
+  }
+};
+function puppet(parent, o = {}) {
+  const st = o.style || {}, P2 = { ...st.P || {}, ...o.P || {} }, M = material(o.material || st.material || "flat");
+  const look = { skin: "skin", hair: "black", cloth: "red", cloth2: "cream", trim: "gold", pants: "cream", shoe: "black", sash: "gold", hairStyle: "bun", ...o.look || {} };
+  const col3 = (role) => st.colour ? st.colour(look[role] || role, role) : look[role] || "#888";
+  const C_ = {
+    skin: col3("skin"),
+    skin2: st.colour ? st.colour(look.skin, "skin2") : "#d9a882",
+    hair: col3("hair"),
+    cloth: col3("cloth"),
+    cloth2: col3("cloth2"),
+    trim: col3("trim"),
+    pants: col3("pants"),
+    shoe: col3("shoe"),
+    sash: col3("sash"),
+    eyeW: st.colour ? st.colour("white", "eyeW") : "#fbf6ea",
+    pupil: st.colour ? st.colour("ink", "pupil") : "#1e1b1f",
+    mouth: st.colour ? st.colour("mouth", "mouth") : "#a0302a",
+    cheek: st.colour ? st.colour("cheek", "cheek") : "#e7897a",
+    line: P2.line || "#1e1b1f"
+  };
+  const orn = o.ornament != null ? o.ornament : P2.ornament != null ? P2.ornament : 1, seedBase = o.seed || 1;
+  const hs = look.hairStyle;
+  const L = [];
+  const add = (bone, z, role, shape, x = {}) => L.push({ bone, z, role, col: x.col || C_[role] || col3(role), ...x, ...shape && Array.isArray(shape[0]) && !x.line ? { pts: shape } : {}, seed: seedBase * 31 + L.length });
+  add("flapB", 0, "cloth", [[-8, -6], [10, -6], [12, 50], [-14, 54]], { far: true });
+  add("upperArmF", 10, "cloth2", sleeve(58, 14, 11.5), { far: true });
+  add("foreArmF", 11, "cloth2", sleeve(50, 11.5, 10), { far: true });
+  add("foreArmF", 12, "trim", rect(-11.5, 38, 23, 9), { far: true });
+  add("handF", 13, "skin", ellipse(0, 10, 10.5, 11.5, 0, 16), { far: true });
+  add("thighF", 20, "pants", capsule(0, -6, 16, 0, 86, 12, 8), { far: true });
+  add("shinF", 21, "pants", capsule(0, 0, 12, 0, 80, 9.5, 8), { far: true });
+  add("footF", 22, "shoe", shoe(), { far: true });
+  if (hs === "long") add("tail", 1, "hair", [[-6, -6], [10, -4], [12, 40], [4, 92], [-20, 96], [-22, 40]], { far: false });
+  if (hs === "pony") add("tail", 1, "hair", strokeOutline([[0, 0], [-8, 20], [-12, 46], [-10, 72]], 16), {});
+  add("thighN", 32, "pants", capsule(0, -6, 16, 0, 86, 12, 8));
+  add("shinN", 33, "pants", capsule(0, 0, 12, 0, 80, 9.5, 8));
+  add("shinN", 33.5, "trim", rect(-11, 58, 22, 8));
+  add("footN", 34, "shoe", shoe());
+  add("head", 38, "skin2", capsule(4, 6, 12, 6, -36, 11, 6));
+  const T6 = torso(look), tornOrn = orn ? [ellipse(4, -78, 9, 9, 0, 14), ellipse(-14, -62, 4, 4, 0, 10), ellipse(22, -60, 4, 4, 0, 10), ellipse(4, -50, 3.6, 5, 0, 10)] : [];
+  add("chest", 40, "cloth", T6, { orn: tornOrn });
+  add("chest", 41, "trim", strokeOutline([[-6, -130], [6, -112], [18, -92], [28, -70]], 9, false));
+  add("chest", 41.5, "sash", [[-31, -20], [31, -22], [32, -8], [-30, -6]]);
+  add("flapN", 42, "cloth", [[-10, -6], [14, -6], [22, 56], [-6, 60]], { orn: orn ? [ellipse(6, 30, 4, 6, 0, 10)] : [] });
+  add("head", 49, "skin2", ellipse(-2, -46, 7.5, 10.5, -6, 14));
+  add("head", 50, "skin", skull());
+  add("head", 51, "cheek", ellipse(24, -34, 8.5, 5, -8, 14), { op: 0.45 });
+  if (hs !== "bald") add("head", 52, "hair", hairCap(hs));
+  if (hs === "bun") {
+    add("head", 53, "hair", ellipse(-16, -100, 17, 15, -20, 18));
+    add("head", 53.5, "trim", rect(-30, -90, 28, 6).map((p) => [p[0], p[1] + (p[0] + 16) * 0.3]));
+  }
+  if (hs === "twinbuns") {
+    add("head", 53, "hair", ellipse(-14, -96, 15, 14, 0, 16));
+    add("head", 53, "hair", ellipse(18, -100, 14, 13, 0, 16));
+    add("head", 53.4, "trim", ellipse(18, -100, 5, 5, 0, 10));
+    add("head", 53.4, "trim", ellipse(-14, -96, 5, 5, 0, 10));
+  }
+  if (hs === "cap") {
+    add("head", 53, "hair", [[44, -66], [40, -92], [16, -108], [-14, -106], [-36, -90], [-40, -64], [-30, -56], [-26, -70], [0, -74], [26, -74]]);
+    add("head", 53.5, "trim", strokeOutline([[44, -66], [20, -72], [-4, -73], [-30, -68]], 7, false));
+  }
+  add("head", 55, "brow", null, { line: [[38, -66], [30, -69], [22, -69]], w: 3.4, col: C_.hair });
+  add("head", 56, "eyeW", ellipse(31, -54, 6.2, 6.8, -6, 16), { cls: "pp-eye-open" });
+  add("head", 57, "pupil", ellipse(33.2, -53.5, 3.3, 4.4, 0, 12), { cls: "pp-eye-open pp-pupil" });
+  add("head", 57, "pupil", null, { line: arc([37, -54], [25, -55], -3.5, 6), w: 2.8, cls: "pp-eye-shut" });
+  for (const k of Object.keys(VIS)) add("head", 58, k === "M" ? "pupil" : "mouth", VIS[k](), { cls: "pp-mouth pp-m-" + k });
+  add("upperArmN", 60, "cloth2", sleeve(58, 14, 11.5));
+  add("foreArmN", 61, "cloth2", sleeve(50, 11.5, 10));
+  add("foreArmN", 62, "trim", rect(-11.5, 38, 23, 9));
+  add("handN", 63, "skin", ellipse(0, 10, 10.5, 11.5, 0, 16));
+  if (M === material("leather")) [["upperArmN", 0, -4], ["foreArmN", 0, 0], ["thighN", 0, -2], ["shinN", 0, 0], ["head", 4, 4]].forEach(([b, x, y]) => add(b, 64, "trim", ellipse(x, y, 3.2, 3.2, 0, 10)));
+  if (M.defs && o.video) M.defs(o.video, P2);
+  const g2 = document.createElementNS(NS, "g");
+  g2.setAttribute("class", "vk-puppet " + (o.cls || ""));
+  const attrs = M.group(P2, "char");
+  if (attrs) attrs.replace(/(\w[\w-]*)="([^"]*)"/g, (_, k, v) => g2.setAttribute(k, v));
+  const scarfG = document.createElementNS(NS, "g");
+  scarfG.setAttribute("class", "pp-scarf");
+  const inner = document.createElementNS(NS, "g");
+  g2.append(scarfG, inner);
+  const pieces = L.map((p, i) => ({ ...p, i })).sort((a, b) => a.z - b.z || a.i - b.i);
+  inner.innerHTML = pieces.map((p) => `<g class="pp-piece ${p.cls || ""}" data-b="${p.bone}">${/pp-mouth/.test(p.cls || "") ? `<g class="pp-v">${M.paint(p, P2)}</g>` : M.paint(p, P2)}</g>`).join("");
+  parent.appendChild(g2);
+  const pieceEls = [...inner.children].map((el2, i) => ({ el: el2, bone: pieces[i].bone, last: "", pupil: /pp-pupil/.test(pieces[i].cls || "") }));
+  let scarfPath = null;
+  if (look.scarf) {
+    scarfG.innerHTML = `<path ${M.dyn(P2, col3("scarf") === "scarf" ? C_.trim : st.colour ? st.colour(look.scarf, "scarf") : look.scarf)}/>`;
+    scarfPath = scarfG.firstElementChild;
+  }
+  const Q2 = (s2) => [...inner.querySelectorAll(s2)];
+  const E2 = { open: Q2(".pp-eye-open"), shut: Q2(".pp-eye-shut"), pupil: Q2(".pp-pupil"), mouths: Object.fromEntries(Object.keys(VIS).map((k) => [k, Q2(".pp-m-" + k)])) };
+  const setOp = (el2, v) => {
+    const s2 = String(Math.round(clamp(v) * 1e3) / 1e3);
+    if (el2.__op !== s2) {
+      el2.__op = s2;
+      el2.setAttribute("opacity", s2);
+    }
+  };
+  const rig = createRig({ root: inner, el: () => null, bones: BONES, clips: { ...CLIPS, ...o.clips || {} }, ik: IK, defaults: { ...base } });
+  const G3 = gait({ stride: 128, hip: HIP, leg: 184, lift: 18, duty: 0.62, ...o.gait || {} });
+  const RUN = gait({ stride: 230, hip: HIP - 6, leg: 184, lift: 34, duty: 0.36, ...o.runGait || {} });
+  function mats(pose2) {
+    const out = {};
+    for (const b of rig.bones) out[b.id] = mat.mul(b.parent ? out[b.parent] : mat.id(), rig.local(b.id, pose2));
+    return out;
+  }
+  function worldRot(id, pose2) {
+    let a = 0;
+    for (let b = rig.byId[id]; b; b = b.parent ? rig.byId[b.parent] : null) a += b.rot + (pose2[b.id] || 0);
+    return a;
+  }
+  const clipPose = (clip, t) => typeof clip === "function" ? clip(t) : typeof clip === "string" ? (rig.clips[clip] || CLIPS.idle)(t) : clip && clip.clipPose ? clip.clipPose(t) : CLIPS.idle(t);
+  function pose(t, s2 = {}) {
+    const sc = s2.scale != null ? s2.scale : o.scale || 0.6, dir = s2.facing || 1, d = s2.d || 0;
+    let p = { ...clipPose(s2.clip || "idle", t) };
+    const gw = s2.run || 0, g0 = G3.at(d), g1 = gw > 0 ? RUN.at(d * RUN.stride / G3.stride) : null;
+    const hipH = g1 ? g0.hipY + (g1.hipY - g0.hipY) * gw : g0.hipY;
+    const feet = g0.feet.map((f, i) => g1 ? { x: f.x + (g1.feet[i].x - f.x) * gw, y: f.y + (g1.feet[i].y - f.y) * gw, angle: f.angle + (g1.feet[i].angle - f.angle) * gw } : f);
+    const gy = (x) => s2.ground ? s2.ground(x) : s2.y != null ? s2.y : 600;
+    const air = clamp(p.air || 0), hop = (p.hop || 0) + (s2.lift || 0) / sc;
+    const hx = (s2.x || 0) + dir * d * sc, hy = gy(hx) - (hipH - (p.crouch || 0) + hop) * sc;
+    const root = { x: hx, y: hy, scale: sc, flip: dir, rot: dir * (p.lean || 0) };
+    const sw = p.armSwing != null ? p.armSwing : 1;
+    if (sw) {
+      const a = (feet[0].x - d) / (G3.stride * 0.5), b = (feet[1].x - d) / (G3.stride * 0.5);
+      p.upperArmN = (p.upperArmN || 0) + sw * 22 * b;
+      p.upperArmF = (p.upperArmF || 0) + sw * 22 * a;
+    }
+    const ank = (f, side) => {
+      const wx = (s2.x || 0) + dir * f.x * sc, wy = gy(wx) - (f.y + ANKLE) * sc;
+      if (!air) return [wx, wy];
+      const tx = hx + dir * (side ? -8 : 14) * sc, ty = hy + (HIP - 40) * sc;
+      return [wx + (tx - wx) * air, wy + (ty - wy) * air];
+    };
+    p = rig.solveIK("legN", ank(feet[0], 0), p, root);
+    p = rig.solveIK("legF", ank(feet[1], 1), p, root);
+    p.footN = (p.footN || 0) - worldRot("footN", { ...p, footN: 0 }) + feet[0].angle * (1 - air) + 20 * air;
+    p.footF = (p.footF || 0) - worldRot("footF", { ...p, footF: 0 }) + feet[1].angle * (1 - air) + 20 * air;
+    const vx = s2.vx != null ? s2.vx : 0;
+    p.flapN = 0.5 * Math.min(0, p.thighN || 0) + 0.15 * Math.max(0, p.thighN || 0) + (s2.flap || 0);
+    p.flapB = 0.45 * Math.max(0, p.thighF || 0) + 0.2 * Math.min(0, p.thighF || 0) + (s2.flap || 0);
+    p.tail = (p.tail || 0) + 6 * S(t * 2.3) + (s2.tail || 0) - (p.head || 0) * 0.6 - (p.chest || 0) * 0.5;
+    return { p, root, sc, dir, hx, hy };
+  }
+  const point = (bone, x, y, R2) => rig.point(bone, x, y, R2.p, R2.root);
+  const api = {
+    g: g2,
+    inner,
+    rig,
+    gait: G3,
+    runGait: RUN,
+    pieces: pieceEls,
+    colours: C_,
+    pose,
+    point: (bone, x, y, t, s2) => point(bone, x, y, pose(t, s2)),
+    // point of a bone for an already computed pose R (the value render() returns)
+    pointAt: (R2, bone, x = 0, y = 0) => point(bone, x, y, R2),
+    HC,
+    // subject for the camera (vk shots): head centre + radius, feet, facing
+    subject(t, s2) {
+      const R2 = pose(t, s2), h3 = point("head", HC[0], HC[1], R2);
+      return { head: h3, headR: HEAD_R * 1.1 * R2.sc, feet: [R2.hx, s2.ground ? s2.ground(R2.hx) : s2.y], facing: R2.dir };
+    },
+    // s (see pose) + {mouth: {open, shape} | seg (voice line) , blink, eyes: 'shut', opacity, scarfWind}
+    render(t, s2 = {}) {
+      setOp(g2, s2.opacity == null ? 1 : s2.opacity);
+      if (s2.opacity != null && s2.opacity <= 1e-3) return null;
+      const R2 = pose(t, s2), m = mats(R2.p);
+      rig.apply(R2.p, R2.root);
+      const lk = R2.p.look || 0, pupT = ` translate(${f1(lk > 0 ? -0.5 * lk : 1.2 * -lk)} ${f1(lk * 2.2)})`;
+      for (const pe of pieceEls) {
+        const k = m[pe.bone];
+        if (!k) continue;
+        const str = `matrix(${f3(k[0])} ${f3(k[1])} ${f3(k[2])} ${f3(k[3])} ${f1(k[4])} ${f1(k[5])})` + (pe.pupil ? pupT : "");
+        if (str !== pe.last) {
+          pe.last = str;
+          pe.el.setAttribute("transform", str);
+        }
+      }
+      const bl = s2.eyes === "shut" ? 1 : blink(t + (o.blinkOffset || 0), { period: 3.9, dur: 0.16 });
+      E2.open.forEach((e) => setOp(e, 1 - bl));
+      E2.shut.forEach((e) => setOp(e, bl));
+      const mo = s2.mouth || (s2.seg ? mouth(s2.seg, t) : { open: 0, shape: "M" });
+      for (const k of Object.keys(E2.mouths)) E2.mouths[k].forEach((e) => {
+        const on = mo.shape === k || k === "M" && !(mo.shape in E2.mouths);
+        setOp(e, on ? 1 : 0);
+        if (on && k !== "M") {
+          const sy = 0.35 + 0.65 * clamp(mo.open);
+          const tr = `translate(0 ${f1(MOUTH[1] * (1 - sy))}) scale(1 ${f3(sy)})`;
+          if (e.__tr !== tr) {
+            e.__tr = tr;
+            const v = e.querySelector(".pp-v");
+            if (v) v.setAttribute("transform", tr);
+          }
+        }
+      });
+      if (scarfPath) {
+        const hist = s2.track || (s2.speed ? (u) => ({ ...s2, d: (s2.d || 0) - (t - u) * s2.speed }) : () => s2);
+        const anchor = (u) => {
+          const Ru = u === t ? R2 : pose(u, hist(u));
+          return point("chest", -14, -118, Ru);
+        };
+        const L0 = (o.scarfLen || 1) * 8 * R2.sc / 0.6, pts = ribbon(anchor, t, { n: 8, len: L0, lag: 0.04, hang: [-0.6 * R2.dir, 0.8], sag: 0.8, flutter: 18 * R2.sc, freq: 1.3, wave: 1.1, wind: [-(s2.scarfWind != null ? s2.scarfWind : 4) * R2.dir * R2.sc, -2.2 * R2.sc], seed: seedBase });
+        scarfPath.setAttribute("d", ribbonPath(pts, 22 * R2.sc, 9 * R2.sc, { twist: 1.2, phase: t * 2.2 }));
+      }
+      return R2;
+    }
+  };
+  return api;
+}
+var puppetBones = { BONES, IK, CLIPS, SOLE, HIP, HEAD_R };
+
+// src/styles/world.js
+var NS2 = "http://www.w3.org/2000/svg";
+var PLACES = ["mountain", "forest", "village", "river", "sea", "field", "city", "palace", "garden", "sky"];
+var TIMES = ["day", "dawn", "dusk", "night"];
+var PROPS = ["moon", "sun", "stars", "pine", "tree", "willow", "house", "temple", "bridge", "boat", "flowers", "grass", "rock", "clouds", "tower", "lantern"];
+var ALIAS = {
+  \u5C71: "mountain",
+  \u5C71\u6797: "forest",
+  \u6797: "forest",
+  \u68EE\u6797: "forest",
+  \u6811\u6797: "forest",
+  \u6751: "village",
+  \u6751\u5E84: "village",
+  \u6CB3: "river",
+  \u6C5F: "river",
+  \u6E56: "river",
+  \u6C60\u5858: "river",
+  \u6D77: "sea",
+  \u7530\u91CE: "field",
+  \u8349\u5730: "field",
+  \u57CE: "city",
+  \u57CE\u5E02: "city",
+  \u5BAB: "palace",
+  \u5BAB\u6BBF: "palace",
+  \u5929\u5BAB: "palace",
+  \u56ED: "garden",
+  \u82B1\u56ED: "garden",
+  \u5929\u7A7A: "sky",
+  \u767D\u5929: "day",
+  \u6E05\u6668: "dawn",
+  \u9ECE\u660E: "dawn",
+  \u9EC4\u660F: "dusk",
+  \u508D\u665A: "dusk",
+  \u591C: "night",
+  \u591C\u665A: "night",
+  \u6708: "moon",
+  \u6708\u4EAE: "moon",
+  \u592A\u9633: "sun",
+  \u661F: "stars",
+  \u661F\u661F: "stars",
+  \u677E: "pine",
+  \u6811: "tree",
+  \u67F3: "willow",
+  \u623F\u5B50: "house",
+  \u5E99: "temple",
+  \u6865: "bridge",
+  \u8239: "boat",
+  \u82B1: "flowers",
+  \u8349: "grass",
+  \u77F3: "rock",
+  \u4E91: "clouds",
+  \u5854: "tower",
+  \u706F\u7B3C: "lantern"
+};
+function parseSetting(s2) {
+  if (s2 && typeof s2 === "object") return { place: s2.place || "field", time: s2.time || "day", props: s2.props || [], seed: s2.seed || 1, ...s2 };
+  const words = String(s2 || "").split(/[\s,，、/|]+/).filter(Boolean).map((w) => ALIAS[w] || w.toLowerCase());
+  const out = { place: "field", time: "day", props: [], seed: 1 };
+  for (const w of words) {
+    if (PLACES.includes(w)) out.place = w;
+    else if (TIMES.includes(w)) out.time = w;
+    else if (PROPS.includes(w)) out.props.push(w);
+    else if (/^seed=?\d+/.test(w)) out.seed = +w.replace(/\D/g, "");
+  }
+  return out;
+}
+var g = (parent, cls, attrs = "") => {
+  const e = document.createElementNS(NS2, "g");
+  e.setAttribute("class", cls);
+  if (attrs) attrs.replace(/(\w[\w-]*)="([^"]*)"/g, (_, k, v) => e.setAttribute(k, v));
+  parent.appendChild(e);
+  return e;
+};
+function paintAll(style2, list2) {
+  const M = material(style2.worldMaterial || style2.material), P2 = style2.P || {};
+  return list2.map((p, i) => M.paint({ seed: i + 1, ...p, col: p.col || style2.colour(p.role, p.role) }, P2)).join("");
+}
+function buildWorld(sc, style2, setting, o = {}) {
+  const v = sc.video, W = v.W, H = v.H, S2 = parseSetting(setting), seed = o.seed || S2.seed || 1;
+  const gy0 = o.ground != null && typeof o.ground === "number" ? o.ground : Math.round(H * 0.82);
+  const ground = typeof o.ground === "function" ? o.ground : S2.place === "river" || S2.place === "sea" ? () => gy0 : (x) => gy0 + (o.flat ? 0 : 6 * Math.sin(x / 210 + seed));
+  const wrap = sc.html(`<svg class="vk-world" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="position:absolute;left:0;top:0;overflow:visible"></svg>`);
+  const host = sc.cam || sc.el, bgs = [...host.children].filter((c) => c.classList.contains("vk-bg"));
+  host.insertBefore(wrap, bgs.length ? bgs[bgs.length - 1].nextSibling : host.firstChild);
+  const L = {}, ctx = { sc, v, W, H, S: S2, seed, ground, gy0, style: style2, wrap, layers: L };
+  const M = material(style2.worldMaterial || style2.material), P2 = style2.P || {};
+  for (const n of ["sky", "far", "mid", "props", "ground", "actors", "front"]) L[n] = g(wrap, "vw-" + n, n === "actors" ? "" : style2.layerAttrs ? style2.layerAttrs(n, ctx) : M.group(P2, n === "sky" ? "" : "layer"));
+  const paint2 = (list2) => paintAll(style2, list2);
+  const H2 = style2.hooks || {};
+  (H2.sky || defaultSky)(L.sky, ctx);
+  if (H2.far !== false) (H2.far || defaultFar)(L.far, ctx, paint2);
+  if (H2.mid !== false) (H2.mid || defaultMid)(L.mid, ctx, paint2);
+  (H2.props || defaultProps)(L.props, ctx, paint2);
+  (H2.ground || defaultGround)(L.ground, ctx, paint2);
+  if (H2.front) H2.front(L.front, ctx, paint2);
+  if (H2.after) H2.after(ctx, paint2);
+  if (o.bake !== false && v.bake) ["sky", "far", "mid", "props", "ground"].forEach((n) => {
+    if (L[n].childNodes.length && !L[n].hasAttribute("data-live")) v.bake(L[n], { scale: o.bakeScale || 1 });
+  });
+  return { svg: wrap, ...L, ground, setting: S2, ctx };
+}
+function skyColours(style2, time) {
+  const c = (r) => style2.colour(r, r);
+  return time === "night" ? [c("night0"), c("night1")] : time === "dusk" ? [c("dusk0"), c("dusk1")] : time === "dawn" ? [c("dawn0"), c("dawn1")] : [c("sky0"), c("sky1")];
+}
+var gid = 0;
+function defaultSky(el2, ctx) {
+  const { W, H, S: S2, style: style2 } = ctx, [a, b] = skyColours(style2, S2.time), id = "vk-sky-" + ++gid;
+  let s2 = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect x="-40" y="-40" width="${W + 80}" height="${H + 80}" fill="url(#${id})"/>`;
+  s2 += celestial(ctx);
+  el2.innerHTML = s2;
+}
+function celestial(ctx, o = {}) {
+  const { W, S: S2, style: style2 } = ctx, c = (r) => style2.colour(r, r), M = material(style2.worldMaterial || style2.material), P2 = style2.P || {};
+  let s2 = "";
+  const night = S2.time === "night" || S2.props.includes("moon");
+  if (S2.props.includes("stars") || S2.time === "night") for (let i = 0; i < 26; i++) {
+    const x = rnd(ctx.seed + 3, i) * W, y = 30 + rnd(ctx.seed + 5, i) * 260, r = 1.4 + rnd(ctx.seed + 7, i) * 2.2;
+    s2 += M.paint({ pts: star(x, y, r * 1.8, r * 0.7, 4), col: c("star"), role: "star", seed: i }, P2);
+  }
+  if (night) {
+    const x = o.moonX || W * 0.78, y = o.moonY || 128;
+    s2 += M.paint({ pts: ellipse(x, y, 46, 46, 0, 40), col: c("moon"), role: "moon", seed: 9 }, P2);
+  } else if (S2.time === "dusk" || S2.time === "dawn" || S2.props.includes("sun")) {
+    const x = o.sunX || W * (S2.time === "dawn" ? 0.2 : 0.72), y = S2.time === "day" ? 120 : 250;
+    s2 += M.paint({ pts: ellipse(x, y, S2.time === "day" ? 50 : 66, S2.time === "day" ? 50 : 66, 0, 44), col: c("sun"), role: "sun", seed: 8 }, P2);
+  }
+  if (S2.props.includes("clouds") || S2.time === "day") for (let i = 0; i < 3; i++) {
+    const x = 160 + i * 420 + rnd(ctx.seed, i) * 120, y = 90 + rnd(ctx.seed + 1, i) * 90;
+    s2 += M.paint({ pts: blob(x, y, 90, 26, ctx.seed + i, 0.2), col: c("cloud"), role: "cloud", op: 0.9, seed: 20 + i }, P2);
+  }
+  return s2;
+}
+function defaultFar(el2, ctx, paint2) {
+  const { W, S: S2, seed, gy0 } = ctx, tall = S2.place === "mountain" ? 1.6 : S2.place === "city" ? 0 : 1;
+  if (S2.place === "city") return;
+  el2.innerHTML = paint2([{ pts: hills(-40, W + 40, gy0 - 250 * tall, 70 * tall, seed + 0.3, { base: gy0 + 40, freq: 4e-3, peaks: S2.place === "mountain" ? 1.4 : 0 }), role: "far" }]);
+}
+function defaultMid(el2, ctx, paint2) {
+  const { W, S: S2, seed, gy0 } = ctx, list2 = [];
+  if (S2.place === "city") {
+    for (let i = 0; i < 14; i++) {
+      const w = 60 + rnd(seed, i) * 70, h3 = 120 + rnd(seed + 2, i) * 240, x = i * 96 - 30;
+      list2.push({ pts: rect(x, gy0 - h3, w, h3 + 20), role: i % 2 ? "far" : "mid", orn: windowsOf(x, gy0 - h3, w, h3, seed + i) });
+    }
+    el2.innerHTML = paint2(list2);
+    return;
+  }
+  const amp = S2.place === "mountain" ? 70 : S2.place === "river" || S2.place === "sea" ? 20 : 40;
+  list2.push({ pts: hills(-40, W + 40, gy0 - (S2.place === "mountain" ? 130 : 80), amp, seed + 1.7, { base: gy0 + 40, freq: 6e-3 }), role: "mid" });
+  el2.innerHTML = paint2(list2);
+}
+function windowsOf(x, y, w, h3, seed) {
+  const out = [];
+  for (let r = 0; r < Math.floor(h3 / 34); r++) for (let c = 0; c < Math.floor(w / 22); c++) if (rnd(seed, r * 7 + c) > 0.45) out.push(rect(x + 8 + c * 22, y + 12 + r * 34, 9, 14));
+  return out;
+}
+function defaultProps(el2, ctx, paint2) {
+  const { W, S: S2, seed, ground, gy0 } = ctx, list2 = [], want = new Set(S2.props);
+  const P2 = S2.place;
+  if (P2 === "forest" || want.has("tree") || want.has("pine") || P2 === "mountain" || P2 === "village" || P2 === "garden") {
+    const kind = want.has("pine") || P2 === "mountain" ? "pine" : want.has("willow") ? "willow" : "round";
+    const xs = P2 === "forest" ? [90, 250, 980, 1130, 1230] : [110, 1150];
+    xs.forEach((x, i) => {
+      const h3 = (P2 === "forest" ? 260 : 220) * (0.75 + 0.4 * rnd(seed + 4, i));
+      const T6 = tree(x, ground(x) + 4, h3, { kind, seed: seed + i, lean: (rnd(seed + 6, i) - 0.5) * 0.12 });
+      list2.push({ pts: T6.trunk, role: "trunk" });
+      T6.crown.forEach((c, j) => list2.push({ pts: c, role: j % 2 ? "leaf2" : "leaf" }));
+    });
+  }
+  if (P2 === "village" || want.has("house")) [[930, 170, 140], [1110, 130, 110]].forEach(([x, w, h3], i) => {
+    const Hs = house(x, ground(x) + 2, w, h3, { kind: "cottage" });
+    list2.push({ pts: Hs.walls, role: "wall" }, { pts: Hs.roof, role: "roof" }, { pts: Hs.door, role: "door" }, ...Hs.windows.map((p) => ({ pts: p, role: "door", op: 0.85 })));
+  });
+  if (P2 === "palace" || want.has("temple")) {
+    const Hs = house(980, ground(980) + 2, 300, 170, { kind: "temple" });
+    list2.push({ pts: rect(820, ground(980) - 10, 320, 14), role: "roof" }, { pts: Hs.walls, role: "wall" }, { pts: Hs.roof, role: "roof" }, { pts: Hs.door, role: "door" });
+  }
+  if (want.has("rock")) list2.push({ pts: blob(1020, gy0 - 20, 70, 40, seed + 9, 0.2), role: "mid" });
+  el2.innerHTML = paint2(list2);
+}
+function defaultGround(el2, ctx, paint2) {
+  const { W, H, S: S2, seed, ground, gy0 } = ctx, list2 = [];
+  if (S2.place === "river" || S2.place === "sea") {
+    list2.push({ pts: waves(-40, W + 40, gy0 - 40, 6, 120, seed, H + 60), role: "water" });
+    list2.push({ pts: waves(-40, W + 40, gy0 - 8, 4, 80, seed + 2, H + 60), role: "water2", op: 0.9 });
+    list2.push({ pts: [[-40, gy0 + 4], [520, gy0 - 6], [660, gy0 + 20], [660, H + 60], [-40, H + 60]], role: "ground" });
+  } else {
+    const pts = [[-40, H + 60]];
+    for (let x = -40; x <= W + 40; x += 20) pts.push([x, ground(x)]);
+    pts.push([W + 40, H + 60]);
+    list2.push({ pts, role: "ground" });
+    const p2 = [[-40, H + 60]];
+    for (let x = -40; x <= W + 40; x += 20) p2.push([x, ground(x) + 44 + 8 * Math.sin(x / 90 + seed)]);
+    p2.push([W + 40, H + 60]);
+    list2.push({ pts: p2, role: "ground2" });
+  }
+  if (S2.place === "field" || S2.place === "garden" || S2.props.includes("grass") || S2.place === "forest" || S2.place === "mountain") [70, 300, 520, 760, 870, 1060, 1210].forEach((x, i) => grass(x, ground(x) + 6, 22 + 10 * rnd(seed, i), 5, seed + i).forEach((b) => list2.push({ pts: b, role: "leaf" })));
+  if (S2.place === "garden" || S2.props.includes("flowers")) [160, 420, 680, 940, 1180].forEach((x, i) => {
+    list2.push({ pts: ellipse(x, ground(x) - 14, 8, 8, 0, 12), role: "flower", orn: [ellipse(x, ground(x) - 14, 3, 3, 0, 8)] });
+  });
+  el2.innerHTML = paint2(list2);
+}
+
+// src/styles/transitions.js
+var T2 = {};
+var px = (v) => v.toFixed(1) + "px";
+var poly = (pts) => `polygon(${pts.map((p) => px(p[0]) + " " + px(p[1])).join(",")})`;
+var focal = (c) => ({ x: c.o.x == null ? c.W / 2 : c.o.x <= 1 ? c.o.x * c.W : c.o.x, y: c.o.y == null ? c.H / 2 : c.o.y <= 1 ? c.o.y * c.H : c.o.y });
+function tearEdge(e, W, H, o = {}) {
+  const J = o.jag || 26, n = o.n || 34, seed = o.seed || 3, tilt = (o.tilt != null ? o.tilt : 0.18) * H;
+  const x0 = -J * 2 - tilt + e * (W + J * 4 + tilt * 2), pts = [[-10, -10]];
+  for (let i = 0; i <= n; i++) {
+    const y = -10 + (H + 20) * i / n, j = (hash(seed * 31 + i) - 0.5) * 2 * J + (i % 2 ? 0.4 : -0.4) * J;
+    pts.push([x0 + j + tilt * (i / n - 0.5), y]);
+  }
+  pts.push([-10, H + 10]);
+  return pts;
+}
+T2.tear = (e, c) => ({ in: { clipPath: poly(tearEdge(e, c.W, c.H, c.o)), filter: e < 1 ? "drop-shadow(-4px 0 6px rgba(0,0,0,.35))" : "" }, out: { transform: `translateX(${(-e * 18).toFixed(1)}px)` } });
+function pixelCols(e, W, H, o = {}) {
+  const cell = o.cell || 80, cols = Math.ceil(W / cell), rows2 = Math.ceil(H / cell), pts = [[0, 0]];
+  for (let i = 0; i < cols; i++) {
+    const d = i / cols * 0.55 + hash(i * 7.1 + (o.seed || 1)) * 0.15, k = clamp01((e - d) / 0.3);
+    const hgt = Math.round(k * rows2) * cell;
+    pts.push([i * cell, hgt], [(i + 1) * cell, hgt]);
+  }
+  pts.push([cols * cell, 0]);
+  return pts;
+}
+T2.pixel = (e, c) => e >= 1 ? {} : { in: { clipPath: poly(pixelCols(e, c.W, c.H, c.o)) } };
+function scallop(e, cx, cy, R2, o = {}) {
+  const k = o.lobes || 9, n = 180, pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2, lobe = Math.abs(Math.sin(a * k / 2 + (o.phase || 0)));
+    pts.push([cx + Math.cos(a) * R2 * e * (0.82 + 0.18 * Math.sqrt(lobe)), cy + Math.sin(a) * R2 * e * (0.82 + 0.18 * Math.sqrt(lobe))]);
+  }
+  return pts;
+}
+T2.cloud = (e, c) => {
+  const f = focal(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y)) * 1.25;
+  return e >= 1 ? {} : { in: { clipPath: poly(scallop(Math.max(e, 1e-3), f.x, f.y, R2, { phase: e * 1.2 })) } };
+};
+function blobIris(e, cx, cy, R2, o = {}) {
+  const n = 96, st = Math.floor((o.frame || 0) / (o.every || 4)), pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2, w = 1 + 0.07 * Math.sin(3 * a + st * 1.7) + 0.04 * Math.sin(7 * a - st * 2.3) + 0.025 * (hash(st * 131 + i) - 0.5);
+    pts.push([cx + Math.cos(a) * R2 * e * w, cy + Math.sin(a) * R2 * e * w]);
+  }
+  return pts;
+}
+T2.scribble = (e, c) => {
+  const f = focal(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y)) * 1.15;
+  return e >= 1 ? {} : { in: { clipPath: poly(blobIris(Math.max(e, 1e-3), f.x, f.y, R2, { frame: c.frame })) } };
+};
+T2.lamp = (e, c) => {
+  const r = c.raw, fl = 0.08 * Math.sin(c.frame * 2.7) * Math.sin(Math.PI * r);
+  return { in: { opacity: r >= 0.5 ? 1 : 0 }, flash: clamp01(1 - Math.abs(2 * r - 1) * 1.15 + fl), flashColor: c.o.color || "#1c0c05" };
+};
+T2.scan = (e, c) => {
+  const r = c.raw, h3 = Math.max(4e-3, e);
+  return r >= 1 ? {} : { in: { clipPath: `inset(${((1 - h3) / 2 * 100).toFixed(3)}% 0% ${((1 - h3) / 2 * 100).toFixed(3)}% 0%)`, filter: `brightness(${(1 + 1.4 * (1 - e)).toFixed(3)})` }, out: { filter: `brightness(${(1 - 0.6 * e).toFixed(3)})` } };
+};
+var STYLE_TRANSITIONS = ["tear", "pixel", "cloud", "scribble", "lamp", "scan"];
+var installed = false;
+function installStyleTransitions() {
+  if (installed) return STYLE_TRANSITIONS;
+  installed = true;
+  for (const k of STYLE_TRANSITIONS) if (!registry.transitions[k]) registry.transitions[k] = T2[k];
+  return STYLE_TRANSITIONS;
+}
+
+// src/styles/index.js
+var STYLES = {};
+var ROLES = ["world", "chars", "type", "motion", "sound", "fx"];
+var ROLE_ALIAS = { bg: "world", background: "world", world: "world", scene: "world", scenes: "world", chars: "chars", char: "chars", character: "chars", characters: "chars", type: "type", typography: "type", text: "type", title: "type", titles: "type", motion: "motion", camera: "motion", pacing: "motion", transitions: "motion", sound: "sound", audio: "sound", music: "sound", fx: "fx", effects: "fx" };
+function registerStyle(data, runtime = {}) {
+  const pack = { ...data, ...runtime, id: data.id || runtime.id };
+  if (!pack.id) throw new Error("[vk.style] pack needs an id");
+  if (pack.theme && typeof pack.theme === "object") {
+    registry.themes["style:" + pack.id] = resolveTheme(pack.theme);
+    pack.themeName = "style:" + pack.id;
+  } else pack.themeName = pack.theme || "tech-blue";
+  STYLES[pack.id] = pack;
+  return pack;
+}
+function parseToken(tok) {
+  if (STYLES[tok]) return { id: tok, role: null };
+  const m = /^(.+?)[.:/-](bg|background|world|scene|scenes|chars?|characters?|type|typography|text|titles?|motion|camera|pacing|transitions|sound|audio|music|fx|effects)$/.exec(String(tok));
+  if (m && STYLES[m[1]]) return { id: m[1], role: ROLE_ALIAS[m[2]] };
+  const id = String(tok).split(/[.:/]/)[0];
+  unknownName("styles", STYLES[id] ? tok : id, STYLES[id] ? Object.keys(STYLES).flatMap((s2) => [s2, ...ROLES.map((r) => s2 + "." + r)]) : Object.keys(STYLES), { fatal: true });
+}
+function resolveParts(spec) {
+  const parts = {};
+  const setAll = (id) => ROLES.forEach((r) => {
+    parts[r] = STYLES[id];
+  });
+  if (typeof spec === "string") spec = spec.split(/\s*[+,]\s*/);
+  if (Array.isArray(spec)) {
+    spec.forEach((tok, i) => {
+      const { id, role } = parseToken(tok);
+      if (i === 0) setAll(id);
+      if (role) parts[role] = STYLES[id];
+      else if (i > 0) setAll(id);
+    });
+  } else if (spec && typeof spec === "object") {
+    const base2 = spec.base || spec.world || spec.bg || Object.values(spec)[0];
+    setAll(parseToken(base2).id);
+    for (const [k, v] of Object.entries(spec)) {
+      if (k === "base") continue;
+      const r = ROLE_ALIAS[k];
+      if (r) parts[r] = STYLES[parseToken(v).id];
+    }
+  }
+  if (!parts.world) throw new Error("[vk.style] empty style spec");
+  return parts;
+}
+var lookup = (pack, name, role) => {
+  const H = pack.hues || {}, Pl = pack.palette || {};
+  if (name != null && typeof name === "string" && /^(#|rgb|hsl)/.test(name)) return name;
+  return H[name] || Pl[name] || H[role] || Pl[role] || (role === "skin2" && H.skin ? shade(H.skin, -0.12) : null) || "#888888";
+};
+var Style = class {
+  constructor(spec) {
+    installStyleTransitions();
+    this.spec = spec;
+    this.parts = resolveParts(spec);
+    const ids = ROLES.map((r) => this.parts[r].id), uniq = [...new Set(ids)];
+    this.id = uniq.length === 1 ? uniq[0] : ROLES.map((r) => r + ":" + this.parts[r].id).join(" ");
+    this.base = this.parts.world;
+    const W = this.parts.world, Ch = this.parts.chars;
+    this.worldView = { id: W.id, material: W.worldMaterial || W.material, P: { ...W.P || {}, ...W.worldP || {} }, hooks: W.hooks || {}, layerAttrs: W.layerAttrs, colour: (n, r) => lookup(W, n, r), pack: W, style: this };
+    this.charView = { id: Ch.id, material: Ch.material, P: { ...Ch.P || {} }, colour: (n, r) => lookup(Ch, n, r), pack: Ch, style: this };
+  }
+  get name() {
+    return ROLES.every((r) => this.parts[r] === this.base) ? this.base.name : ROLES.map((r) => this.parts[r].name).filter((x, i, a) => a.indexOf(x) === i).join(" + ");
+  }
+  get palette() {
+    return this.base.palette;
+  }
+  get qa() {
+    return [...new Set(ROLES.flatMap((r) => this.parts[r].qa || []))];
+  }
+  colour(name, role) {
+    return lookup(this.base, name, role);
+  }
+  // video defaults (an explicit cfg value always wins)
+  videoCfg(cfg = {}) {
+    const T6 = this.parts.type, M = this.parts.motion, W = this.parts.world, Snd = this.parts.sound, d = {};
+    d.theme = T6.themeName;
+    const vt = W.video || {};
+    if (vt.texture) d.texture = vt.texture;
+    if (M.transitions && M.transitions.default) d.transition = M.transitions.default;
+    if (M.camera && M.camera.push != null) d.push = M.camera.push;
+    if (vt.fadeOut != null) d.fadeOut = vt.fadeOut;
+    if (Snd.sound && Snd.sound.scoreOptions) d.scoreOptions = Snd.sound.scoreOptions;
+    if (T6.video && T6.video.karaoke) d.karaoke = T6.video.karaoke;
+    const out = { ...d, ...cfg };
+    delete out.style;
+    return out;
+  }
+  install(v) {
+    this.video = v;
+    v.style = this;
+    const seen = /* @__PURE__ */ new Set();
+    for (const r of ROLES) {
+      const p = this.parts[r];
+      if (seen.has(p)) continue;
+      seen.add(p);
+      if (p.install) p.install(v, this, r);
+    }
+    const mats = /* @__PURE__ */ new Set([this.worldView.material, this.charView.material]);
+    mats.forEach((m) => {
+      const M = material(m);
+      if (M.defs) M.defs(v, m === this.charView.material ? this.charView.P : this.worldView.P);
+    });
+    return this;
+  }
+  // ---- building blocks ----
+  world(sc, setting, o = {}) {
+    const W = this.parts.world;
+    o = { ...W.worldOptions || {}, ...o };
+    const w = buildWorld(sc, this.worldView, setting, o);
+    if (W.decorate) W.decorate(sc, w, this, o);
+    if (o.post !== false) this.post(sc, o, w);
+    return w;
+  }
+  post(sc, o = {}, w) {
+    const W = this.parts.world;
+    if (W.post && !sc.__vkPost) {
+      sc.__vkPost = true;
+      W.post(sc, this, o, w);
+    }
+    return sc;
+  }
+  character(parent, o = {}) {
+    const Ch = this.parts.chars;
+    const opts = Ch.charOptions ? Ch.charOptions({ ...o }, this) : o;
+    const p = puppet(parent, { style: this.charView, video: this.video || parent.ownerSVGElement && null, ...opts, P: { ...this.charView.P, ...opts.P || {} } });
+    if (Ch.charAfter) Ch.charAfter(p, this, opts);
+    return p;
+  }
+  title(sc, text3, o = {}) {
+    const T6 = this.parts.type;
+    return T6.title ? T6.title(sc, text3, o, this) : defaultTitle(sc, text3, o);
+  }
+  label(sc, text3, o = {}) {
+    const T6 = this.parts.type;
+    return T6.label ? T6.label(sc, text3, o, this) : null;
+  }
+  effect(sc, name = "signature", o = {}) {
+    const F2 = this.parts.fx;
+    if (!F2.effect) return null;
+    return F2.effect(sc, name, o, this);
+  }
+  transition(kind = "default") {
+    const M = this.parts.motion, T6 = M.transitions || {};
+    return T6[kind] || T6.default || "fade:0.5";
+  }
+  sfx(sc, kind, t, gain = 1) {
+    const Sd = this.parts.sound, map = Sd.sound && Sd.sound.sfx || {};
+    const e = map[kind];
+    if (!e) return;
+    [].concat(Array.isArray(e[0]) ? e : [e]).forEach(([voice, g2 = 1, f, dt = 0]) => sc.sfx(t + dt, voice, g2 * gain, f));
+  }
+  music(v, o = {}) {
+    const Sd = this.parts.sound;
+    return Sd.music ? Sd.music(v || this.video, o, this) : null;
+  }
+  get pacing() {
+    return { scene: 5, hold: 1, transition: 0.6, ...this.parts.motion.pacing || {} };
+  }
+  get camera() {
+    return { push: 0, punch: 0.1, ...this.parts.motion.camera || {} };
+  }
+  get voice() {
+    return { voice: "zh-CN-XiaoxiaoNeural", rate: "+0%", ...(this.parts.sound.sound || {}).voice || {} };
+  }
+  toJSON() {
+    return { id: this.id, name: this.name, parts: Object.fromEntries(ROLES.map((r) => [r, this.parts[r].id])) };
+  }
+};
+function defaultTitle(sc, text3, o) {
+  return sc.add(window.vk.title(text3, { at: o.at || 0.3, ...o }));
+}
+function style(spec) {
+  return spec instanceof Style ? spec : new Style(spec);
+}
+function listStyles() {
+  return Object.values(STYLES).map((p) => ({ id: p.id, name: p.name, en: p.en, description: p.description, material: p.material, tags: p.tags || [] }));
+}
+
+// src/meta/schemas.js
+var schemas_exports = {};
+__export(schemas_exports, {
+  BACKGROUNDS: () => BACKGROUNDS,
+  BLOCKS: () => BLOCKS,
+  COMMON: () => COMMON,
+  EASES_EXTRA: () => EASES_EXTRA,
+  EASE_FORMS: () => EASE_FORMS,
+  ELEMENTS: () => ELEMENTS,
+  FORMAT_PARAMS: () => FORMAT_PARAMS,
+  FX: () => FX,
+  KIND_ALIASES: () => KIND_ALIASES,
+  MATERIAL_PARAMS: () => MATERIAL_PARAMS,
+  SOUNDS: () => SOUNDS,
+  SOUND_PARAMS: () => SOUND_PARAMS,
+  STYLE_API: () => STYLE_API,
+  STYLE_PARAMS: () => STYLE_PARAMS,
+  TEXTURES: () => TEXTURES,
+  THEME_PARAMS: () => THEME_PARAMS,
+  THREE: () => THREE,
+  THREE_MATERIALS: () => THREE_MATERIALS,
+  THREE_MATERIAL_PARAMS: () => THREE_MATERIAL_PARAMS,
+  THREE_RIGS: () => THREE_RIGS,
+  TRANSITIONS: () => TRANSITIONS,
+  easeMeta: () => easeMeta,
+  param: () => param
+});
+function param(s2) {
+  if (s2 && typeof s2 === "object") return s2;
+  const parts = String(s2).split("|"), T6 = /^(number|string|boolean|color|time|ease|fx|array|object|function|any|null|enum\(.*\))$/;
+  let n = 1;
+  while (n < parts.length - 3 && T6.test(parts[n])) n++;
+  const [def, range, ...rest] = parts.slice(n), type = parts.slice(0, n).join("|");
+  const p = { type: type || "any" }, d = (def || "").trim();
+  if (d !== "") p.default = /^-?(\d|\.\d)/.test(d) && !isNaN(+d) ? +d : d === "true" ? true : d === "false" ? false : d === "null" ? null : d.replace(/^'(.*)'$/, "$1");
+  if (range && /\.\./.test(range)) p.range = range.split("..").map(Number);
+  const desc = rest.join("|").trim();
+  if (desc) p.description = desc;
+  const m = /^enum\((.*)\)$/.exec(p.type);
+  if (m) {
+    p.type = "enum";
+    p.values = m[1].split("/");
+  }
+  return p;
+}
+var E = (description, params2 = {}, example, extra = {}) => ({ description, params: params2, example, ...extra });
+var COMMON = {
+  // every element factory (vk.title / vk.text / vk.badge / …) and every fx accept these
+  node: {
+    at: 'time||| entrance time (scene-local s, "b:8" beat, "+0.3" after the previous element; default: cascade)',
+    fx: "fx|||entrance effect name(s), space-combinable ('up blur'); false = none",
+    d: "number||0..10|entrance duration (s); default depends on the fx",
+    ease: "ease|||easing name / cubic-bezier(a,b,c,d) / spring(k,w) / steps(n)",
+    each: "number||0..2|stagger between letters/words/items (s)",
+    out: "time|||exit time (scene-local s); exit uses outFx (default: the entrance fx reversed)",
+    outFx: "fx|||exit effect",
+    sfx: "string|||sound played at the entrance (a sounds name)",
+    size: "number|string|||font size: number = px at 720p (auto-scaled) or a theme step 'h1' 'h2' 'body' \u2026",
+    color: "color|||text colour (CSS) or a palette name (accent, fg, muted \u2026)",
+    bg: "color|||element background",
+    weight: "number|||font weight",
+    font: "enum(display/mono/sans/serif/condensed/brush)|||font family slot",
+    align: "enum(left/center/right)|||text alignment",
+    w: "number|||width: \u22641 = fraction of the frame, >1 = px",
+    maxW: "number|||max width (same units as w)",
+    mt: "number|||margin-top (same units as w)",
+    pos: 'object|||absolute position {x, y, right, bottom, anchor:"center"|"tl"\u2026}; leaves the centred flow',
+    fixed: "boolean|false||not affected by the scene camera",
+    class: "string|||extra CSS class (vk-bleed = allowed outside the safe area)",
+    id: "string|||element id",
+    style: "string|||inline CSS",
+    on: "function|||per-frame hook on(el, local, p, t) \u2014 must depend on time only",
+    beat: 'object|||beat pulse {scale, brightness, unit:"beat"|"bar", k, beats:[\u2026]}',
+    energy: "object|||music-energy modulation {scale:[a,b], brightness:[a,b], band}",
+    markAt: "time|||when **/==/__ inline marks animate"
+  },
+  // vk.scene(name, dur, opts, nodes) options
+  scene: {
+    bg: "string|object|array|||'dark' | 'light' | 'accent' (palette mode) | CSS colour | {type:'mesh'|'grid'|\u2026} | array of layers",
+    mode: "enum(dark/light/accent)|||palette mode for text",
+    transition: "string|object|||entrance transition 'name:seconds' or {type, d, ease, focal:{x,y}}",
+    cap: 'string|array|||caption text, ["a","b"] split evenly, or [[start,end,text],\u2026]',
+    camera: "array|||camera keys [{t, x, y, s, r, ease}]",
+    cameraHold: "boolean|false||omitted camera keys keep the previous value",
+    shots: 'array|||shot list [{t, shot:"medium", on: subject, punch, pan, dolly}]',
+    push: "number|0|0..0.3|slow push-in over the scene",
+    shake: "array|||[{t, amp, d}] handheld shakes",
+    texture: "object|||per-scene textures {name: opts}",
+    layout: "enum(center/left/top/bottom)|center||content layout",
+    sfx: "boolean|true||false = no automatic transition whoosh",
+    vo: "string|array|||voice-over text (run `vk tts page.html`); arrays = several lines / speakers",
+    voLead: "number|||seconds before the voice starts",
+    hold: 'number|2.2||extra seconds after the last animation when dur is "auto"',
+    snap: "string|||'beat' | 'bar' | 'b:2' \u2014 extend the cut to the grid",
+    start: "time|||absolute start (default: previous end \u2212 transition)",
+    end: "time|||absolute cut time",
+    beat: "object|||whole-frame beat pulse",
+    energy: "object|||whole-frame energy modulation"
+  },
+  // vk.video(cfg)
+  video: {
+    format: "string|16:9||'16:9' '1080p' '9:16' '1:1' '4:5' (aliases landscape vertical square portrait) \u2014 or w/h",
+    w: "number|||custom width (px)",
+    h: "number|||custom height (px)",
+    fps: "number|30|1..120|frames per second",
+    theme: "string|object|tech-blue||theme name or {extends, modes:{dark:{accent}}}",
+    style: "string|array|object|||style pack id(s): 'papercut', ['ink','papercut.chars'], {base, chars, \u2026}",
+    transition: "string|fade:0.4||default scene transition 'name:seconds'",
+    push: "number|0|0..0.3|default slow push-in per scene",
+    ease: "ease|||default ease (theme default otherwise)",
+    texture: "object|||film-wide textures {grain: {amount}, vignette: .3, \u2026}",
+    bpm: "number|||beat grid tempo",
+    beatOffset: "number|0||first beat (s)",
+    beats: "array|string|||explicit beat times or a `vk analyze` JSON path",
+    music: "string|||music file (mixed at render, ducked under voice)",
+    musicStart: "number|0||music offset (s)",
+    voice: "object|string|||TTS config {manifest, voice, rate, lead, tail, cast:{who:{voice}}}",
+    captions: "array|string|||[[start,end,text]] or an align JSON",
+    karaoke: "enum(sweep/on/pop)|sweep||word-timed caption style",
+    lyrics: "object|string|||lyric align JSON for vk.lyricVideo",
+    mix: "object|||{lufs:-14, duck:-10, fadeOut:2}",
+    autoSfx: "boolean|false||whoosh on every transition",
+    score: "array|||[[t, sound, gain, freq]] offline-synthesised SFX",
+    motionBlur: "object|||sub-frame motion blur {shutter:'1/40', samples:4} (vk render)",
+    cover: "object|||defaults for cover transitions {colors, n, axis}",
+    fadeOut: "number|||fade the last scene to black over N seconds",
+    seed: "number|1||seed of Math.random in setup code",
+    strict: "boolean|false||unknown names throw (with did-you-mean); Math.random() during a frame throws. CLI vk peek/qa/render turn it on by default",
+    draft: "boolean|false||draft preview quality (lower 3D res/AA, no DOF/bloom); vk peek/render --draft set it",
+    manual: "boolean|false||call v.start() yourself",
+    bake: "boolean|true||static-layer cache (vk.bake)",
+    title: "string|||title shown in contact sheets",
+    safe: "object|||override title-safe margins {top,right,bottom,left}"
+  },
+  fx: { t: "number|||start (filled from at)", d: "number|||duration (s)", ease: "ease|||easing", each: "number|||stagger (s)" },
+  transition: { d: "number|0.5|0..3|duration (s): the overlap with the previous scene", ease: "ease|inOutCubic||progress easing", focal: "object|||{x, y} focus point (px or 0\u20131) for iris / zoom / shape transitions" },
+  texture: { amount: "number|||strength (0\u20131 for most)" },
+  background: { type: "string|||background name" }
+};
+var dist = (d) => ({ dist: `number|${d}|0..400|travel distance (px at 720p)` });
+var per = (d, each) => ({ d: `number|${d}|0..5|per-piece duration (s)`, each: `number|${each}|0..1|stagger between pieces (s)`, stagger: "number|||alias of each" });
+var FX = {
+  fade: E("opacity 0 \u2192 1", {}, null, { combinable: true }),
+  up: E("fade in while sliding up", dist(28), null, { combinable: true }),
+  down: E("fade in while sliding down", dist(28), null, { combinable: true }),
+  left: E("fade in from the left", dist(44), null, { combinable: true }),
+  right: E("fade in from the right", dist(44), null, { combinable: true }),
+  scale: E("fade in from 90 % scale", {}, null, { combinable: true }),
+  pop: E("pop from 60 % with overshoot (outBack)", {}, null, { combinable: true }),
+  zoom: E("fade in from 115 % scale", {}, null, { combinable: true }),
+  blur: E("fade in from a 14 px blur", {}, null, { combinable: true }),
+  rise: E("rise from below with blur, outExpo", dist(40), null, { combinable: true }),
+  wipe: E("clip-path wipe left \u2192 right", {}, null, { combinable: true }),
+  "wipe-left": E("clip-path wipe right \u2192 left", {}, null, { combinable: true }),
+  "wipe-up": E("clip-path wipe bottom \u2192 top", {}, null, { combinable: true }),
+  "wipe-down": E("clip-path wipe top \u2192 bottom", {}, null, { combinable: true }),
+  reveal: E("mask reveal: slides up out of its own clip box", {}, "vk.h2('Reveal', { fx: 'reveal' })", { combinable: true }),
+  grow: E("scaleX 0 \u2192 1 from the left edge (bars, rules)", {}, null, { combinable: true }),
+  "grow-y": E("scaleY 0 \u2192 1 from the bottom", {}, null, { combinable: true }),
+  flip: E("3D flip up around the bottom edge", {}, null, { combinable: true }),
+  stretch: E('font-stretch 62 % \u2192 100 % + tracking (needs a variable-width font: font:"display")', {}, "vk.title('STRETCH', { fx: 'stretch', font: 'display' })", { combinable: true }),
+  none: E("no animation (visible at once)", {}, null, { combinable: true }),
+  letters: E("per-letter slide up from a baseline clip (default title fx)", per(0.6, 0.035), "vk.title('Letters', { fx: 'letters', each: .04 })"),
+  "letters-fade": E("per-letter fade + rise", per(0.5, 0.03)),
+  "letters-blur": E("per-letter un-blur from 130 %", per(0.7, 0.04)),
+  domino: E("per-letter 3D domino fall-in", per(0.55, 0.05)),
+  words: E("per-word pop 145 % \u2192 100 % (use | to split CJK manually)", per(0.5, 0.09), "vk.title('\u7528|\u4EE3\u7801|\u5199|\u89C6\u9891', { fx: 'words' })"),
+  "words-up": E("per-word push up", per(0.6, 0.08)),
+  squash: E("per-letter squash & stretch pop", per(0.55, 0.05)),
+  assemble: E("letters fly in from seeded scattered positions", { d: "number|0.9|0..5|duration", spread: "number|1|0..5|scatter radius (em)", seed: "number|7||scatter seed" }),
+  wave: E("persistent sine wave per letter", { amp: "number|0.12|0..1|amplitude (em)", speed: "number|6|0..30|rad/s" }),
+  type: E("typewriter with caret (reserves the final width)", { cps: "number|30|1..200|characters per second", caret: "boolean|true||show caret", reserve: "boolean|true||keep final width", text: "string|||text to type (default: element text)" }, "vk.text('npm i vidkit', { fx: 'type', cps: 14 })"),
+  scramble: E("random-glyph decode into the text (seeded)", { d: "number|0.5||per-letter settle time", each: "number|0.04||stagger", rate: "number|20||glyph changes per second", glyphs: "string|||glyph set" }),
+  decode: E("alias of scramble", { d: "number|0.5||", each: "number|0.04||", rate: "number|20||" }, null, { aliasOf: "scramble" }),
+  count: E("number counter (thousands separator, decimals, prefix/suffix)", { from: "number|0||start value", to: "number|||end value (default: the text)", decimals: "number|0|0..6|decimals", sep: "string|||thousands separator (',')", d: "number|1.2||duration", prefix: "string|||", suffix: "string|||", format: "function|||v => string" }, "vk.title('0', { fx: 'count', to: 2048, sep: ',' })"),
+  highlight: E("animate ==marker== spans (highlighter sweep)", { d: "number|0.6||", each: "number|0.25||" }, "vk.text('mark ==this== part')"),
+  marker: E("alias of highlight", {}, null, { aliasOf: "highlight" }),
+  underline: E("animate __underline__ spans (draw-in)", { d: "number|0.6||", each: "number|0.25||" }),
+  swap: E("keyword colour swap at t", { color: "color|accent||target colour", d: "number|0.3||" }),
+  stack: E("kinetic stack: each line fills the box width, alternating entrance directions (vk.stack)", { each: "number|0.22||", d: "number|0.55||", width: "number|||box width (px)" }, "vk.stack(['KINETIC', 'TYPE'])"),
+  draw: E("SVG stroke draw-on", { d: "number|1.2||", each: "number|||stagger between paths" }, `vk.svg('<path d="M40 220 C 120 40, 220 40, 260 150"/>', { fx: 'draw', viewBox: '0 0 500 300' })`),
+  "draw-fill": E("SVG stroke draw then fill", { d: "number|1.2||", fillD: "number|0.5||fill fade duration", each: "number|||" }),
+  fill: E("alias of draw-fill", {}, null, { aliasOf: "draw-fill" }),
+  morph: E("SVG shape morph through paths / shapes (beat-synced with beats:n)", { paths: "array|||path strings", shapes: "array|||shape names ['circle','star','heart','square',\u2026]", n: "number|120||resample points", r: "number|100||shape radius", cx: "number|0||", cy: "number|0||", beats: "number|||one step every n beats (needs bpm)", each: "number|||seconds per step", d: "number|0.9||" }),
+  ink: E("ink bleed-in (blur + scale)", {}, null, { combinable: true, pack: "ink" }),
+  brush: E("brush wipe top \u2192 bottom with soft edge", {}, null, { combinable: true, pack: "ink" }),
+  "brush-x": E("brush wipe left \u2192 right", {}, null, { combinable: true, pack: "ink" }),
+  stamp: E("seal stamp-in (scale 150 % + rotate)", {}, null, { combinable: true, pack: "ink" }),
+  slam: E("poster slam: big scale + rotation + offset \u2192 land (vk.mg)", { echo: "number|0|0..6|ghost copies", shadow: "array|||hard shadow [dx, dy, colour]", wobble: "number|||settle wobble", scale: "number|||start scale", rot: "number|||start rotation (deg)", x: "number|0||", y: "number|0||", dir: "number|1||" }, "vk.title('SLAM', { fx: 'slam', echo: 3 })", { lazy: true }),
+  echo: E("echo ghosts scale in behind the text (vk.mg)", { echo: "number|3||ghosts", echoStep: "number|||", echoAlpha: "number|||" }, null, { lazy: true }),
+  drop: E("per-letter drop with squash & stretch (vk.mg)", { each: "number|||", d: "number|||", shadow: "array|||[dx,dy,colour]" }, "vk.title('MOTION', { fx: 'drop', shadow: [10, 10, '#0008'] })", { lazy: true }),
+  "letters-pop": E("per-letter pop + bob (vk.mg)", { each: "number|||", d: "number|||", bob: "number|||" }, null, { lazy: true }),
+  "mask-rise": E("per-letter rise from a mask line (vk.mg)", { each: "number|||", d: "number|||" }, null, { lazy: true }),
+  "hard-shadow": E('hard drop shadow grows (combine: "pop hard-shadow") (vk.mg)', { shadowColor: "color|||", shadowX: "number|||", shadowY: "number|||" }, "vk.title('POP', { fx: 'pop hard-shadow' })", { lazy: true, combinable: true })
+};
+var dirs = (base2, what) => Object.fromEntries(["left", "right", "up", "down"].map((d) => [`${base2}-${d}`, E(`${what} (${d})`)]));
+var TRANSITIONS = {
+  none: E('hard cut (also "cut")'),
+  fade: E("new scene fades in over the old"),
+  crossfade: E("both scenes cross-fade"),
+  dip: E("dip through black (color option)", { color: "color|#000||dip colour" }),
+  flash: E("white flash cut", { color: "color|#fff||flash colour" }),
+  ...dirs("slide", "new scene slides in"),
+  ...dirs("push", "new scene pushes the old one out"),
+  ...dirs("whip", "fast whip pan with motion blur"),
+  ...dirs("wipe", "clip wipe"),
+  wipe: E("alias of wipe-right", {}, null, { aliasOf: "wipe-right" }),
+  "zoom-in": E("zoom in + fade"),
+  zoom: E("alias of zoom-in", {}, null, { aliasOf: "zoom-in" }),
+  "zoom-out": E("zoom out + fade"),
+  blur: E("blur cross-dissolve"),
+  "zoom-through": E("old scene scales 40\xD7 through the focal point (e.g. a letter hole)", { scale: "number|40||final scale", focal: "object|||{x, y}" }),
+  iris: E("circle iris opens from the focal point", { focal: "object|||{x, y}" }),
+  circle: E("alias of iris", {}, null, { aliasOf: "iris" }),
+  "iris-out": E("old scene closes into a circle"),
+  ...Object.fromEntries(["diamond", "star", "hexagon", "triangle", "heart", "square", "blob"].map((s2) => [`shape-${s2}`, E(`${s2}-shaped mask grows from the focal point`, { focal: "object|||{x, y}" })])),
+  split: E("vertical split opens"),
+  "split-h": E("horizontal split opens"),
+  "split-open": E("old scene splits apart from the middle"),
+  diagonal: E("diagonal wipe"),
+  blinds: E("venetian blinds", { n: "number|8|2..40|slats" }),
+  glitch: E("slice displacement + hue jitter"),
+  slice: E("alias of glitch", {}, null, { aliasOf: "glitch" }),
+  ink: E("ink drop spreads into the new scene", { x: "number|||focal x", y: "number|||focal y" }, null, { pack: "ink" }),
+  wash: E("soft blur wash cross-fade", {}, null, { pack: "ink" }),
+  stripes: E("cover: n colour bars slide in staggered then out (vk.mg)", { n: "number|6|1..20|bars", colors: "array|||bar colours", axis: "enum(x/y/alt)|alt||direction", stagger: "number|||", travel: "number|||", reverse: "boolean|false||" }, "vk.scene('B', 4, { transition: 'stripes:0.6' }, [])", { lazy: true, cover: true }),
+  bars: E("cover: bars grow across from one side then retract (vk.mg)", { n: "number|6|1..20|bars", colors: "array|||", axis: "enum(x/y/alt)|alt||" }, null, { lazy: true, cover: true }),
+  tear: E("paper tear edge sweeps across (style packs)", { jag: "number|26||edge jaggedness px", n: "number|34||edge points", tilt: "number|0.18||diagonal tilt", seed: "number|3||" }, null, { lazy: true, pack: "styles" }),
+  pixel: E("blocky staggered pixel fill (style packs)", {}, null, { lazy: true, pack: "styles" }),
+  cloud: E("scalloped auspicious-cloud iris (style packs)", {}, null, { lazy: true, pack: "styles" }),
+  scribble: E("boiling hand-drawn blob iris (style packs)", {}, null, { lazy: true, pack: "styles" }),
+  lamp: E("lamp dip to warm dark with flicker (style packs)", { color: "color|#1c0c05||" }, null, { lazy: true, pack: "styles" }),
+  scan: E("CRT scan-line opens vertically (style packs)", {}, null, { lazy: true, pack: "styles" })
+};
+var TEXTURES = {
+  grain: E("film grain (seeded tiles, 24 fps refresh)", { amount: "number|0.06|0..1|opacity", blend: "string|overlay||CSS blend mode", fps: "number|24||refresh rate" }, "vk.video({ texture: { grain: { amount: .05 } } })"),
+  vignette: E("radial vignette", { amount: "number|0.35|0..1|edge darkness", inner: "number|45|0..100|clear radius (%)" }, "vk.video({ texture: { vignette: .3 } })"),
+  flicker: E("projector exposure flicker", { amount: "number|0.03|0..1|", fps: "number|24||" }),
+  paper: E("static paper fibre multiply", { amount: "number|0.5|0..1|", color: "color|#F4EEE2||", seed: "number|42||" }),
+  halftone: E("halftone dot screen", { size: "number|7||cell px", dot: "number|28|0..100|dot size %", color: "color|||", blend: "string|soft-light||", angle: "number|||" }),
+  scanlines: E("CRT scanlines (optional roll)", { amount: "number|0.22|0..1|", size: "number|4||line pitch px", roll: "number|||roll speed" }),
+  rgb: E("RGB misregistration (SVG filter on the scene stack)", { amount: "number|2|0..20|offset px", angle: "number|0||deg", pulse: "number|||pulse on beats (k)", fn: "function|||t => multiplier" }),
+  rice: E("rice-paper fractal fibres + vignette (ink pack)", { amount: "number|0.55|0..1|", size: "number|300||tile px", freq: "number|0.85||", seed: "number|4||", vignette: "number|0.22||", cache: "boolean|true||" }, null, { pack: "ink" })
+};
+var BACKGROUNDS = {
+  gradient: E("linear gradient (optional spin)", { colors: "array|||colours (default bg \u2192 surface)", angle: "number|135||deg", spin: "number|0||deg/s" }, "vk.scene('A', 4, { bg: { type: 'gradient', spin: 10 } }, [])"),
+  mesh: E("flowing mesh gradient blobs", { colors: "array|||", speed: "number|0.12||", base: "color|||", size: "number|55||blob size %", opacity: "number|1||", blur: "number|||" }),
+  grid: E("line grid (drift)", { size: "number|64||cell px", color: "color|||", width: "number|1||", fade: "boolean|||radial fade", opacity: "number|||", drift: "number|10||px/s", dx: "number|0||", dy: "number|||" }),
+  dots: E("dot grid (drift)", { size: "number|28||", color: "color|||", r: "number|2||dot radius", fade: "boolean|||", opacity: "number|||", drift: "number|8||" }),
+  noise: E("animated value noise (canvas)", { res: "number|64||", from: "color|||", to: "color|||", scale: "number|3.2||", speed: "number|0.15||", contrast: "number|1.6||", opacity: "number|||" }),
+  dotwave: E("radial sine dot field + beat rings + hue cycle (vk.mg, canvas)", { step: "number|||px between dots", color: "color|||", hole: "object|||{w, h, soft} keep text area clear", every: "number|||" }, "vk.scene('A', 4, { bg: { type: 'dotwave', hole: { w: 600, h: 200 } } }, [])", { lazy: true })
+};
+var ELEMENTS = {
+  title: E("main title (h1); default fx letters", { size: "number|string|||720p px or 'h1'\u2026" }, "vk.title('Hello\\nworld', { at: .2 })"),
+  h2: E("section heading; default fx reveal", {}, "vk.h2('Growth ==6.5\xD7==', { fx: 'words' })"),
+  sub: E("subtitle line; default fx up", {}, "vk.sub('**accent** words', { at: 1 })"),
+  text: E("body paragraph; default fx up", {}, "vk.text('One or two sentences.', { maxW: .5 })"),
+  small: E("small print / footnote; default fx fade", {}, "vk.small('source: \u2026')"),
+  label: E("eyebrow label above a title; default fx fade", {}, "vk.label('CHAPTER 2')"),
+  hero: E("giant wordmark; default fx letters", { cursor: "boolean|false||accent cursor block after the word", outline: "boolean|false||stroked ghost text", size: "number|||720p px" }, "vk.hero('Spark', { cursor: true })"),
+  stack: E("kinetic stacked lines, each scaled to fill the width w (default: the full content width \u2014 set w to keep it small); default fx stack", { w: "number|1||width: 0\u20131 = fraction of the frame, >1 = px" }, "vk.stack(['lint', 'peek', 'render'], { w: .32 })"),
+  row: E("horizontal flex row of child nodes", { gap: "number|||px", justify: "string|||CSS justify-content", alignItems: "string|||" }, "vk.row([vk.badge('A'), vk.badge('B')], { gap: 16 })"),
+  col: E("vertical column of child nodes", { gap: "number|||px", alignItems: "string|||" }, "vk.col([vk.h2('Title'), vk.text('\u2026')])"),
+  grid: E("CSS grid of child nodes", { cols: "number|3||", gap: "number|24||px" }, "vk.grid(items, { cols: 4 })"),
+  split: E("two columns (left nodes, right nodes)", { ratio: "string|number|'1/1'||'5/7' (of 12) or 0..1", gap: "number|56||px", alignItems: "string|center||" }, "vk.split([vk.h2('Left')], [vk.terminal(['$ vk peek x.html'])], { ratio: '5/7' })"),
+  spacer: E("vertical space (px) between nodes in a column", {}, "vk.spacer(24)"),
+  html: E("raw HTML string \u2192 element (single root is returned as-is)", { wrap: "boolean|false||always wrap in a div" }, `vk.html('<div class="vk-h2">raw</div>', { fx: 'up' })`),
+  svg: E("inline SVG (markup or inner paths with viewBox); default fx draw", { viewBox: "string|'0 0 400 300'||", strokeWidth: "number|4||", w: "number|||px", h: "number|||px" }, `vk.svg('<path d="M20 150 C120 20 280 280 380 150"/>', { w: 400 })`),
+  el: E("custom element: fn(ctx) \u2192 Element (ctx.scene, ctx.px, ctx.at)", {}, "vk.el(ctx => { const d = document.createElement('div'); ctx.scene.on(l => { d.textContent = l.toFixed(1); }); return d; })")
+};
+var BLOCKS = {
+  terminal: E('terminal window; "$ " lines type, others fade in', { w: "number|||width" }, "vk.terminal(['$ npm i -g x', '\u2713 done'], { w: 640 })"),
+  code: E("code block with light syntax colouring, lines appear", { highlight: "array|||1-based lines", w: "number|||", lang: "string|||" }, "vk.code(src, { highlight: [3] })"),
+  cards: E("icon/title/text cards grid", { cols: "number|3||" }, "vk.cards([{ icon: '\u26A1', title: 'Fast', text: '\u2026' }], { cols: 3 })"),
+  columns: E("side-by-side columns {title, code, text}"),
+  kv: E("key/value rows", { keyW: "number|||key column px" }),
+  gantt: E("gantt chart {rows:[{label,start,end,hl}], range, unit}"),
+  diagram: E("node/edge diagram with auto arrows {w,h,nodes,edges}"),
+  quote: E("pull quote", { by: "string|||attribution" }),
+  image: E("image with Ken Burns", { w: "number|||", h: "number|||", from: "object|||{s,x,y}", to: "object|||{s,x,y}" }),
+  device: E("browser / phone / laptop frame around an image or nodes", { type: "enum(browser/phone/laptop)|browser||", url: "string|||" }),
+  cta: E("call-to-action card {title, sub, cmd, url, note}"),
+  badge: E("pill label", { hl: "boolean|false||accent fill" }, "vk.badge('NEW', { hl: true })"),
+  bar: E("bar chart from [[label, value], \u2026]", { highlight: "number|||index", unit: "string|||", horizontal: "boolean|false||", colors: "boolean|array|||", source: 'string|||data source (write "\u793A\u4F8B\u6570\u636E"/"sample data" when not real)' }, "vk.bar([['Jan', 12], ['Feb', 19]], { highlight: 1, source: 'sample data' })"),
+  line: E("line chart {series:[{name, values}], labels}", { area: "boolean|false||", dots: "boolean|false||", source: "string|||" }),
+  pie: E("pie chart"),
+  donut: E("donut chart", { r: "number|150||", center: "string|||", centerLabel: "string|||" }),
+  ticker: E("animated number with unit/label", { decimals: "number|0||", unit: "string|||", label: "string|||", from: "number|0||" }),
+  ring: E("progress ring (percent)", { label: "string|||", r: "number|120||" }),
+  table: E("table {header, rows, highlight}", { source: "string|||" }),
+  lyrics: E("word-timed kinetic lyric line (vk.lyrics(cue, o))", { style: "enum(pop/rise/karaoke/slam)|pop||" }),
+  spectrum: E("spectrum bars driven by analysed mel bands", { bars: "number|32||", h: "number|120||", mirror: "boolean|false||" }),
+  vtitle: E("vertical calligraphy title + seal (ink)", { sub: "string|||", seal: "string|||" }),
+  chapter: E("corner vertical chapter title (ink)", { no: "string|||" }),
+  seal: E("red seal stamp (ink)"),
+  endcard: E("ink end card"),
+  credits: E("scrolling credits")
+};
+var easeDesc = (n) => /^inOut/.test(n) ? `accelerate then decelerate (${n.slice(5).toLowerCase()})` : /^in/.test(n) ? `accelerate (${n.slice(2).toLowerCase()})` : /^out/.test(n) ? `decelerate (${n.slice(3).toLowerCase()})` : n;
+var EASES_EXTRA = {
+  linear: "constant speed",
+  spring: "damped spring (overshoots); spring(k,w) for custom",
+  house: "signature in-out curve cubic-bezier(.7,0,.2,1) \u2014 one curve for a whole film",
+  swift: "fast-out settle cubic-bezier(.2,.8,.2,1)",
+  smooth: "Material standard cubic-bezier(.4,0,.2,1)",
+  snappy: "fast-out long settle (titles)",
+  step: "jump at the end",
+  outBack: "decelerate with overshoot",
+  inBack: "pull back then go",
+  inOutBack: "pull back, overshoot",
+  outElastic: "elastic wobble settle",
+  outBounce: "bounce at the end",
+  inBounce: "bounce at the start"
+};
+var easeMeta = (n) => E(EASES_EXTRA[n] || easeDesc(n), {}, `sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: '${n}' })`);
+var EASE_FORMS = ["cubic-bezier(x1,y1,x2,y2)", "bezier(x1,y1,x2,y2)", "spring(k,w)", "steps(n)"];
+var THEME_PARAMS = {
+  extends: "string|tech-blue||base theme",
+  modes: "object|||{dark|light|accent: {bg, fg, muted, surface, line, accent, accent2, onAccent}}",
+  mode: "enum(dark/light/accent)|dark||default palette mode",
+  fonts: "object|||{sans, display, mono, serif, condensed, brush}",
+  scale: "object|||type scale px at 720p {hero, h1, h2, h3, body, small, label, caption}",
+  ease: "ease|||default ease",
+  cascade: "number|||default gap between element entrances (s)",
+  chart: "array|||chart palette",
+  caption: "object|||{bg, fg, karaoke}",
+  radius: "number|||corner radius px"
+};
+var FORMAT_PARAMS = { w: "number|||width px", h: "number|||height px", safe: "object|||title-safe margins {top,right,bottom,left}", zones: "array|||platform UI zones QA checks", captionBottom: "number|||caption baseline px" };
+var MATERIAL_PARAMS = { P: "object|||pack parameters (line, ornament, rough, \u2026)" };
+var STYLE_PARAMS = {
+  roles: "string|||compose roles: 'ink' (all) \xB7 ['ink','papercut.chars'] \xB7 {base, world, chars, type, motion, sound, fx}"
+};
+var STYLE_API = 'const S = v.style; S.world(sc, "mountain dusk pine") \xB7 S.character(W.actors, {look}) \xB7 S.title(sc, text, {sub}) \xB7 S.effect(sc, "signature", {at,x,y}) \xB7 S.transition("default"|"soft"|"strong") \xB7 S.sfx(sc, kind, t) \xB7 S.music(v) \xB7 S.qa (checklist)';
+var SOUNDS = {
+  kick: "synth kick",
+  bass: "bass hit",
+  tick: "clock tick",
+  hat: "hi-hat",
+  pop: "pop",
+  chime: "chime (freq)",
+  whoosh: "whoosh (transitions)",
+  riser: "riser",
+  snap: "finger snap",
+  step: "soft footstep thud",
+  pluck: "Karplus\u2013Strong guqin/pipa pluck (freq)",
+  flute: "bamboo flute (freq)",
+  drop: "water drop",
+  bubbles: "bubbles",
+  splash: "splash",
+  ripple: "ripple",
+  croak: "frog croak",
+  quack: "duck quack",
+  honk: "goose honk",
+  woodfish: "wooden fish",
+  gong: "gong",
+  "op-daluo": "opera big gong",
+  "op-xiaoluo": "opera small gong",
+  "op-nao": "opera cymbals",
+  "op-naoMute": "muted cymbals",
+  "op-bangu": "bangu drum",
+  "op-tanggu": "tanggu drum",
+  bangzi: "bangzi clapper",
+  chip: "chiptune blip",
+  chipJump: "chiptune jump",
+  chipHit: "chiptune hit",
+  chipNoise: "chiptune noise",
+  saw: "saw stab",
+  zap: "zap",
+  thump: "thump",
+  marimba: "marimba (freq)",
+  kalimba: "kalimba (freq)",
+  rustle: "paper rustle",
+  shaker: "shaker"
+};
+var SOUND_PARAMS = { t: 'time|||when (absolute s or "m:4")', gain: "number|1|0..4|", freq: "number|||pitch for tonal voices" };
+var THREE = {
+  layer: E('sc.three(setup, update, opts) / sc.three(modules, opts): a three.js scene composited into the layer stack (scene layers sit behind text unless z:"front")', {
+    res: "number|0.75|0.1..1|internal resolution scale (draft: 0.35)",
+    aa: "number|1|1..16|jittered AA sub-samples (draft: 1)",
+    motionBlur: "object|boolean|||{shutter, samples}; default inherits vk.video({motionBlur})",
+    camera: "function|object|||rig t \u2192 {pos, target, fov, roll} or a fixed state",
+    fov: "number|35|10..120|",
+    background: "color|||clear colour (default transparent)",
+    assets: "object|||{name: url} preloaded before capture (gltf/glb/hdr/png/json)",
+    seed: "number|1||seed of ctx.rand (setup only)",
+    z: "enum(back/front)|back||scene layers: behind content",
+    rect: "array|||[x, y, w, h] sub-rectangle",
+    post: "object|||post stack, see three/post",
+    key: "function|||lt => string: skip re-render while unchanged"
+  }, "sc.three(({ THREE, scene }) => { const m = new THREE.Mesh(new THREE.TorusKnotGeometry(.6, .2, 128, 16), vk.three.materials.chrome()); scene.add(m); return t => { m.rotation.y = t * .8; }; }, { camera: { pos: [0, 0, 4], target: [0, 0, 0] } })"),
+  post: E("post stack (every value may be t => value)", {
+    exposure: "number|1||",
+    tone: "enum(aces/none)|aces||",
+    bloom: "object|boolean|||{strength:.55, threshold:1, knee:.6, radius:1, clamp:40}; false = off (draft: off)",
+    grade: "string|object|neutral||'teal-orange' 'cool' 'warm' 'bleach' 'mono' 'cyber' or {temperature, tint, lift, gamma, gain, contrast, saturation}",
+    vignette: "number|0.18|0..1|",
+    grain: "number|0.02|0..0.2|",
+    ca: "number|0|0..2|chromatic aberration",
+    dof: "object|boolean|false||{focus, aperture:6, maxBlur:14} (draft: off)",
+    fade: "number|0|0..1|fade to fadeColor",
+    fadeColor: "color|#000||"
+  }, "{ post: { bloom: { strength: .4 }, grade: 'cool', dof: { aperture: 4 } } }"),
+  turntable: E("product turntable: studio env (PMREM), cyclorama, glossy floor + reflection, contact shadow, strip-light sweeps, DOF autofocus", {
+    product: "enum(earbuds/earbud/phone/bottle)|earbuds||procedural product",
+    model: "string|object|||GLB url or loaded gltf (auto-scaled to height)",
+    height: "number|||model height (units)",
+    spin: "number|||deg/s",
+    angle: "number|||start yaw (deg)",
+    tilt: "number|||deg",
+    float: "number|||bob amplitude",
+    lid: "function|||t => lid angle (earbuds)",
+    sweeps: "array|||[{t, d, from, to, color, radius}] strip-light sweeps",
+    sweep: "object|null|||periodic sweep {every, t, d, color}; null = off",
+    env: "string|studio||'studio' | 'room' | 'loft' | .hdr url",
+    backdrop: "object|boolean|||cyclorama colours {top, horizon, glow}",
+    floor: "string|object|||'reflect' | {color, reflect}",
+    shadow: "object|boolean|||contact shadow {opacity, darkness, size, res}",
+    material: "string|object|||three material name (see three.materials) or a THREE.Material",
+    animate: "function|||(t, {product, \u2026}) => void per frame"
+  }, "sc.three(vk.three.turntable({ product: 'earbuds', spin: 18, sweeps: [{ t: 1, d: 1.4 }] }), { camera: vk.three.rig.orbit({ radius: 5, dur: 5 }) })"),
+  particles: E("50k\u2013200k GPU particles morphing between targets (vertex-shader, pure function of t)", {
+    n: "number|60000|1000..300000|particle count",
+    targets: "object|||{name: 'galaxy'|'sphere'|'torus'|'cloud'|{type,\u2026}|{text, font}|{draw(g,w,h), w, h}|{image|asset}}",
+    morph: "array|||[{t, to, d, style:'converge'|'burst'|'swirl'|'direct'}]",
+    beat: "object|function|||{amp, k, every} pulse on the video beat grid",
+    intensity: "number|0.35|0..2|additive energy per point",
+    size: "number|||point size",
+    drift: "number|||",
+    twinkle: "number|||0..1",
+    flare: "number|||",
+    position: "array|||[x,y,z]",
+    scale: "number|||",
+    seed: "number|||"
+  }, "sc.three(vk.three.particles({ n: 80000, targets: { g: 'galaxy', logo: { text: 'vidkit', font: '900 220px Archivo' } }, morph: [{ t: 0, to: 'g' }, { t: 2, to: 'logo', d: 2, style: 'converge' }] }), { camera: { pos: [0, 0, 8], target: [0, 0, 0] } })"),
+  product: E("vk.three.product(name, o) \u2192 THREE.Group with userData.parts", { color: "color|||body colour" }, "vk.three.product('phone')"),
+  mixer: E("time-driven AnimationMixer: const m = vk.three.mixer(root, clips) in setup; m.at(t) in update (never mixer.update(dt))", { once: "boolean|false||LoopOnce + clamp" }, "const m = vk.three.mixer(gltf.scene, gltf.animations); return t => m.at(t);"),
+  studioScene: E("procedural studio light scene (for PMREM or as a backdrop)", { intensity: "number|1||", accent: "color|||" })
+};
+var THREE_MATERIALS = {
+  chrome: "mirror chrome",
+  metal: "brushed metal (roughness .32)",
+  gold: "gold metal",
+  titanium: "titanium metal",
+  anodized: "anodized blue metal + clearcoat",
+  glass: "transmission glass (ior, thickness, tint)",
+  glassLite: "cheap transparent glass",
+  ceramic: "glossy ceramic (clearcoat)",
+  plastic: "plastic (roughness .45)",
+  matte: "matte",
+  rubber: "rubber with sheen",
+  screen: "emissive phone screen"
+};
+var THREE_MATERIAL_PARAMS = { color: "color|||", roughness: "number|||0..1", env: "number|||env-map intensity", clearcoat: "number|||0..1" };
+var THREE_RIGS = {
+  orbit: E("orbit around a target", { target: "array|[0,0,0]||", radius: "number|||", radius2: "number|||end radius", height: "number|||", height2: "number|||", from: "number|||deg", to: "number|||deg", dur: "number|||", fov: "number|||", ease: "ease|||" }),
+  dolly: E("dolly between two positions", { from: "array|||[x,y,z]", to: "array|||", target: "array|||", target2: "array|||", dur: "number|||", fov: "number|||", ease: "ease|||" }),
+  push: E("push along a direction", { t: "number|||", dur: "number|||", target: "array|||", dir: "array|||", from: "number|||distance", to: "number|||", ease: "ease|||", fov: "number|||" }),
+  fly: E("centripetal Catmull-Rom flythrough at constant speed", { points: "array|||[[x,y,z],\u2026]", look: "array|||look-at point", bank: "number|||", dur: "number|||", ease: "ease|||", fov: "number|||" }),
+  crane: E("crane up/back", { target: "array|||", radius: "number|||", radius2: "number|||", y0: "number|||", y1: "number|||", angle: "number|||", angle2: "number|||", dur: "number|||", ease: "ease|||" }),
+  zoomScale: E('log-distance zoom ("powers of ten")', { from: "number|||", to: "number|||", dur: "number|||", dir: "array|||", fov: "number|||" }),
+  keys: E("keyframes [{t, pos, target, fov, ease}]"),
+  seq: E("sequence of rigs [{t, rig, blend}]"),
+  shake: E("camera shake modifier", { at: "array|||[t0, t1]", amp: "number|||", rot: "number|||", freq: "number|||" }),
+  punch: E("punch-in envelope modifier (same as vk.cam)"),
+  add: E("compose: add(base, ...modifiers)")
+};
+var KIND_ALIASES = { transition: "transitions", texture: "textures", background: "backgrounds", bg: "backgrounds", block: "blocks", element: "elements", elements: "elements", nodes: "elements", factories: "elements", theme: "themes", format: "formats", sound: "sounds", ease: "eases", easing: "eases", material: "materials", style: "styles", "three.materials": "threeMaterials", "three.rigs": "threeRigs", rigs: "threeRigs" };
+
+// src/meta/index.js
+var KINDS2 = ["elements", "fx", "transitions", "textures", "backgrounds", "blocks", "eases", "themes", "formats", "sounds", "materials", "styles", "three", "threeMaterials", "threeRigs"];
+var META = registry.meta || (registry.meta = {});
+KINDS2.forEach((k) => {
+  META[k] = META[k] || {};
+});
+var normKind = (k) => KIND_ALIASES[k] || k;
+var BUILTIN = { elements: ELEMENTS, fx: FX, transitions: TRANSITIONS, textures: TEXTURES, backgrounds: BACKGROUNDS, blocks: BLOCKS, three: THREE, threeRigs: THREE_RIGS };
+function names(kind) {
+  kind = normKind(kind);
+  switch (kind) {
+    case "eases":
+      return Object.keys(EASE).filter((n) => !/[(]/.test(n));
+    case "materials":
+      return Object.keys(MATERIALS);
+    case "styles":
+      return Object.keys(STYLES);
+    case "elements":
+      return Object.keys(ELEMENTS);
+    case "three":
+      return Object.keys(THREE);
+    case "threeMaterials":
+      return Object.keys(THREE_MATERIALS);
+    case "threeRigs":
+      return Object.keys(THREE_RIGS);
+    default:
+      return [.../* @__PURE__ */ new Set([...Object.keys(registry[kind] || {}), ...Object.keys(lazy[kind] || {}), ...Object.keys(META[kind] || {})])];
+  }
+}
+var params = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, param(v)]));
+function inferParams(impl) {
+  const src = typeof impl === "function" ? impl.toString() : impl && typeof impl.make === "function" ? impl.make.toString() : "";
+  const out = {}, re = /\bo\.(\w+)(?:\s*(?:\|\||\?\?)\s*(-?[\d.]+|'[^']*'|"[^"]*"|true|false)|\s*!=\s*null\s*\?\s*o\.\w+\s*:\s*(-?[\d.]+|'[^']*'|"[^"]*"))?/g;
+  let m;
+  while (m = re.exec(src)) {
+    if (["t"].includes(m[1])) continue;
+    const d = m[2] || m[3];
+    const p = out[m[1]] || { type: "any" };
+    if (d != null) {
+      p.default = /^['"]/.test(d) ? d.slice(1, -1) : d === "true" ? true : d === "false" ? false : +d;
+      p.type = typeof p.default;
+    }
+    out[m[1]] = p;
+  }
+  return out;
+}
+var defaultExample = (kind, n) => ({
+  fx: `vk.title('Hello', { fx: '${n}' })`,
+  transitions: `vk.scene('Next', 4, { transition: '${n}:0.6' }, [vk.title('Next')])`,
+  textures: `vk.video({ texture: { ${/^[a-z]+$/i.test(n) ? n : `'${n}'`}: { amount: .3 } } })`,
+  backgrounds: `vk.scene('A', 4, { bg: { type: '${n}' } }, [vk.title('A')])`,
+  blocks: `vk.${n}(\u2026)`,
+  themes: `vk.video({ theme: '${n}' })`,
+  formats: `vk.video({ format: '${n}' })`,
+  sounds: `sc.sfx(1.2, '${n}', .8)`,
+  eases: `{ ease: '${n}' }`,
+  materials: `{ "material": "${n}" }  // style.json; or vk.style.material('${n}')`,
+  styles: `vk.video({ style: '${n}' })`,
+  threeMaterials: `vk.three.materials.${n}({ color: 0xffffff })`,
+  threeRigs: `camera: vk.three.rig.${n}({ \u2026 })`
+})[kind] || null;
+function aliasMap(kind) {
+  const R2 = registry[kind] || {}, by = /* @__PURE__ */ new Map(), out = {};
+  for (const [n, f] of Object.entries(R2)) {
+    if (!f || typeof f !== "object" && typeof f !== "function") continue;
+    if (by.has(f)) out[n] = by.get(f);
+    else by.set(f, n);
+  }
+  return out;
+}
+function describe(kind, name) {
+  kind = normKind(kind);
+  const custom = (META[kind] || {})[name], impl = (registry[kind] || {})[name], base2 = (BUILTIN[kind] || {})[name];
+  let m = custom || impl && impl.meta || base2 || null;
+  const e = { name, kind };
+  if (kind === "eases") m = easeMeta(name);
+  else if (kind === "themes") {
+    const th = registry.themes[name] || {};
+    const d = (th.modes || {})[th.mode || "dark"] || {};
+    m = { description: th.label || name, params: {}, palette: { mode: th.mode, bg: d.bg, fg: d.fg, accent: d.accent, accent2: d.accent2 }, fonts: th.fonts && { display: th.fonts.display, sans: th.fonts.sans } };
+  } else if (kind === "formats") {
+    const f = registry.formats[name] || {};
+    m = { description: `${f.w}\xD7${f.h}`, params: {}, size: [f.w, f.h], safe: f.safe, zones: (f.zones || []).map((z) => z.name) };
+  } else if (kind === "materials") {
+    const M = MATERIALS[name] || {};
+    m = { description: M.label || name, params: {} };
+  } else if (kind === "styles") {
+    const P2 = STYLES[name] || {};
+    m = { description: `${P2.name || name}${P2.en ? " \xB7 " + P2.en : ""} \u2014 ${P2.description || ""}`, params: {}, tags: P2.tags || [], material: P2.material, theme: P2.themeName, transitions: P2.transitions && { default: P2.transitions.default, soft: P2.transitions.soft, strong: P2.transitions.strong }, effects: P2.effects && P2.effects.list, qa: P2.qa || [], requires: P2.requires, api: STYLE_API };
+  } else if (kind === "sounds") m = { description: SOUNDS[name] || "", params: SOUND_PARAMS };
+  else if (kind === "threeMaterials") m = { description: THREE_MATERIALS[name] || "", params: THREE_MATERIAL_PARAMS, requires: "dist/vidkit-three.js" };
+  if (m && (kind === "three" || kind === "threeRigs")) m = { ...m, requires: "dist/vidkit-three.js" };
+  if (custom && kind !== "eases" && base2) m = { ...base2, ...custom };
+  const al = aliasMap(kind), canon = al[name] || m && m.aliasOf;
+  Object.assign(e, { description: m && m.description || "", params: m && m.params ? params(m.params) : impl ? inferParams(impl) : {} });
+  if (m) {
+    for (const k of Object.keys(m)) if (!["description", "params", "example"].includes(k) && m[k] != null) e[k] = m[k];
+  }
+  if (canon && canon !== name) e.aliasOf = canon;
+  const aliases = Object.entries(al).filter(([a, c]) => c === name).map(([a]) => a);
+  if (aliases.length) e.aliases = aliases;
+  if (!impl && lazy[kind] && lazy[kind][name]) e.lazy = true;
+  e.example = m && m.example || defaultExample(kind, name);
+  e.source = custom || impl && impl.meta ? "plugin" : "builtin";
+  return e;
+}
+function common(kind) {
+  const k = normKind(kind);
+  const c = { elements: COMMON.node, fx: COMMON.node, transitions: COMMON.transition, textures: COMMON.texture, backgrounds: COMMON.background, themes: THEME_PARAMS, formats: FORMAT_PARAMS, threeMaterials: THREE_MATERIAL_PARAMS, styles: STYLE_PARAMS, materials: MATERIAL_PARAMS }[k];
+  return c ? params(c) : null;
+}
+function listDetail(kind, o = {}) {
+  kind = normKind(kind);
+  const N = o.all || o.detail ? names(kind) : ["elements", "eases", "materials", "styles", "three", "threeMaterials", "threeRigs"].includes(kind) ? names(kind) : Object.keys(registry[kind] || {});
+  return o.detail ? N.map((n) => describe(kind, n)) : N;
+}
+
 // src/fx/apply.js
 function fxApi(scene, isExit) {
   const v = scene.video;
@@ -843,21 +3402,21 @@ function fxApi(scene, isExit) {
   };
 }
 function applyFx(el2, fxStr, o, scene, isExit) {
-  const names = String(fxStr || "fade").trim().split(/\s+/);
-  names.forEach((n) => ensureLazy("fx", n));
+  const names2 = String(fxStr || "fade").trim().split(/\s+/);
+  names2.forEach((n) => ensureLazy("fx", n));
   const api = fxApi(scene, isExit);
-  const first = registry.fx[names[0]];
+  names2.forEach((n) => {
+    if (!registry.fx[n]) unknownName("fx", n, names("fx"));
+  });
+  const first = registry.fx[names2[0]];
   if (typeof first === "function") {
     first(el2, o, api);
     return;
   }
   let from = {}, to = {}, instant = {}, ease2 = null, origin = null;
-  names.forEach((nm) => {
+  names2.forEach((nm) => {
     const f = registry.fx[nm];
-    if (!f) {
-      console.warn("[vk] unknown fx", nm);
-      return;
-    }
+    if (!f) return;
     if (typeof f === "function") {
       f(el2, o, api);
       return;
@@ -903,7 +3462,7 @@ function energyValue(v, spec, t) {
 }
 var lerp2 = (r, x) => Array.isArray(r) ? r[0] + (r[1] - r[0]) * x : 1 + (r - 1) * x;
 function modulator(v, el2, beat, energy) {
-  const B4 = beat === true ? { scale: 0.06 } : beat, E = energy === true ? { scale: [1, 1.08] } : energy;
+  const B4 = beat === true ? { scale: 0.06 } : beat, E2 = energy === true ? { scale: [1, 1.08] } : energy;
   const S2 = v.tl.state(el2);
   return (t) => {
     let sc = 1, rot = 0, br = 1, bv = 0, ev = 0;
@@ -913,15 +3472,15 @@ function modulator(v, el2, beat, energy) {
       if (B4.rotate) rot += B4.rotate * bv;
       if (B4.brightness) br *= 1 + B4.brightness * bv;
     }
-    if (E) {
-      ev = energyValue(v, E, t);
-      if (E.scale) sc *= lerp2(E.scale, ev);
-      if (E.rotate) rot += lerp2(E.rotate, ev) - (Array.isArray(E.rotate) ? 0 : 1);
-      if (E.brightness) br *= lerp2(E.brightness, ev);
+    if (E2) {
+      ev = energyValue(v, E2, t);
+      if (E2.scale) sc *= lerp2(E2.scale, ev);
+      if (E2.rotate) rot += lerp2(E2.rotate, ev) - (Array.isArray(E2.rotate) ? 0 : 1);
+      if (E2.brightness) br *= lerp2(E2.brightness, ev);
     }
     el2.style.scale = Math.abs(sc - 1) > 1e-4 ? sc.toFixed(4) : "";
     el2.style.rotate = Math.abs(rot) > 1e-3 ? rot.toFixed(3) + "deg" : "";
-    if (B4 && B4.brightness || E && E.brightness) {
+    if (B4 && B4.brightness || E2 && E2.brightness) {
       const own = S2.props.blur || S2.props.brightness;
       const base2 = own ? String(el2.style.filter || "").replace(/\s*brightness\([^)]*\)\s*$/, "") : "";
       el2.style.filter = (base2 ? base2 + " " : "") + (Math.abs(br - 1) > 1e-3 ? `brightness(${br.toFixed(3)})` : "");
@@ -1254,7 +3813,7 @@ var Scene = class {
   texture(name, o = {}) {
     const f = this.video.constructor.registry.textures[name];
     if (!f) {
-      console.warn("[vk] unknown texture", name);
+      unknownName("textures", name, Object.keys(this.video.constructor.registry.textures));
       return this;
     }
     const r = f(this.video, o === true ? {} : typeof o === "number" ? { amount: o } : o, this);
@@ -1337,6 +3896,7 @@ F.vertical = F["9:16"];
 F.square = F["1:1"];
 F.portrait = F["4:5"];
 function resolveFormat(name, w, h3) {
+  if (name && !F[name]) unknownName("formats", name, Object.keys(F));
   const f = F[name] || null;
   if (f && !w && !h3) return JSON.parse(JSON.stringify(f));
   w = w || (f ? f.w : 1280);
@@ -1347,134 +3907,6 @@ function resolveFormat(name, w, h3) {
   }
   const m = Math.round(Math.min(w, h3) * 0.075);
   return { w, h: h3, safe: { top: m, right: Math.round(w * 0.0625), bottom: m, left: Math.round(w * 0.0625) }, captionBottom: Math.round(h3 * 0.04), zones: [] };
-}
-
-// src/authoring/themes.js
-var SANS = '"Noto Sans SC","Noto Sans CJK SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif';
-var MONO = '"JetBrains Mono","Noto Sans Mono CJK SC",ui-monospace,Menlo,Consolas,"Noto Sans SC",monospace';
-var T = registry.themes;
-T["tech-blue"] = {
-  label: "\u79D1\u6280\u84DD\uFF08Spark / One \u5BA3\u4F20\u7247\u98CE\u683C\uFF09",
-  modes: {
-    dark: { bg: "#0B1020", fg: "#FFFFFF", muted: "#9AA6CC", surface: "#151B33", line: "#2A3358", accent: "#3355FF", accent2: "#7C93FF", onAccent: "#FFFFFF" },
-    light: { bg: "#E8ECF4", fg: "#0B1020", muted: "#3A4468", surface: "#FFFFFF", line: "#B7BFD6", accent: "#3355FF", accent2: "#7C93FF", onAccent: "#FFFFFF" },
-    accent: { bg: "#3355FF", fg: "#FFFFFF", muted: "#DDE3FF", surface: "#0B1020", line: "#6F88FF", accent: "#0B1020", accent2: "#FFFFFF", onAccent: "#FFFFFF" }
-  },
-  mode: "dark",
-  warn: "#FF5A36",
-  ok: "#2ED47A",
-  yellow: "#FFC83D",
-  chart: ["#3355FF", "#7C93FF", "#2ED47A", "#FFC83D", "#FF5A36", "#B6C0E2"],
-  fonts: { sans: SANS, display: SANS, mono: MONO, serif: SANS },
-  weight: { display: 900, title: 900, sub: 700 },
-  tracking: { display: "-.05em", title: "-.02em" },
-  scale: { hero: 260, h1: 84, h2: 60, h3: 36, body: 27, small: 22, label: 22, caption: 30 },
-  radius: 18,
-  ease: "house",
-  cascade: 0.35,
-  marker: "rgba(51,85,255,.35)",
-  caret: "#7C93FF",
-  caption: { bg: "rgba(8,11,20,.82)", fg: "#FFFFFF", karaoke: "#7C93FF" }
-};
-T.editorial = {
-  label: "\u6696\u8272\u6742\u5FD7\u98CE\uFF08\u7EB8\u5F20\u3001\u886C\u7EBF\u3001\u8D6D\u7EA2\uFF09",
-  modes: {
-    light: { bg: "#F3ECE0", fg: "#1F1A17", muted: "#6B5E53", surface: "#FFFaf2", line: "#D8CBB8", accent: "#C8492B", accent2: "#2F5D50", onAccent: "#FFF8EE" },
-    dark: { bg: "#1F1A17", fg: "#F3ECE0", muted: "#B8A999", surface: "#2B2420", line: "#4A3F37", accent: "#E0673F", accent2: "#8FB8A8", onAccent: "#1F1A17" },
-    accent: { bg: "#C8492B", fg: "#FFF8EE", muted: "#F6D2C2", surface: "#1F1A17", line: "#E08A70", accent: "#1F1A17", accent2: "#FFF8EE", onAccent: "#FFF8EE" }
-  },
-  mode: "light",
-  warn: "#C8492B",
-  ok: "#2F5D50",
-  yellow: "#D9A441",
-  chart: ["#C8492B", "#2F5D50", "#D9A441", "#6B5E53", "#8FB8A8", "#E0673F"],
-  fonts: { sans: SANS, display: '"Instrument Serif",' + SANS, mono: MONO, serif: '"Instrument Serif",' + SANS },
-  weight: { display: 400, title: 800, sub: 600 },
-  tracking: { display: "-.02em", title: "-.01em" },
-  scale: { hero: 230, h1: 78, h2: 56, h3: 34, body: 27, small: 22, label: 20, caption: 29 },
-  radius: 6,
-  ease: "smooth",
-  cascade: 0.4,
-  marker: "rgba(217,164,65,.5)",
-  caret: "#C8492B",
-  caption: { bg: "rgba(31,26,23,.86)", fg: "#F3ECE0", karaoke: "#E0673F" }
-};
-T.bold = {
-  label: "\u5F3A\u5BF9\u6BD4\u77ED\u89C6\u9891\u98CE\uFF08\u9ED1\u9EC4\u7C89\u3001\u8D85\u7C97\u538B\u7F29\u5B57\uFF09",
-  modes: {
-    dark: { bg: "#0A0A0A", fg: "#FFFFFF", muted: "#BDBDBD", surface: "#1C1C1C", line: "#333333", accent: "#FFE600", accent2: "#FF2E63", onAccent: "#0A0A0A" },
-    light: { bg: "#FFE600", fg: "#0A0A0A", muted: "#3D3700", surface: "#FFFFFF", line: "#0A0A0A", accent: "#FF2E63", accent2: "#0A0A0A", onAccent: "#FFFFFF" },
-    accent: { bg: "#FF2E63", fg: "#FFFFFF", muted: "#FFD3DE", surface: "#0A0A0A", line: "#FF7A9A", accent: "#FFE600", accent2: "#0A0A0A", onAccent: "#0A0A0A" }
-  },
-  mode: "dark",
-  warn: "#FF2E63",
-  ok: "#00E08A",
-  yellow: "#FFE600",
-  chart: ["#FFE600", "#FF2E63", "#00E08A", "#3FA9FF", "#FFFFFF", "#FF8A00"],
-  fonts: { sans: SANS, display: '"Archivo",' + SANS, mono: MONO, serif: SANS, condensed: '"Anton",' + SANS },
-  weight: { display: 900, title: 900, sub: 800 },
-  tracking: { display: "-.03em", title: "-.02em" },
-  scale: { hero: 250, h1: 96, h2: 68, h3: 40, body: 30, small: 24, label: 24, caption: 32 },
-  radius: 14,
-  ease: "snappy",
-  cascade: 0.3,
-  marker: "#FFE600",
-  caret: "#FFE600",
-  caption: { bg: "#0A0A0A", fg: "#FFFFFF", karaoke: "#FFE600" }
-};
-T.noir = {
-  label: "\u9ED1\u767D\u6781\u7B80\uFF08\u5355\u8272 + \u4E00\u70B9\u7EA2\uFF09",
-  modes: {
-    dark: { bg: "#000000", fg: "#F5F5F5", muted: "#8A8A8A", surface: "#141414", line: "#2A2A2A", accent: "#FF3B30", accent2: "#F5F5F5", onAccent: "#FFFFFF" },
-    light: { bg: "#F5F5F5", fg: "#000000", muted: "#666666", surface: "#FFFFFF", line: "#CCCCCC", accent: "#FF3B30", accent2: "#000000", onAccent: "#FFFFFF" },
-    accent: { bg: "#FF3B30", fg: "#FFFFFF", muted: "#FFD0CC", surface: "#000000", line: "#FF8A80", accent: "#000000", accent2: "#FFFFFF", onAccent: "#FFFFFF" }
-  },
-  mode: "dark",
-  warn: "#FF3B30",
-  ok: "#34C759",
-  yellow: "#FFCC00",
-  chart: ["#F5F5F5", "#FF3B30", "#8A8A8A", "#FFCC00", "#34C759", "#555555"],
-  fonts: { sans: SANS, display: '"Archivo",' + SANS, mono: MONO, serif: '"Instrument Serif",' + SANS },
-  weight: { display: 800, title: 800, sub: 600 },
-  tracking: { display: "-.04em", title: "-.02em" },
-  scale: { hero: 240, h1: 80, h2: 58, h3: 34, body: 26, small: 21, label: 20, caption: 29 },
-  radius: 2,
-  ease: "house",
-  cascade: 0.35,
-  marker: "rgba(255,59,48,.45)",
-  caret: "#FF3B30",
-  caption: { bg: "rgba(0,0,0,.85)", fg: "#FFFFFF", karaoke: "#FF3B30" }
-};
-function resolveTheme(t) {
-  if (!t) return T["tech-blue"];
-  if (typeof t === "string") {
-    if (!T[t]) console.warn("[vk] unknown theme", t);
-    return T[t] || T["tech-blue"];
-  }
-  const base2 = T[t.extends || "tech-blue"];
-  return deepMerge(JSON.parse(JSON.stringify(base2)), t);
-}
-function deepMerge(a, b) {
-  for (const k in b) {
-    if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k]) && a[k] && typeof a[k] === "object") deepMerge(a[k], b[k]);
-    else a[k] = b[k];
-  }
-  return a;
-}
-function modeVars(theme, mode) {
-  const m = theme.modes[mode] || theme.modes[theme.mode];
-  return {
-    "--bg": m.bg,
-    "--fg": m.fg,
-    "--muted": m.muted,
-    "--surface": m.surface,
-    "--line": m.line,
-    "--accent": m.accent,
-    "--accent2": m.accent2,
-    "--on-accent": m.onAccent,
-    // colour for terminal prompts etc. drawn on --surface: accent2 unless it would vanish into the surface
-    "--prompt": m.prompt || (m.accent2.toLowerCase() === m.surface.toLowerCase() ? m.muted : m.accent2)
-  };
 }
 
 // src/runtime/css.js
@@ -1572,10 +4004,10 @@ __export(synth_exports, {
   wavBytes: () => wavBytes,
   woodfish: () => woodfish
 });
-var TAU = Math.PI * 2;
+var TAU3 = Math.PI * 2;
 var dbAmp = (db) => Math.pow(10, db / 20);
 function biquad(type, f, q = 0.707, sr = 48e3, gainDb = 0) {
-  const w = TAU * Math.min(f, sr * 0.45) / sr, c = Math.cos(w), s2 = Math.sin(w), al = s2 / (2 * q), A = Math.pow(10, gainDb / 40);
+  const w = TAU3 * Math.min(f, sr * 0.45) / sr, c = Math.cos(w), s2 = Math.sin(w), al = s2 / (2 * q), A = Math.pow(10, gainDb / 40);
   let b0, b1, b2, a0, a1, a2;
   if (type === "lowpass") {
     b0 = (1 - c) / 2;
@@ -1651,7 +4083,7 @@ function pluck(sr, f, dur, o = {}) {
     }
     if (o.vib) {
       const v = o.vib, amt2 = Math.min(1, Math.max(0, (t - (v.delay || 0.2)) / 0.3));
-      semi += v.depth * amt2 * Math.sin(TAU * v.rate * t);
+      semi += v.depth * amt2 * Math.sin(TAU3 * v.rate * t);
     }
     const D = Math.min(maxD - 1, Math.max(2, sr / (f * Math.pow(2, semi / 12)) - 0.5));
     let r = w - D;
@@ -1679,8 +4111,8 @@ function flute(sr, f, dur, o = {}) {
   let ph = 0;
   for (let i = 0; i < n; i++) {
     const t = i / sr, e = Math.min(1, t / at) * Math.min(1, (dur - t) / rel);
-    const va = Math.min(1, Math.max(0, (t - 0.25) / 0.4)), semi = vib.depth * va * Math.sin(TAU * vib.rate * t) + (o.bend ? o.bend * Math.max(0, 1 - t / 0.12) : 0);
-    ph += TAU * f * Math.pow(2, semi / 12) / sr;
+    const va = Math.min(1, Math.max(0, (t - 0.25) / 0.4)), semi = vib.depth * va * Math.sin(TAU3 * vib.rate * t) + (o.bend ? o.bend * Math.max(0, 1 - t / 0.12) : 0);
+    ph += TAU3 * f * Math.pow(2, semi / 12) / sr;
     let s2 = 0;
     for (let k = 0; k < H.length; k++) s2 += H[k] * Math.sin(ph * (k + 1));
     const nz = rnd2() * 2 - 1, breath = (bp(nz) * 1.5 + bp2(nz) * 0.5) * (br * (0.4 + 0.6 * Math.exp(-t / at * 1.5)));
@@ -1693,7 +4125,7 @@ function drop(sr, o = {}) {
   let ph = 0;
   for (let i = 0; i < n; i++) {
     const t = i / sr, f = f0 * (1 + 1.8 * (1 - Math.exp(-t / 0.018)));
-    ph += TAU * f / sr;
+    ph += TAU3 * f / sr;
     out[i] = Math.sin(ph) * Math.exp(-t / 0.045) + (i < 40 ? (rnd2() - 0.5) * 0.6 * (1 - i / 40) : 0);
   }
   return normPeak(out, o.peak || 0.8);
@@ -1711,7 +4143,7 @@ function splash(sr, o = {}) {
   const bp = biquad("bandpass", o.f || 1600, 0.7, sr), lp = biquad("lowpass", 5e3, 0.7, sr);
   for (let i = 0; i < n; i++) {
     const t = i / sr;
-    out[i] = lp(bp(rnd2() * 2 - 1)) * envAD(t, 0.012, dur / 4) * (1 + 0.5 * Math.sin(TAU * 13 * t));
+    out[i] = lp(bp(rnd2() * 2 - 1)) * envAD(t, 0.012, dur / 4) * (1 + 0.5 * Math.sin(TAU3 * 13 * t));
   }
   return normPeak(out, o.peak || 0.7);
 }
@@ -1722,7 +4154,7 @@ function croak(sr, o = {}) {
     const t0 = k / rate, amp = Math.sin(Math.PI * (k + 0.5) / P2);
     for (let i = Math.floor(t0 * sr); i < Math.min(n, Math.floor((t0 + 0.02) * sr)); i++) {
       const tau = i / sr - t0;
-      out[i] += amp * (Math.sin(TAU * fc * tau) * 0.8 + Math.sin(TAU * fc * 2.1 * tau) * 0.3 + Math.sin(TAU * 140 * tau) * 0.5) * Math.exp(-tau / 45e-4);
+      out[i] += amp * (Math.sin(TAU3 * fc * tau) * 0.8 + Math.sin(TAU3 * fc * 2.1 * tau) * 0.3 + Math.sin(TAU3 * 140 * tau) * 0.5) * Math.exp(-tau / 45e-4);
     }
   }
   const lp = biquad("lowpass", 2200, 0.8, sr);
@@ -1734,7 +4166,7 @@ function quack(sr, o = {}) {
   const F2 = (o.formants || [1050, 2400]).map((f, j) => biquad("bandpass", f, j ? 5 : 4, sr)), hp = biquad("highpass", 300, 0.7, sr);
   let ph = 0;
   for (let i = 0; i < n; i++) {
-    const t = i / sr, p = t / dur, f = f0 + (f12 - f0) * p + 8 * Math.sin(TAU * 30 * t);
+    const t = i / sr, p = t / dur, f = f0 + (f12 - f0) * p + 8 * Math.sin(TAU3 * 30 * t);
     ph = (ph + f / sr) % 1;
     const saw = 2 * ph - 1;
     const e = Math.min(1, t / 0.015) * Math.pow(Math.max(0, 1 - p), 0.6);
@@ -1748,7 +4180,7 @@ function woodfish(sr, o = {}) {
   const bp = biquad("bandpass", f * 2.7, 6, sr), rnd2 = mulberry32(o.seed || 2);
   for (let i = 0; i < n; i++) {
     const t = i / sr, ff = f * (1 - 0.45 * Math.min(1, t / 0.08));
-    ph += TAU * ff / sr;
+    ph += TAU3 * ff / sr;
     out[i] = Math.sin(ph) * Math.exp(-t / 0.045) + bp(rnd2() * 2 - 1) * Math.exp(-t / 6e-3) * 2;
   }
   return normPeak(out, o.peak || 0.8);
@@ -1759,7 +4191,7 @@ function gong(sr, o = {}) {
   for (let i = 0; i < n; i++) {
     const t = i / sr;
     let s2 = 0;
-    for (const [m, a, d] of parts) s2 += a * Math.sin(TAU * f * m * t + m) * Math.exp(-t / d) * (1 + 0.15 * Math.sin(TAU * 0.7 * m * t));
+    for (const [m, a, d] of parts) s2 += a * Math.sin(TAU3 * f * m * t + m) * Math.exp(-t / d) * (1 + 0.15 * Math.sin(TAU3 * 0.7 * m * t));
     out[i] = s2 * Math.min(1, t / 0.01);
   }
   return normPeak(out, o.peak || 0.8);
@@ -1863,6 +4295,10 @@ V.riser = (k, t, v) => {
 V.snap = (k, t, v) => {
   k.noise(t, 0.06, "bandpass", 1800, 3, 0.5 * v);
   k.tone(t, "square", 1200, 600, 0.03, 0.08 * v);
+};
+V.step = (k, t, v) => {
+  k.noise(t, 0.07, "lowpass", 420, 0.7, 0.55 * v);
+  k.tone(t, "sine", 95, 55, 0.09, 0.35 * v);
 };
 V.pluck = (k, t, v, f) => k.buf(t, "pluck" + (f || 293.66), () => pluck(k.sr, f || 293.66, 3, { body: true, decay: 2.6, bright: 0.4 }), 0.5 * v);
 V.flute = (k, t, v, f) => k.buf(t, "flute" + (f || 587.33), () => flute(k.sr, f || 587.33, 1.6), 0.32 * v);
@@ -2268,6 +4704,47 @@ function hasCamMotion(el2) {
   const tf = getComputedStyle(cam).transform;
   return !!tf && tf !== "none" && tf !== "matrix(1, 0, 0, 1, 0, 0)";
 }
+function textBoxes(v) {
+  const { stage, W } = v, sr = stage.getBoundingClientRect(), sx = sr.width / W, out = [];
+  const opac = (el2) => {
+    let o = 1;
+    for (let e = el2; e && e !== stage; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.display === "none" || cs.visibility === "hidden") return 0;
+      o *= +cs.opacity;
+    }
+    return o;
+  };
+  const tw = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), seen = /* @__PURE__ */ new Map();
+  while (tw.nextNode()) {
+    const n = tw.currentNode;
+    if (!n.textContent.trim()) continue;
+    const el2 = n.parentElement;
+    if (!el2 || el2.closest('[data-qa="ignore"]') || el2.closest("svg") && !el2.closest("foreignObject")) continue;
+    if (!el2.closest(".vk-scene.on") && !el2.closest(".vk-cap")) continue;
+    const o = opac(el2);
+    if (o < 0.05) continue;
+    const rg = document.createRange();
+    rg.selectNodeContents(n);
+    for (const r of rg.getClientRects()) {
+      if (r.width < 2 || r.height < 2) continue;
+      let host = el2;
+      while (host.parentElement && host.parentElement !== stage && (getComputedStyle(host).display === "inline" || /\bvk-(c|ch|chi|word|w|wordwrap|line)\b/.test(typeof host.className === "string" ? host.className : ""))) host = host.parentElement;
+      const cs = getComputedStyle(el2), b = { l: (r.left - sr.left) / sx, t: (r.top - sr.top) / sx, r: (r.right - sr.left) / sx, b: (r.bottom - sr.top) / sx };
+      let e = seen.get(host);
+      if (!e) {
+        e = { text: (host.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60), l: b.l, t: b.t, r: b.r, b: b.b, color: cs.color, fill: cs.webkitTextFillColor, stroke: parseFloat(cs.webkitTextStrokeWidth) || 0, shadow: cs.textShadow !== "none", size: parseFloat(cs.fontSize) || 16, opacity: o, label: host.tagName.toLowerCase() + (typeof host.className === "string" && host.className.trim() ? "." + host.className.trim().split(/\s+/).slice(0, 2).join(".") : "") };
+        seen.set(host, e);
+      }
+      e.l = Math.min(e.l, b.l);
+      e.t = Math.min(e.t, b.t);
+      e.r = Math.max(e.r, b.r);
+      e.b = Math.max(e.b, b.b);
+      e.opacity = Math.min(e.opacity, o);
+    }
+  }
+  return [...seen.values()];
+}
 
 // src/audio/music.js
 var MusicInfo = class {
@@ -2296,11 +4773,11 @@ var MusicInfo = class {
   // band: 'loud' (default, dB-scaled RMS) | 'rms' | 'low' | 'mid' | 'high' | 0..7 (mel band index)
   // smooth: average over ±smooth seconds (box filter over envelope samples) for calmer motion
   energy(t, band = "loud", smooth = 0) {
-    const E = this.env, arr = typeof band === "number" ? (E.bands || [])[band] : E[band];
+    const E2 = this.env, arr = typeof band === "number" ? (E2.bands || [])[band] : E2[band];
     if (!arr || !arr.length) return 0;
-    const x = (t + this.leadT + this.start) * E.rate;
+    const x = (t + this.leadT + this.start) * E2.rate;
     if (!smooth) return sample(arr, x);
-    const r = Math.max(1, Math.round(smooth * E.rate));
+    const r = Math.max(1, Math.round(smooth * E2.rate));
     let s2 = 0, n = 0;
     for (let i = -r; i <= r; i += Math.max(1, Math.floor(r / 6))) {
       s2 += sample(arr, x + i);
@@ -2372,7 +4849,7 @@ __export(math_exports, {
   timecode: () => timecode,
   toggleKnob: () => toggleKnob
 });
-var TAU2 = Math.PI * 2;
+var TAU4 = Math.PI * 2;
 var P = (t, s2, d) => clamp01((t - s2) / (d || 1e-9));
 function parseShutter(v, fps = 30) {
   if (v == null || v === false || v === "off" || v === "none") return 0;
@@ -2429,7 +4906,7 @@ function coverRects(bars, n, axis, W, H) {
 function shapeVerts(kind, o = {}) {
   const top = -Math.PI / 2;
   const ngon = (k, R2 = 1, rot = top) => Array.from({ length: k }, (_, i) => {
-    const a = rot + i / k * TAU2;
+    const a = rot + i / k * TAU4;
     return [Math.cos(a) * R2, Math.sin(a) * R2];
   });
   switch (kind) {
@@ -2446,7 +4923,7 @@ function shapeVerts(kind, o = {}) {
     case "star": {
       const k = o.points || 5, inner = o.inner || 0.45, v = [];
       for (let i = 0; i < k * 2; i++) {
-        const a = top + i / (k * 2) * TAU2, r = i % 2 ? inner : 1;
+        const a = top + i / (k * 2) * TAU4, r = i % 2 ? inner : 1;
         v.push([Math.cos(a) * r, Math.sin(a) * r]);
       }
       return v;
@@ -2479,7 +4956,7 @@ function shapeOutline(kind, N = 120, o = {}) {
   const v = kind === "circle" ? null : shapeVerts(kind, o);
   if (v) return outlinePoints(startAtTop(v), N);
   return Array.from({ length: N }, (_, i) => {
-    const a = -Math.PI / 2 + i / N * TAU2;
+    const a = -Math.PI / 2 + i / N * TAU4;
     return [Math.cos(a), Math.sin(a)];
   });
 }
@@ -2559,7 +5036,7 @@ function timecode(t, fps = 30) {
   return `${String(m).padStart(2, "0")}:${String(s2 % 60).padStart(2, "0")}:${String(f % fps).padStart(2, "0")}`;
 }
 function convergeAt(i, p, o = {}) {
-  const seed = o.seed || 0, a = hash(i + seed) * TAU2 + p * (o.spin != null ? o.spin : 1.5), d = ((o.near || 900) + hash(i + 50 + seed) * (o.far || 500)) * (1 - p);
+  const seed = o.seed || 0, a = hash(i + seed) * TAU4 + p * (o.spin != null ? o.spin : 1.5), d = ((o.near || 900) + hash(i + 50 + seed) * (o.far || 500)) * (1 - p);
   return { x: Math.cos(a) * d, y: Math.sin(a) * d, size: lerp((o.size || 46) + hash(i + 9 + seed) * (o.sizeVar || 40), o.end || 4, p), rot: p * 6 + i, kind: i % 3 };
 }
 function recentBeats(grid2, t, n = 4, every = 1, from = -Infinity) {
@@ -2870,7 +5347,7 @@ function loadInto(imageEl, url) {
     imageEl.setAttribute("href", url);
   });
 }
-var px = (v) => {
+var px2 = (v) => {
   const n = parseFloat(v);
   return /^\s*[\d.]+(px)?\s*$/.test(String(v || "")) ? n : NaN;
 };
@@ -2892,7 +5369,7 @@ function defsMarkup(refs) {
 }
 async function bakeRoot(svg3, o) {
   const vb = svg3.viewBox && svg3.viewBox.baseVal && svg3.viewBox.baseVal.width ? svg3.viewBox.baseVal : null;
-  let w = px(svg3.getAttribute("width")), h3 = px(svg3.getAttribute("height"));
+  let w = px2(svg3.getAttribute("width")), h3 = px2(svg3.getAttribute("height"));
   if (!(w > 0 && h3 > 0)) {
     const r = svg3.getBoundingClientRect();
     w = r.width;
@@ -2932,7 +5409,7 @@ function unitScale(el2) {
   const s2 = el2.ownerSVGElement;
   if (!s2) return 1;
   const vb = s2.viewBox && s2.viewBox.baseVal;
-  const w = px(s2.getAttribute("width"));
+  const w = px2(s2.getAttribute("width"));
   const k = vb && vb.width && w > 0 ? w / vb.width : 1;
   return k * (window.devicePixelRatio || 1);
 }
@@ -3026,6 +5503,8 @@ var Video = class {
   static registry = registry;
   constructor(cfg = {}, env2 = {}) {
     this.cfg = cfg = Object.assign({ fps: 30, transition: "fade:0.4", localFonts: true, holdLast: true }, cfg);
+    this.strict = setStrict(cfg.strict != null ? !!cfg.strict : Q.get("strict") === "1");
+    this.draft = cfg.draft != null ? !!cfg.draft : Q.get("draft") === "1";
     this.base = env2.base || "";
     const fmtName = Q.get("format") || cfg.format || (cfg.w && cfg.h ? null : "16:9");
     const fmt = resolveFormat(fmtName, Q.get("format") ? 0 : cfg.w || cfg.width, Q.get("format") ? 0 : cfg.h || cfg.height);
@@ -3084,8 +5563,8 @@ var Video = class {
     this.bakeJobs = [];
     if (RENDER) document.documentElement.classList.add("vk-render");
     const r = mulberry32(+(Q.get("seed") || cfg.seed || 1));
-    Math.random = () => r();
-    this.stage = document.getElementById("stage") || mk("div", null, document.body);
+    Math.random = guardedRandom(r);
+    this.stage = document.getElementById("stage") || mk("div", null, document.body || document.documentElement);
     this.stage.id = "stage";
     this.stage.classList.add("vk-stage");
     this.injectCSS();
@@ -3193,6 +5672,8 @@ var Video = class {
     const prev = this.scenes[this.scenes.length - 1];
     sc.transition = prev ? parseTransition(o.transition != null ? o.transition : this.cfg.transition) : { type: "none", d: 0 };
     ensureLazy("transitions", sc.transition.type);
+    if (sc.transition.d && !registry.transitions[sc.transition.type]) unknownName("transitions", sc.transition.type, names("transitions"));
+    if (sc.transition.ease) getEase(sc.transition.ease);
     if (o.start != null) sc.start = parseTime(o.start, this.beats);
     else sc.start = prev ? prev.start + prev.dur - sc.transition.d : 0;
     const auto = (o.dur === "auto" || o.dur == null) && o.end == null;
@@ -3245,7 +5726,7 @@ var Video = class {
     ensureLazy("backgrounds", name);
     const f = registry.backgrounds[name];
     if (!f) {
-      console.warn("[vk] unknown background", name);
+      unknownName("backgrounds", name, names("backgrounds"));
       return;
     }
     const r = f(sc, typeof spec === "string" ? {} : spec, this);
@@ -3364,7 +5845,7 @@ var Video = class {
   texture(name, opts) {
     const f = registry.textures[name];
     if (!f) {
-      console.warn("[vk] unknown texture", name);
+      unknownName("textures", name, names("textures"));
       return this;
     }
     const r = f(this, opts === true ? {} : typeof opts === "number" ? { amount: opts } : opts || {});
@@ -3405,6 +5886,7 @@ var Video = class {
       });
     });
     this.caps.sort((a, b) => a[0] - b[0]);
+    for (const e of this.events) if (typeof e[1] === "string" && !registry.sounds[e[1]]) unknownName("sounds", e[1], names("sounds"));
     if (S2.some((sc) => sc.transition.d && (registry.transitions[sc.transition.type] || {}).cover)) {
       const dpr = this.coverDpr = Math.max(1, Math.min(4, window.devicePixelRatio || 1));
       this.coverEl = mk("canvas", "vk-cover", this.stage);
@@ -3431,16 +5913,28 @@ var Video = class {
       '400 20px "Instrument Serif"'
     ].concat(this.theme.fontsCheck || []);
     this.fontsCheck = fontsCheck;
+    const RP = window.__vkReadyProf = { init: performance.now() };
     window.__ready = Promise.all([
       Promise.all(fontsCheck.map((f) => document.fonts.load(f, "\u4E2D\u6587Aa0"))).catch(() => {
       }),
       Promise.all([...this.stage.querySelectorAll("img")].map((im) => im.decode ? im.decode().catch(() => {
       }) : null))
     ]).then(() => document.fonts.ready).then(() => {
+      RP.fonts = performance.now();
       this.afterFonts.forEach((f) => f());
       return this.runBakes();
-    }).then(() => this.runWaits()).then(() => {
-      this.render(this.curT);
+    }).then(() => {
+      RP.bakes = performance.now();
+      return this.runWaits();
+    }).then(() => {
+      RP.waits = performance.now();
+      this.booting = true;
+      try {
+        this.render(this.curT);
+      } finally {
+        this.booting = false;
+      }
+      RP.first = performance.now();
       return true;
     });
     Object.assign(window, {
@@ -3468,9 +5962,15 @@ var Video = class {
         return Promise.all(this.pendingMedia).then(() => t);
       },
       __motionBlur: this.motionBlur,
+      __strict: this.strict,
+      __draft: this.draft,
       __qa: (t) => {
         if (t != null) this.render(t);
         return runQA(this);
+      },
+      __textBoxes: (t) => {
+        if (t != null) this.render(t);
+        return textBoxes(this);
       }
     });
     if (this.events.length || this.cfg.scoreFn) window.SCORE = this.cfg.scoreFn || makeScore(this.events, this.cfg.scoreOptions || {}, this);
@@ -3491,6 +5991,15 @@ var Video = class {
   }
   /* ---------------- render(t): pure ---------------- */
   render(t, frameT) {
+    STRICT.frame++;
+    STRICT.t = t;
+    try {
+      this.renderFrame(t, frameT);
+    } finally {
+      STRICT.frame--;
+    }
+  }
+  renderFrame(t, frameT) {
     t = Math.max(0, Math.min(t, this.duration - 1e-6));
     this.curT = t;
     this.frameT = frameT != null ? Math.max(0, Math.min(+frameT, this.duration - 1e-6)) : t;
@@ -3708,9 +6217,16 @@ function esc(s2) {
 // src/authoring/node.js
 function node(o, build, defFx) {
   o = o || {};
+  const src = new Error();
   return { o, kind: build.name, build: (ctx) => {
-    const el2 = build(ctx, o);
-    return el2 ? finish(el2, o, ctx, defFx) : el2;
+    const prev = SRC.err;
+    SRC.err = src;
+    try {
+      const el2 = build(ctx, o);
+      return el2 ? finish(el2, o, ctx, defFx) : el2;
+    } finally {
+      SRC.err = prev;
+    }
   } };
 }
 function md(s2) {
@@ -3996,27 +6512,27 @@ function shapePolygon(kind, cx, cy, R2, o = {}) {
 }
 
 // src/fx/svg.js
-var FX = registry.fx;
+var FX2 = registry.fx;
 function shapesOf(el2) {
   if (/^(path|line|polyline|polygon|circle|ellipse|rect)$/i.test(el2.tagName)) return [el2];
   return [...el2.querySelectorAll("path,line,polyline,polygon,circle,ellipse,rect")];
 }
-FX.draw = (el2, o, api) => {
+FX2.draw = (el2, o, api) => {
   const shapes = shapesOf(el2);
   api.tween(el2, { t: o.t, d: 1e-4, from: { opacity: 0 }, to: { opacity: 1 } });
   api.tween(shapes, { t: o.t, d: o.d || 1.2, ease: o.ease || "inOutCubic", stagger: o.each || o.drawStagger, from: { draw: api.exit ? 1 : 0 }, to: { draw: api.exit ? 0 : 1 } });
 };
-FX["draw-fill"] = (el2, o, api) => {
+FX2["draw-fill"] = (el2, o, api) => {
   const shapes = shapesOf(el2), d = o.d || 1.2;
-  FX.draw(el2, o, api);
+  FX2.draw(el2, o, api);
   shapes.forEach((s2) => {
     if (!s2.getAttribute("fill-opacity")) s2.setAttribute("fill-opacity", "0");
   });
   api.tween(shapes, { t: o.fillAt != null ? o.fillAt : o.t + d * 0.75, d: o.fillD || 0.5, ease: "outCubic", stagger: o.each, from: { "attr:fill-opacity": 0 }, to: { "attr:fill-opacity": 1 } });
 };
-FX.fill = FX["draw-fill"];
+FX2.fill = FX2["draw-fill"];
 var tmpSvg = null;
-function resample(d, n = 120) {
+function resample2(d, n = 120) {
   if (!tmpSvg) {
     tmpSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     tmpSvg.setAttribute("style", "position:absolute;left:-9999px;top:0;width:10px;height:10px");
@@ -4034,7 +6550,7 @@ function resample(d, n = 120) {
   return "M" + pts.join(" L") + " Z";
 }
 var outlineD = (pts, x, y, r) => "M" + pts.map((p) => (x + p[0] * r).toFixed(2) + " " + (y + p[1] * r).toFixed(2)).join(" L") + " Z";
-FX.morph = (el2, o, api) => {
+FX2.morph = (el2, o, api) => {
   const path2 = el2.tagName.toLowerCase() === "path" ? el2 : el2.querySelector("path");
   if (o.shapes) o = { ...o, paths: o.shapes.map((k) => outlineD(shapeOutline(k, o.n || 120), o.cx || 0, o.cy || 0, o.r || 100)) };
   if (o.beats && api.beats && api.beats.active) {
@@ -4043,15 +6559,15 @@ FX.morph = (el2, o, api) => {
   }
   const seq = o.paths ? o.paths.slice() : [path2.getAttribute("d"), o.to];
   const allCompat = seq.every((d) => compatible(d, seq[0]));
-  const norm2 = allCompat ? seq : seq.map((d) => resample(d, o.n || 120));
+  const norm2 = allCompat ? seq : seq.map((d) => resample2(d, o.n || 120));
   path2.setAttribute("d", norm2[0]);
   const step = o.each || (o.d || 0.9) + 0.4;
   for (let i = 1; i < norm2.length; i++) api.tween(path2, { t: o.t + (i - 1) * step, d: o.d || 0.9, ease: o.ease || "inOutCubic", from: { "attr:d": norm2[i - 1] }, to: { "attr:d": norm2[i] } });
 };
 
 // src/fx/text.js
-var FX2 = registry.fx;
-Object.assign(FX2, {
+var FX3 = registry.fx;
+Object.assign(FX3, {
   fade: { from: { opacity: 0 }, to: { opacity: 1 } },
   up: { make: (o) => ({ from: { opacity: 0, y: o.dist || 28 }, to: { opacity: 1, y: 0 } }) },
   down: { make: (o) => ({ from: { opacity: 0, y: -(o.dist || 28) }, to: { opacity: 1, y: 0 } }) },
@@ -4132,16 +6648,16 @@ function perPiece(mode, A, B4, defEase, defD, defEach, exitTo) {
     api.tween(pieces, { t: o.t, d: o.d || defD, ease: ease2, stagger: o.stagger || each, from: a, to: b, origin: o.origin });
   };
 }
-FX2.letters = perPiece("clip", { y: "110%" }, { y: "0%" }, "swift", 0.6, 0.035, { y: "-110%" });
-FX2["letters-fade"] = perPiece("chars", { opacity: 0, y: "0.35em" }, { opacity: 1, y: "0em" }, "outCubic", 0.5, 0.03);
-FX2["letters-blur"] = perPiece("chars", { opacity: 0, blur: 12, scale: 1.3 }, { opacity: 1, blur: 0, scale: 1 }, "outExpo", 0.7, 0.04);
-FX2.domino = (el2, o, api) => {
+FX3.letters = perPiece("clip", { y: "110%" }, { y: "0%" }, "swift", 0.6, 0.035, { y: "-110%" });
+FX3["letters-fade"] = perPiece("chars", { opacity: 0, y: "0.35em" }, { opacity: 1, y: "0em" }, "outCubic", 0.5, 0.03);
+FX3["letters-blur"] = perPiece("chars", { opacity: 0, blur: 12, scale: 1.3 }, { opacity: 1, blur: 0, scale: 1 }, "outExpo", 0.7, 0.04);
+FX3.domino = (el2, o, api) => {
   el2.style.perspective = "800px";
   perPiece("chars", { rotateX: -95, opacity: 0 }, { rotateX: 0, opacity: 1 }, "outBack", 0.55, 0.05)(el2, { origin: "50% 85%", ...o }, api);
 };
-FX2.words = perPiece("words", { opacity: 0, scale: 1.45 }, { opacity: 1, scale: 1 }, "outBack", 0.5, 0.09);
-FX2["words-up"] = perPiece("words", { opacity: 0, y: "0.6em" }, { opacity: 1, y: "0em" }, "outExpo", 0.6, 0.08);
-FX2.squash = (el2, o, api) => {
+FX3.words = perPiece("words", { opacity: 0, scale: 1.45 }, { opacity: 1, scale: 1 }, "outBack", 0.5, 0.09);
+FX3["words-up"] = perPiece("words", { opacity: 0, y: "0.6em" }, { opacity: 1, y: "0em" }, "outExpo", 0.6, 0.08);
+FX3.squash = (el2, o, api) => {
   const pieces = split2(el2, "chars"), each = o.each != null ? o.each : 0.05, d = o.d || 0.55;
   pieces.forEach((c, i) => api.fn(c, (local) => {
     const p = clamp01((local - o.t - i * each) / d);
@@ -4157,7 +6673,7 @@ FX2.squash = (el2, o, api) => {
     c.style.transformOrigin = "50% 90%";
   }));
 };
-FX2.assemble = (el2, o, api) => {
+FX3.assemble = (el2, o, api) => {
   const pieces = split2(el2, "chars"), n = pieces.length, d = o.d || 0.9, spread = o.spread || 1, seed = o.seed || 7;
   pieces.forEach((c, i) => {
     const r12 = hash(i * 3.1 + seed), r2 = hash(i * 5.7 + seed), r3 = hash(i * 9.3 + seed), delay = hash(i * 1.9 + seed) * (o.each != null ? o.each * n : 0.35);
@@ -4166,14 +6682,14 @@ FX2.assemble = (el2, o, api) => {
     api.tween(c, { t: o.t + delay, d, ease: o.ease || "outQuart", from: api.exit ? to : from, to: api.exit ? from : to });
   });
 };
-FX2.wave = (el2, o, api) => {
+FX3.wave = (el2, o, api) => {
   const pieces = split2(el2, "chars"), amp = o.amp || 0.12, speed = o.speed || 6;
   pieces.forEach((c, i) => api.fn(c, (local) => {
     const k = clamp01((local - o.t) / 0.4);
     c.style.transform = `translateY(${(-Math.sin(local * speed - i * 0.55) * amp * k).toFixed(3)}em)`;
   }));
 };
-FX2.type = (el2, o, api) => {
+FX3.type = (el2, o, api) => {
   const full = o.text != null ? o.text : el2.getAttribute("data-text") || el2.textContent;
   const chars = Array.from(full), cps = o.cps || 30, t0 = o.t || 0, caret = o.caret !== false;
   el2.textContent = "";
@@ -4200,7 +6716,7 @@ if (typeof document !== "undefined") {
   document.head.appendChild(st);
 }
 var GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&*+=<>/\\@$";
-FX2.scramble = (el2, o, api) => {
+FX3.scramble = (el2, o, api) => {
   const full = o.text != null ? o.text : el2.textContent, chars = Array.from(full), each = o.each != null ? o.each : 0.04, d = o.d || 0.5, set2 = o.glyphs || GLYPHS, rate = o.rate || 20;
   api.fn(el2, (local) => {
     const f = Math.floor(local * rate);
@@ -4218,8 +6734,8 @@ FX2.scramble = (el2, o, api) => {
     if (el2.textContent !== s2) el2.textContent = s2;
   });
 };
-FX2.decode = FX2.scramble;
-FX2.count = (el2, o, api) => {
+FX3.decode = FX3.scramble;
+FX3.count = (el2, o, api) => {
   const a = +o.from || 0, b = o.to != null ? +o.to : parseFloat(el2.textContent) || 0, dec = o.decimals | 0, sep = o.sep == null ? "" : o.sep;
   const d = o.d || 1.2, ease2 = getEase(o.ease || "outExpo"), pre = o.prefix || "", suf = o.suffix || "";
   const fmt = o.format || ((v) => {
@@ -4255,14 +6771,14 @@ function sweep(cls) {
     api.tween(targets, { t: o.t, d: o.d || 0.6, ease: o.ease || "inOutCubic", stagger: o.each != null ? o.each : 0.25, from: { "--p": api.exit ? "100%" : "0%" }, to: { "--p": api.exit ? "0%" : "100%" } });
   };
 }
-FX2.highlight = sweep("vk-mark");
-FX2.marker = FX2.highlight;
-FX2.underline = sweep("vk-ul");
-FX2.swap = (el2, o, api) => {
+FX3.highlight = sweep("vk-mark");
+FX3.marker = FX3.highlight;
+FX3.underline = sweep("vk-ul");
+FX3.swap = (el2, o, api) => {
   const c0 = getComputedStyle(el2).color, c12 = o.color || api.theme.modes[api.scene.mode || api.theme.mode].accent;
   api.tween(el2, { t: o.t, d: o.d || 0.3, ease: o.ease || "outCubic", from: { color: api.exit ? c12 : c0 }, to: { color: api.exit ? c0 : c12 } });
 };
-FX2.stack = (el2, o, api) => {
+FX3.stack = (el2, o, api) => {
   const html2 = el2.innerHTML.split(/<br\s*\/?>|\n/i).filter((s2) => s2.trim());
   el2.innerHTML = "";
   el2.style.display = "block";
@@ -4310,54 +6826,54 @@ function scaleOf(el2) {
 }
 
 // src/fx/transitions.js
-var T2 = registry.transitions;
+var T3 = registry.transitions;
 var pct = (v) => (v * 100).toFixed(3) + "%";
-var focal = (c) => ({ x: c.o.x == null ? c.W / 2 : c.o.x <= 1 ? c.o.x * c.W : c.o.x, y: c.o.y == null ? c.H / 2 : c.o.y <= 1 ? c.o.y * c.H : c.o.y });
-T2.none = () => ({});
-T2.fade = (e) => ({ in: { opacity: e } });
-T2.crossfade = (e) => ({ in: { opacity: e }, out: { opacity: 1 - e } });
+var focal2 = (c) => ({ x: c.o.x == null ? c.W / 2 : c.o.x <= 1 ? c.o.x * c.W : c.o.x, y: c.o.y == null ? c.H / 2 : c.o.y <= 1 ? c.o.y * c.H : c.o.y });
+T3.none = () => ({});
+T3.fade = (e) => ({ in: { opacity: e } });
+T3.crossfade = (e) => ({ in: { opacity: e }, out: { opacity: 1 - e } });
 var DIRS = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] };
 Object.entries(DIRS).forEach(([d, [dx, dy]]) => {
   const tf = (v) => `translate(${pct(dx * v)},${pct(dy * v)})`;
-  T2["slide-" + d] = (e) => ({ in: { transform: tf(1 - e) } });
-  T2["push-" + d] = (e) => ({ in: { transform: tf(1 - e) }, out: { transform: tf(-e) } });
-  T2["whip-" + d] = (e, c) => {
+  T3["slide-" + d] = (e) => ({ in: { transform: tf(1 - e) } });
+  T3["push-" + d] = (e) => ({ in: { transform: tf(1 - e) }, out: { transform: tf(-e) } });
+  T3["whip-" + d] = (e, c) => {
     const b = Math.sin(Math.PI * c.raw) * 18;
     return { in: { transform: tf(1 - e), filter: `blur(${b.toFixed(2)}px)` }, out: { transform: tf(-e), filter: `blur(${b.toFixed(2)}px)` } };
   };
   const clip = { left: (v) => `inset(0% 0% 0% ${pct(1 - v)})`, right: (v) => `inset(0% ${pct(1 - v)} 0% 0%)`, up: (v) => `inset(${pct(1 - v)} 0% 0% 0%)`, down: (v) => `inset(0% 0% ${pct(1 - v)} 0%)` }[d];
-  T2["wipe-" + d] = (e) => ({ in: { clipPath: clip(e) } });
+  T3["wipe-" + d] = (e) => ({ in: { clipPath: clip(e) } });
 });
-T2.wipe = T2["wipe-right"] = (e) => ({ in: { clipPath: `inset(0% ${pct(1 - e)} 0% 0%)` } });
-T2["wipe-right"] = T2.wipe;
-T2["zoom-in"] = (e) => ({ in: { opacity: e, transform: `scale(${1.25 - 0.25 * e})` }, out: { transform: `scale(${1 + 0.18 * e})` } });
-T2.zoom = T2["zoom-in"];
-T2["zoom-out"] = (e) => ({ in: { opacity: e, transform: `scale(${0.82 + 0.18 * e})` }, out: { transform: `scale(${1 - 0.1 * e})` } });
-T2.blur = (e) => ({ in: { opacity: e, filter: `blur(${((1 - e) * 22).toFixed(2)}px)` }, out: { filter: `blur(${(e * 22).toFixed(2)}px)` } });
-T2.iris = (e, c) => {
-  const f = focal(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y));
+T3.wipe = T3["wipe-right"] = (e) => ({ in: { clipPath: `inset(0% ${pct(1 - e)} 0% 0%)` } });
+T3["wipe-right"] = T3.wipe;
+T3["zoom-in"] = (e) => ({ in: { opacity: e, transform: `scale(${1.25 - 0.25 * e})` }, out: { transform: `scale(${1 + 0.18 * e})` } });
+T3.zoom = T3["zoom-in"];
+T3["zoom-out"] = (e) => ({ in: { opacity: e, transform: `scale(${0.82 + 0.18 * e})` }, out: { transform: `scale(${1 - 0.1 * e})` } });
+T3.blur = (e) => ({ in: { opacity: e, filter: `blur(${((1 - e) * 22).toFixed(2)}px)` }, out: { filter: `blur(${(e * 22).toFixed(2)}px)` } });
+T3.iris = (e, c) => {
+  const f = focal2(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y));
   return { in: { clipPath: `circle(${(e * R2).toFixed(1)}px at ${f.x}px ${f.y}px)` } };
 };
-T2.circle = T2.iris;
-T2["iris-out"] = (e, c) => {
-  const f = focal(c), R2 = Math.hypot(c.W, c.H) / 2 * 1.05;
+T3.circle = T3.iris;
+T3["iris-out"] = (e, c) => {
+  const f = focal2(c), R2 = Math.hypot(c.W, c.H) / 2 * 1.05;
   return { under: true, out: { clipPath: `circle(${((1 - e) * R2).toFixed(1)}px at ${f.x}px ${f.y}px)` } };
 };
 var COVER = { circle: 1, diamond: 1.45, square: 1.05, triangle: 2.1, hexagon: 1.2, star: 2.35, heart: 1.5, blob: 1.2 };
 ["diamond", "star", "hexagon", "triangle", "heart", "square", "blob"].forEach((k) => {
-  T2["shape-" + k] = (e, c) => {
-    const f = focal(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y)) * COVER[k] * e;
+  T3["shape-" + k] = (e, c) => {
+    const f = focal2(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y)) * COVER[k] * e;
     return { in: { clipPath: shapePolygon(k, f.x, f.y, Math.max(R2, 0.01), { points: c.o.points }) } };
   };
 });
-T2.split = (e) => ({ in: { clipPath: `inset(0% ${pct((1 - e) / 2)} 0% ${pct((1 - e) / 2)})` } });
-T2["split-h"] = (e) => ({ in: { clipPath: `inset(${pct((1 - e) / 2)} 0% ${pct((1 - e) / 2)} 0%)` } });
-T2["split-open"] = (e) => ({ under: true, out: { clipPath: `polygon(0% 0%, ${pct(0.5 - e / 2)} 0%, ${pct(0.5 - e / 2)} 100%, 0% 100%, 0% 0%, 100% 0%, 100% 100%, ${pct(0.5 + e / 2)} 100%, ${pct(0.5 + e / 2)} 0%, 100% 0%)` } });
-T2.diagonal = (e) => {
+T3.split = (e) => ({ in: { clipPath: `inset(0% ${pct((1 - e) / 2)} 0% ${pct((1 - e) / 2)})` } });
+T3["split-h"] = (e) => ({ in: { clipPath: `inset(${pct((1 - e) / 2)} 0% ${pct((1 - e) / 2)} 0%)` } });
+T3["split-open"] = (e) => ({ under: true, out: { clipPath: `polygon(0% 0%, ${pct(0.5 - e / 2)} 0%, ${pct(0.5 - e / 2)} 100%, 0% 100%, 0% 0%, 100% 0%, 100% 100%, ${pct(0.5 + e / 2)} 100%, ${pct(0.5 + e / 2)} 0%, 100% 0%)` } });
+T3.diagonal = (e) => {
   const a = -40 + e * 180;
   return { in: { clipPath: `polygon(0% 0%,${a}% 0%,${a - 40}% 100%,0% 100%)` } };
 };
-T2.blinds = (e, c) => {
+T3.blinds = (e, c) => {
   const n = c.o.n || 8, pts = [];
   for (let i = 0; i < n; i++) {
     const y0 = i / n * 100, y1 = y0 + e * 100 / n;
@@ -4365,9 +6881,9 @@ T2.blinds = (e, c) => {
   }
   return { in: { clipPath: `polygon(${pts.join(",")})` } };
 };
-T2.flash = (e, c) => ({ in: { opacity: c.raw >= 0.5 ? 1 : 0 }, flash: Math.pow(1 - Math.abs(2 * c.raw - 1), 1.5), flashColor: c.o.color || "#fff" });
-T2.dip = (e, c) => ({ in: { opacity: c.raw >= 0.5 ? 1 : 0 }, flash: 1 - Math.abs(2 * c.raw - 1), flashColor: c.o.color || "#000" });
-T2.glitch = (e, c) => {
+T3.flash = (e, c) => ({ in: { opacity: c.raw >= 0.5 ? 1 : 0 }, flash: Math.pow(1 - Math.abs(2 * c.raw - 1), 1.5), flashColor: c.o.color || "#fff" });
+T3.dip = (e, c) => ({ in: { opacity: c.raw >= 0.5 ? 1 : 0 }, flash: 1 - Math.abs(2 * c.raw - 1), flashColor: c.o.color || "#000" });
+T3.glitch = (e, c) => {
   const raw = c.raw;
   if (raw >= 1) return {};
   const f = c.frame, j = hash(f * 1.3) - 0.5;
@@ -4375,9 +6891,9 @@ T2.glitch = (e, c) => {
   const top = hash(f * 3.1) * 70, h3 = 12 + hash(f * 7.7) * 40 * raw / 0.7;
   return { in: { clipPath: `inset(${top.toFixed(1)}% 0% ${Math.max(0, 100 - top - h3).toFixed(1)}% 0%)`, transform: `translateX(${(j * 90).toFixed(1)}px)`, filter: `hue-rotate(${Math.round(hash(f + 2) * 180)}deg) saturate(1.6)` }, out: { transform: `translateX(${(-j * 30).toFixed(1)}px)` } };
 };
-T2.slice = T2.glitch;
-T2["zoom-through"] = (e, c) => {
-  const f = focal(c), s2 = 1 + Math.pow(c.raw, 3) * (c.o.scale || 40);
+T3.slice = T3.glitch;
+T3["zoom-through"] = (e, c) => {
+  const f = focal2(c), s2 = 1 + Math.pow(c.raw, 3) * (c.o.scale || 40);
   return { under: true, out: { transformOrigin: `${f.x}px ${f.y}px`, transform: `scale(${s2.toFixed(3)})`, opacity: 1 - seg(c.raw, 0.55, 1) }, in: { transform: `scale(${(1.15 - 0.15 * e).toFixed(4)})` } };
 };
 
@@ -5097,17 +7613,17 @@ X.rgb = (v, o, host) => {
 };
 
 // src/fx/backgrounds.js
-var G = registry.backgrounds;
+var G2 = registry.backgrounds;
 var div = () => document.createElement("div");
 var col2 = (sc, v, name) => v || `var(--${name})`;
-G.gradient = (sc, o, v) => {
+G2.gradient = (sc, o, v) => {
   const e = div(), cs = o.colors || [v.color("bg", sc.mode), v.color("accent", sc.mode)];
   return { el: e, update(local) {
     const a = (o.angle || 135) + (o.spin || 0) * local;
     e.style.background = `linear-gradient(${a.toFixed(2)}deg, ${cs.join(",")})`;
   } };
 };
-G.mesh = (sc, o, v) => {
+G2.mesh = (sc, o, v) => {
   const e = div(), cs = o.colors || [v.color("accent", sc.mode), v.color("accent2", sc.mode), v.color("accent", sc.mode)], sp = o.speed || 0.12, base2 = o.base || v.color("bg", sc.mode);
   return { el: e, update(local) {
     const t = sc.start + local;
@@ -5119,7 +7635,7 @@ G.mesh = (sc, o, v) => {
     if (o.blur) e.style.filter = `blur(${v.px(o.blur)}px)`;
   } };
 };
-G.grid = (sc, o, v) => {
+G2.grid = (sc, o, v) => {
   const e = div(), s2 = v.px(o.size || 64), c = col2(sc, o.color, "line"), lw = o.width || 1;
   e.style.backgroundImage = `linear-gradient(${c} ${lw}px, transparent ${lw}px), linear-gradient(90deg, ${c} ${lw}px, transparent ${lw}px)`;
   e.style.backgroundSize = `${s2}px ${s2}px`;
@@ -5132,7 +7648,7 @@ G.grid = (sc, o, v) => {
     e.style.backgroundPosition = `${(o.dx || 0) * d}px ${(o.dy == null ? 1 : o.dy) * d}px`;
   } };
 };
-G.dots = (sc, o, v) => {
+G2.dots = (sc, o, v) => {
   const e = div(), s2 = v.px(o.size || 28), c = col2(sc, o.color, "line");
   e.style.backgroundImage = `radial-gradient(circle, ${c} ${v.px(o.r || 2)}px, transparent ${v.px(o.r || 2) + 0.5}px)`;
   e.style.backgroundSize = `${s2}px ${s2}px`;
@@ -5143,7 +7659,7 @@ G.dots = (sc, o, v) => {
     e.style.backgroundPosition = `${d}px ${d * 0.5}px`;
   } };
 };
-G.noise = (sc, o, v) => {
+G2.noise = (sc, o, v) => {
   const c = document.createElement("canvas"), w = o.res || 64, h3 = Math.round(w * v.H / v.W);
   c.width = w;
   c.height = h3;
@@ -5264,9 +7780,9 @@ B3.spectrum = (o = {}) => node({ fx: "fade", ...o }, function spectrum(ctx) {
   return el2;
 });
 function lyricVideo(vk2, o = {}) {
-  const v = vk2.current, G2 = v.beats, M = v.music, lines = (o.lines || v.lyrics).filter((l) => l[3] && l[3].length);
+  const v = vk2.current, G3 = v.beats, M = v.music, lines = (o.lines || v.lyrics).filter((l) => l[3] && l[3].length);
   if (!lines.length) throw new Error('[vk] lyricVideo: no lyric lines (vk.video({lyrics:"song.align.json"}))');
-  const lead = G2.leadT, styles = o.styles || ["pop", "rise", "slam", "karaoke"];
+  const lead = G3.leadT, styles = o.styles || ["pop", "rise", "slam", "karaoke"];
   const bgs = o.bgs || ["dark", "accent", [{ type: "dots", drift: 24 }], "light", [{ type: "grid", drift: 30 }]];
   const trs = o.transitions || ["none", "flash:0.25", "whip-left:0.3", "zoom-in:0.3"];
   const secs = M ? M.sections : [];
@@ -5279,17 +7795,17 @@ function lyricVideo(vk2, o = {}) {
   const cutBefore = (t) => {
     const x = t + tol + lead;
     if (o.cut !== "beat") {
-      const b = G2.measure(Math.floor(G2.barIndex(x)));
+      const b = G3.measure(Math.floor(G3.barIndex(x)));
       if (b <= x) return b;
     }
-    return G2.at(Math.floor(G2.index(x)));
+    return G3.at(Math.floor(G3.index(x)));
   };
   const groups = [];
   lines.forEach((l) => {
     let c = cutBefore(l[3][0].t);
     const g2 = groups[groups.length - 1];
     if (g2 && c <= g2.cut + 1e-3) {
-      const cb = G2.at(Math.floor(G2.index(l[3][0].t + tol + lead)));
+      const cb = G3.at(Math.floor(G3.index(l[3][0].t + tol + lead)));
       if (cb > g2.cut + 0.3) c = cb;
       else {
         g2.lines.push(l);
@@ -5299,14 +7815,14 @@ function lyricVideo(vk2, o = {}) {
     groups.push({ cut: c, lines: [l] });
   });
   const lastEnd = Math.max(...lines.map((l) => l[3][l[3].length - 1].end || l[3][l[3].length - 1].t + 0.3));
-  const endLyrics = G2.measure(Math.ceil(G2.barIndex(lastEnd + 0.4 + lead)));
-  const total = o.end || Math.min(M ? M.duration : Infinity, endLyrics + (o.outro ? G2.meter * G2.beat * 2 : 0));
+  const endLyrics = G3.measure(Math.ceil(G3.barIndex(lastEnd + 0.4 + lead)));
+  const total = o.end || Math.min(M ? M.duration : Infinity, endLyrics + (o.outro ? G3.meter * G3.beat * 2 : 0));
   const sceneFor = (name, endAbs, opts, nodes) => vk2.scene(name, { ...opts, end: endAbs - lead }, nodes);
   const flashNode = (amt2) => vk2.el((ctx) => {
     const e = document.createElement("div");
     e.style.cssText = "position:absolute;inset:0;background:#fff;pointer-events:none;z-index:5;opacity:0";
     ctx.scene.on((l, p, t) => {
-      e.style.opacity = (amt2 * G2.pulse(t, 9)).toFixed(3);
+      e.style.opacity = (amt2 * G3.pulse(t, 9)).toFixed(3);
     });
     return e;
   }, { fixed: true });
@@ -5488,23 +8004,23 @@ function ensureCSS() {
   s2.textContent = css;
   document.head.appendChild(s2);
 }
-var px2 = (ctx, v, d) => ctx.px(v != null ? v : d) + "px";
+var px3 = (ctx, v, d) => ctx.px(v != null ? v : d) + "px";
 function vtitle(text3, o = {}) {
   return node({ fx: "ink", d: 1.4, pos: { x: 96, y: 58 }, ...o }, function vtitle_(ctx) {
     ensureCSS();
     const e = h("div", "vk-vt");
-    e.style.fontSize = px2(ctx, o.size, 118);
+    e.style.fontSize = px3(ctx, o.size, 118);
     h("div", "vk-vt-main", esc4(text3), e);
     if (o.sub) {
       const s2 = h("div", "vk-vt-sub", esc4(o.sub), e);
-      s2.style.fontSize = px2(ctx, o.subSize, 21);
-      s2.style.marginTop = px2(ctx, o.subTop, 18);
+      s2.style.fontSize = px3(ctx, o.subSize, 21);
+      s2.style.marginTop = px3(ctx, o.subTop, 18);
     }
     if (o.seal) {
       const s2 = h("div", "vk-seal", esc4(o.seal), e);
-      s2.style.fontSize = px2(ctx, o.sealSize, 20);
+      s2.style.fontSize = px3(ctx, o.sealSize, 20);
       s2.style.padding = `${ctx.px(8)}px ${ctx.px(6)}px`;
-      s2.style.marginTop = px2(ctx, o.sealTop, Math.round((o.size || 118) * [...text3].length * 0.62));
+      s2.style.marginTop = px3(ctx, o.sealTop, Math.round((o.size || 118) * [...text3].length * 0.62));
       const t = ctx.scene.time(o.sealAt != null ? o.sealAt : o.at || 0.3) + (o.sealAt != null ? 0 : 1.1);
       ctx.scene.fx(s2, "stamp", { t, d: 0.5 });
       ctx.extend(t + 0.5);
@@ -5517,7 +8033,7 @@ function chapter(text3, o = {}) {
   return node({ fx: "brush", d: 1.1, pos: { x: 84, y: 58 }, ...o }, function chapter_(ctx) {
     ensureCSS();
     const e = h("div", "vk-chap");
-    e.style.fontSize = px2(ctx, o.size, 42);
+    e.style.fontSize = px3(ctx, o.size, 42);
     e.innerHTML = (o.no ? `<span class="vk-chap-no">${esc4(o.no)}</span>` : "") + esc4(text3);
     return e;
   }, "brush");
@@ -5526,7 +8042,7 @@ function seal(text3, o = {}) {
   return node({ fx: "stamp", d: 0.5, ...o }, function seal_(ctx) {
     ensureCSS();
     const s2 = h("div", "vk-seal", esc4(text3));
-    s2.style.fontSize = px2(ctx, o.size, 22);
+    s2.style.fontSize = px3(ctx, o.size, 22);
     s2.style.padding = `${ctx.px(8)}px ${ctx.px(6)}px`;
     return s2;
   }, "stamp");
@@ -5537,19 +8053,19 @@ function endcard(o = {}) {
     const wrap = h("div");
     wrap.style.cssText = "position:absolute;inset:0;pointer-events:none";
     const e = h("div", "vk-vt", null, wrap);
-    e.style.fontSize = px2(ctx, o.size, 60);
-    e.style.cssText += `;position:absolute;left:${px2(ctx, o.x, 0)};top:0`;
+    e.style.fontSize = px3(ctx, o.size, 60);
+    e.style.cssText += `;position:absolute;left:${px3(ctx, o.x, 0)};top:0`;
     h("div", "vk-vt-main", esc4(o.big || "\u7EC8"), e);
     if (o.small) {
       const s2 = h("div", "vk-vt-sub", esc4(o.small), e);
-      s2.style.fontSize = px2(ctx, o.smallSize, 19);
-      s2.style.marginTop = px2(ctx, 12);
+      s2.style.fontSize = px3(ctx, o.smallSize, 19);
+      s2.style.marginTop = px3(ctx, 12);
     }
     if (o.seal) {
       const s2 = h("div", "vk-seal", esc4(o.seal), e);
-      s2.style.fontSize = px2(ctx, 18);
+      s2.style.fontSize = px3(ctx, 18);
       s2.style.padding = `${ctx.px(7)}px ${ctx.px(5)}px`;
-      s2.style.marginTop = px2(ctx, o.sealTop, 180);
+      s2.style.marginTop = px3(ctx, o.sealTop, 180);
     }
     return wrap;
   }, "ink");
@@ -5558,7 +8074,7 @@ function credits(lines, o = {}) {
   return node({ fx: "fade", d: 1, ...o }, function credits_(ctx) {
     ensureCSS();
     const e = h("div", "vk-credits", [].concat(lines).map(esc4).join("<br>"));
-    e.style.fontSize = px2(ctx, o.size, 15);
+    e.style.fontSize = px3(ctx, o.size, 15);
     return e;
   }, "fade");
 }
@@ -5566,242 +8082,17 @@ function esc4(s2) {
   return String(s2).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 }
 Object.assign(registry.blocks, { vtitle, chapter, seal, endcard, credits });
-var T3 = registry.transitions;
-T3.ink = (e, c) => {
+var T4 = registry.transitions;
+T4.ink = (e, c) => {
   const fx = c.o.x == null ? c.W * 0.5 : c.o.x <= 1 ? c.o.x * c.W : c.o.x, fy = c.o.y == null ? c.H * 0.5 : c.o.y <= 1 ? c.o.y * c.H : c.o.y;
   const R2 = Math.hypot(Math.max(fx, c.W - fx), Math.max(fy, c.H - fy)) * 1.35, r = e * R2, soft = R2 * 0.38;
   const m = `radial-gradient(ellipse ${(r * 1.12).toFixed(1)}px ${(r * 0.92).toFixed(1)}px at ${fx.toFixed(0)}px ${fy.toFixed(0)}px, #000 ${Math.max(0, r - soft).toFixed(1)}px, rgba(0,0,0,.55) ${Math.max(0, r - soft * 0.45).toFixed(1)}px, transparent ${r.toFixed(1)}px)`;
   return { in: { maskImage: m, webkitMaskImage: m, filter: `blur(${((1 - e) * 3).toFixed(2)}px)` }, out: { filter: `blur(${(e * 5).toFixed(2)}px)` } };
 };
-T3.wash = (e) => {
+T4.wash = (e) => {
   const b = (1 + e * 0.08).toFixed(3);
   return { in: { opacity: e, filter: `blur(${((1 - e) * 6).toFixed(2)}px)` }, out: { filter: `blur(${(e * 8).toFixed(2)}px)${b !== "1.000" ? ` brightness(${b})` : ""}` } };
 };
-
-// src/fx/rig.js
-var D2R = Math.PI / 180;
-var R2D = 180 / Math.PI;
-var f2 = (x) => Math.round(x * 100) / 100;
-var mat = {
-  id: () => [1, 0, 0, 1, 0, 0],
-  mul: (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]],
-  // = SVG `translate(x y) rotate(rot) scale(sx sy)`
-  trs: (x = 0, y = 0, rot = 0, sx = 1, sy = sx) => {
-    const c = Math.cos(rot * D2R), s2 = Math.sin(rot * D2R);
-    return [c * sx, s2 * sx, -s2 * sy, c * sy, x, y];
-  },
-  inv: (m) => {
-    const det = m[0] * m[3] - m[1] * m[2], a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
-    return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
-  },
-  apply: (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]
-};
-var rootMatrix = (r = {}) => {
-  const s2 = r.scale == null ? 1 : r.scale;
-  return mat.trs(r.x || 0, r.y || 0, r.rot || 0, s2 * (r.flip || 1), s2);
-};
-function solve2BoneIK(tx, ty, l1, l2, bend = 1) {
-  const d = Math.max(1e-6, Math.hypot(tx, ty));
-  const cd = clamp(d, Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
-  const base2 = Math.atan2(ty, tx);
-  const a = Math.acos(clamp((l1 * l1 + cd * cd - l2 * l2) / (2 * l1 * cd), -1, 1));
-  const sh = base2 - bend * a;
-  const ex = Math.cos(sh) * l1, ey = Math.sin(sh) * l1;
-  const fore = Math.atan2(Math.sin(base2) * cd - ey, Math.cos(base2) * cd - ex);
-  let el2 = (fore - sh) * R2D;
-  el2 = (el2 + 540) % 360 - 180;
-  return { a1: sh * R2D, a2: fore * R2D, elbow: el2, shoulder: sh * R2D, reach: d / (l1 + l2) };
-}
-function blink(t, o = {}) {
-  const per = o.period || 4.4, dur = o.dur || 0.24, ph = ((t + (o.offset || 0)) % per + per) % per;
-  if (ph < per - dur) return 0;
-  return o.smooth ? Math.sin((ph - (per - dur)) / dur * Math.PI) : 1;
-}
-function blendPose(a, b, w, defaults = {}) {
-  if (w <= 0) return { ...a };
-  if (w >= 1) return { ...b };
-  const out = {}, keys = /* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)]);
-  for (const k of keys) {
-    const va = k in a ? a[k] : k in defaults ? defaults[k] : b[k];
-    const vb = k in b ? b[k] : k in defaults ? defaults[k] : va;
-    out[k] = typeof va === "number" && typeof vb === "number" ? va + (vb - va) * w : w < 0.5 ? va : vb;
-  }
-  return out;
-}
-function valueAt(v, t) {
-  if (v == null) return v;
-  if (typeof v === "function") return v(t);
-  if (Array.isArray(v) && Array.isArray(v[0])) return kf(t, v);
-  return v;
-}
-function createRig(def) {
-  const bones = [], byId = {};
-  for (const b of def.bones) {
-    const bb = { parent: null, x: 0, y: 0, rot: 0, s: 1, ...b };
-    bones.push(bb);
-    byId[bb.id] = bb;
-  }
-  const order = [], seen = /* @__PURE__ */ new Set();
-  const visit = (b) => {
-    if (seen.has(b.id)) return;
-    if (b.parent && !byId[b.parent]) throw new Error("[vk.rig] unknown parent " + b.parent + " of " + b.id);
-    if (b.parent) visit(byId[b.parent]);
-    seen.add(b.id);
-    order.push(b);
-  };
-  bones.forEach(visit);
-  const clips = def.clips || {}, chains = def.ik || {};
-  const defaults = {};
-  for (const b of order) defaults[b.id] = 0;
-  for (const n of Object.keys(chains)) defaults[n + ".w"] = 0;
-  Object.assign(defaults, def.defaults || {});
-  const rootEl = def.root || null;
-  const find = def.el || ((id) => rootEl && rootEl.querySelector(`[data-bone="${id}"]`));
-  const els = {};
-  if (rootEl || def.el) for (const b of order) els[b.id] = b.el || find(b.id) || null;
-  const local = (id, pose = {}) => {
-    const b = byId[id];
-    return mat.trs(b.x + (pose[id + ".x"] || 0), b.y + (pose[id + ".y"] || 0), b.rot + (pose[id] || 0), b.s * (pose[id + ".s"] == null ? 1 : pose[id + ".s"]));
-  };
-  const base2 = (pose = {}, root = {}) => mat.mul(rootMatrix(root), mat.trs(pose["root.x"] || 0, pose["root.y"] || 0, pose["root.rot"] || 0));
-  function matrix(id, pose = {}, root = {}) {
-    const chain = [];
-    for (let b = byId[id]; b; b = b.parent ? byId[b.parent] : null) chain.unshift(b.id);
-    let m = base2(pose, root);
-    for (const c of chain) m = mat.mul(m, local(c, pose));
-    return m;
-  }
-  const point = (id, x = 0, y = 0, pose, root) => mat.apply(matrix(id, pose, root), x, y);
-  const toLocal = (p, root = {}) => mat.apply(mat.inv(rootMatrix(root)), p[0], p[1]);
-  function solveIK(name, target, pose = {}, root = {}, o = {}) {
-    const ch = chains[name] || name, [ia, ib, ic] = ch.chain, A = byId[ia], B4 = byId[ib], C2 = byId[ic];
-    const F2 = mat.mul(A.parent ? matrix(A.parent, pose, root) : base2(pose, root), mat.trs(A.x + (pose[ia + ".x"] || 0), A.y + (pose[ia + ".y"] || 0)));
-    const [tx, ty] = mat.apply(mat.inv(F2), target[0], target[1]);
-    const bx = B4.x + (pose[ib + ".x"] || 0), by = B4.y + (pose[ib + ".y"] || 0), cx = C2.x + (pose[ic + ".x"] || 0), cy = C2.y + (pose[ic + ".y"] || 0);
-    const l1 = Math.hypot(bx, by), l2 = Math.hypot(cx, cy), o1 = Math.atan2(by, bx) * R2D, o2 = Math.atan2(cy, cx) * R2D;
-    const s2 = solve2BoneIK(tx, ty, l1, l2, o.bend != null ? o.bend : ch.bend != null ? ch.bend : 1);
-    const ra = s2.a1 - o1, rb = s2.a2 - o2 - ra;
-    const w = o.weight == null ? 1 : o.weight, out = { ...pose };
-    const wrap = (x) => (x % 360 + 540) % 360 - 180;
-    const angA = ra - A.rot, angB = rb - B4.rot, fkA = pose[ia] || 0, fkB = pose[ib] || 0;
-    out[ia] = fkA + wrap(angA - fkA) * w;
-    out[ib] = fkB + wrap(angB - fkB) * w;
-    return out;
-  }
-  const clipPose = (item, t) => {
-    const c = typeof item.clip === "string" ? clips[item.clip] : item.clip;
-    if (!c) throw new Error("[vk.rig] unknown clip " + item.clip);
-    const ct = (item.local ? t - item.at : t) * (item.speed || 1) + (item.offset || 0);
-    const p = typeof c === "function" ? c(ct, item) : { ...c };
-    for (const n of Object.keys(chains)) if (n + ".tx" in p && !(n + ".w" in p)) p[n + ".w"] = 1;
-    return item.pose ? { ...p, ...item.pose } : p;
-  };
-  function sample2(track, t, n = null) {
-    const k = n == null ? track.length : n;
-    let i = -1;
-    for (let j = 0; j < k; j++) if (t >= track[j].at) i = j;
-    if (i < 0) i = 0;
-    const cur = clipPose(track[i], t), bl = track[i].blend == null ? 0.3 : track[i].blend;
-    if (i === 0 || bl <= 0 || t >= track[i].at + bl) return cur;
-    const w = smooth01((t - track[i].at) / bl);
-    return blendPose(sample2(track, t, i), cur, w, defaults);
-  }
-  function resolve(pose, t, root, opts = {}) {
-    let p = pose;
-    for (const name of Object.keys(chains)) {
-      const wt = opts.ik ? valueAt(opts.ik[name], t) : null;
-      const mix3 = opts.ikMix && opts.ikMix[name] != null ? clamp(valueAt(opts.ikMix[name], t), 0, 1) : 1;
-      let target = null;
-      const own = name + ".tx" in p ? mat.apply(base2(p, root), p[name + ".tx"], p[name + ".ty"]) : null;
-      if (wt && own) target = [own[0] + (wt[0] - own[0]) * mix3, own[1] + (wt[1] - own[1]) * mix3];
-      else if (wt) target = wt;
-      else target = own;
-      const weight = opts.ikWeight && opts.ikWeight[name] != null ? clamp(valueAt(opts.ikWeight[name], t), 0, 1) : wt && !own ? 1 : name + ".w" in p ? clamp(p[name + ".w"], 0, 1) : own ? 1 : 0;
-      if (target && weight > 0) p = solveIK(name, target, p, root, { weight, bend: opts.bend && opts.bend[name] });
-    }
-    return p;
-  }
-  function apply(pose = {}, root = {}) {
-    if (rootEl) {
-      const s2 = root.scale == null ? 1 : root.scale;
-      rootEl.setAttribute("transform", `translate(${f2(root.x || 0)} ${f2(root.y || 0)}) rotate(${f2(root.rot || 0)}) scale(${f2(s2 * (root.flip || 1))} ${f2(s2)}) translate(${f2(pose["root.x"] || 0)} ${f2(pose["root.y"] || 0)}) rotate(${f2(pose["root.rot"] || 0)})`);
-    }
-    for (const b of order) {
-      const e = els[b.id];
-      if (!e) continue;
-      const sc = b.s * (pose[b.id + ".s"] == null ? 1 : pose[b.id + ".s"]);
-      e.setAttribute("transform", `translate(${f2(b.x + (pose[b.id + ".x"] || 0))} ${f2(b.y + (pose[b.id + ".y"] || 0))}) rotate(${f2(b.rot + (pose[b.id] || 0))})${sc !== 1 ? ` scale(${f2(sc)})` : ""}`);
-    }
-    if (debugEl) drawDebug(pose);
-  }
-  let debugEl = null;
-  function debug(on = true) {
-    if (!rootEl) return;
-    if (on && !debugEl) {
-      debugEl = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      debugEl.setAttribute("class", "vk-rig-debug");
-      debugEl.setAttribute("pointer-events", "none");
-      rootEl.appendChild(debugEl);
-    }
-    if (!on && debugEl) {
-      debugEl.remove();
-      debugEl = null;
-    }
-  }
-  function drawDebug(pose) {
-    const P2 = (id) => point(id, 0, 0, { ...pose, "root.x": 0, "root.y": 0, "root.rot": 0 }, {});
-    let s2 = "";
-    for (const b of order) {
-      const q = P2(b.id);
-      if (b.parent) {
-        const p = P2(b.parent);
-        s2 += `<line x1="${f2(p[0])}" y1="${f2(p[1])}" x2="${f2(q[0])}" y2="${f2(q[1])}" stroke="#6b58d1" stroke-width="3.5" stroke-linecap="round" opacity=".92"/>`;
-      }
-      s2 += `<circle cx="${f2(q[0])}" cy="${f2(q[1])}" r="5" fill="#fff" stroke="#6b58d1" stroke-width="3"/>`;
-    }
-    debugEl.innerHTML = s2;
-  }
-  const rig = {
-    def,
-    bones: order,
-    byId,
-    clips,
-    chains,
-    els,
-    local,
-    matrix,
-    point,
-    toLocal,
-    solveIK,
-    sample: sample2,
-    resolve,
-    apply,
-    debug,
-    clip: (name, t) => clipPose({ clip: name, at: 0 }, t),
-    blend: (a, b, w) => blendPose(a, b, w, defaults),
-    // timeline player: pose(t, root) → final pose; render(t, root, extra) → apply (extra(pose, t) may post-edit)
-    play(track, opts = {}) {
-      const tr = [...track].sort((a, b) => a.at - b.at);
-      const player = {
-        track: tr,
-        opts,
-        clipPose: (t) => sample2(tr, t),
-        pose(t, root = {}, edit) {
-          let p = sample2(tr, t);
-          if (edit) p = edit(p, t) || p;
-          return resolve(p, t, root, opts);
-        },
-        render(t, root = {}, edit) {
-          const p = player.pose(t, root, edit);
-          apply(p, root);
-          return p;
-        }
-      };
-      return player;
-    }
-  };
-  return rig;
-}
 
 // src/fx/gl/glsl.js
 var PRELUDE = `precision highp float;
@@ -5852,7 +8143,7 @@ function getCore(video) {
   }
   return c;
 }
-var warned = false;
+var warned2 = false;
 var GLCore = class {
   constructor(video) {
     this.video = video;
@@ -5866,8 +8157,8 @@ var GLCore = class {
     const gl2 = this.gl = c.getContext("webgl", attrs) || c.getContext("experimental-webgl", attrs);
     this.ok = !!gl2;
     if (!gl2) {
-      if (!warned) console.warn("[vk] WebGL unavailable: vk.gl layers render nothing (vk render --gpu soft|swiftshader keeps WebGL on)");
-      warned = true;
+      if (!warned2) console.warn("[vk] WebGL unavailable: vk.gl layers render nothing (vk render --gpu soft|swiftshader keeps WebGL on)");
+      warned2 = true;
       return;
     }
     this.progs = /* @__PURE__ */ new Map();
@@ -6211,102 +8502,6 @@ void main(){
   gl_FragColor = vec4(col, clamp(max(max(col.r, col.g), col.b), 0., 1.));
 }`;
 
-// src/fx/gl/math.js
-var clamp012 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
-var sm2 = (x) => {
-  x = clamp012(x);
-  return x * x * (3 - 2 * x);
-};
-function stepT(t, fps = 12) {
-  return fps > 0 ? Math.floor(t * fps + 1e-6) / fps : t;
-}
-function boilFrame(t, fps = 12, frames = 0) {
-  const f = Math.floor(t * fps + 1e-6);
-  return frames > 0 ? (f % frames + frames) % frames : f;
-}
-function rgb(c) {
-  if (Array.isArray(c)) return c.some((v) => v > 1) ? c.slice(0, 3).map((v) => v / 255) : c.slice(0, 3);
-  const s2 = String(c || "#000").trim();
-  let m = /^#([0-9a-f]{3})$/i.exec(s2);
-  if (m) return [...m[1]].map((ch) => parseInt(ch + ch, 16) / 255);
-  m = /^#([0-9a-f]{6})/i.exec(s2);
-  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
-  m = /rgba?\(([^)]+)\)/i.exec(s2);
-  if (m) return m[1].split(/[ ,/]+/).slice(0, 3).map((v) => +v / 255);
-  return [0, 0, 0];
-}
-function bleedCurve(local, o = {}) {
-  const at = o.at || 0, draw2 = o.draw != null ? o.draw : 0.8, dur = o.dur != null ? o.dur : 2.5;
-  const x = local - at;
-  const d = draw2 > 0 ? clamp012(x / draw2) : x >= 0 ? 1 : 0;
-  const w = dur > 0 ? clamp012((x - draw2 * 0.35) / dur) : x >= draw2 * 0.35 ? 1 : 0;
-  const wet = Math.sqrt(w);
-  const fade = o.fade ? 1 - sm2((local - o.fade[0]) / Math.max(1e-6, o.fade[1] - o.fade[0])) : 1;
-  return {
-    on: x >= 0 && fade > 0,
-    draw: d,
-    wet,
-    alpha: (x >= 0 ? sm2(d * 2.2) : 0) * fade,
-    core: 0.98 - 0.48 * sm2(d),
-    // core threshold .98 → .5 (skeleton → exact shape)
-    halo: 1 - (1 - (o.haloEnd != null ? o.haloEnd : 0.12)) * wet,
-    // halo threshold 1 → .12 (front moves out)
-    done: x >= Math.max(draw2, draw2 * 0.35 + dur) && (!o.fade || local < o.fade[0])
-  };
-}
-function levelSigma(i) {
-  let s2 = 0;
-  for (let k = 1; k <= i; k++) s2 += 4 ** k;
-  return Math.sqrt(s2 + (i ? 0 : 0.25));
-}
-function levelFor(sigma, maxLevel = 6) {
-  if (sigma <= levelSigma(1)) return clamp012((sigma - 0.5) / (levelSigma(1) - 0.5));
-  for (let i = 1; i < maxLevel; i++) {
-    const a = levelSigma(i), b = levelSigma(i + 1);
-    if (sigma <= b) return i + (sigma - a) / (b - a);
-  }
-  return maxLevel;
-}
-function haloSigma(spread, th = 0.12) {
-  return spread / Math.max(0.2, probit(1 - th));
-}
-function probit(p) {
-  p = Math.min(1 - 1e-12, Math.max(1e-12, p));
-  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
-  const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
-  const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
-  const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
-  const q0 = Math.min(p, 1 - p);
-  if (q0 < 0.02425) {
-    const q2 = Math.sqrt(-2 * Math.log(q0)), x = (((((c[0] * q2 + c[1]) * q2 + c[2]) * q2 + c[3]) * q2 + c[4]) * q2 + c[5]) / ((((d[0] * q2 + d[1]) * q2 + d[2]) * q2 + d[3]) * q2 + 1);
-    return p < 0.5 ? x : -x;
-  }
-  const q = p - 0.5, r = q * q;
-  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
-}
-function jitterPath(d, t, o = {}) {
-  const amp = o.amp != null ? o.amp : 1.5, fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm22 = o.smooth || 3;
-  if (!amp) return d;
-  let k = 0;
-  const f = (x) => Math.round(x * 100) / 100;
-  return String(d).replace(/([MLCQSTmlcqst])([^MLCQSTAHVZmlcqstahvz]*)/g, (all, cmd, args) => {
-    const nums = args.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
-    if (!nums || nums.length < 2) return all;
-    const rel = cmd === cmd.toLowerCase();
-    const out = [];
-    for (let i = 0; i + 1 < nums.length; i += 2) {
-      const u = k++ / sm22;
-      const dx = rel ? 0 : (noise1(u + seed) - 0.5) * 2 * amp, dy = rel ? 0 : (noise1(u + seed + 91.7) - 0.5) * 2 * amp;
-      out.push(f(+nums[i] + dx) + "," + f(+nums[i + 1] + dy));
-    }
-    return cmd + out.join(" ") + " ";
-  }).trim();
-}
-function jitterPoints(pts, t, o = {}) {
-  const amp = o.amp != null ? o.amp : 1.5, fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm22 = o.smooth || 3;
-  return pts.map((p, i) => [p[0] + (noise1(i / sm22 + seed) - 0.5) * 2 * amp, p[1] + (noise1(i / sm22 + seed + 91.7) - 0.5) * 2 * amp]);
-}
-
 // src/fx/gl/particles.js
 var D2R2 = Math.PI / 180;
 var isR = (v) => Array.isArray(v) && v.length === 2 && typeof v[0] === "number";
@@ -6356,11 +8551,11 @@ function particles(opts = {}) {
     const sp = pick(src.speed || o.speed, i, 4, 100);
     return { t0, x, y, vx: Math.cos(ang) * sp + (o.wind || 0), vy: Math.sin(ang) * sp };
   }
-  const G2 = o.gravity || 0, GX = o.gravityX || 0, K = o.drag || 0;
+  const G3 = o.gravity || 0, GX = o.gravityX || 0, K = o.drag || 0;
   function pos(s2, a) {
-    if (K < 1e-6) return [s2.x + s2.vx * a + 0.5 * GX * a * a, s2.y + s2.vy * a + 0.5 * G2 * a * a];
+    if (K < 1e-6) return [s2.x + s2.vx * a + 0.5 * GX * a * a, s2.y + s2.vy * a + 0.5 * G3 * a * a];
     const e = (1 - Math.exp(-K * a)) / K;
-    return [s2.x + (s2.vx - GX / K) * e + GX / K * a, s2.y + (s2.vy - G2 / K) * e + G2 / K * a];
+    return [s2.x + (s2.vx - GX / K) * e + GX / K * a, s2.y + (s2.vy - G3 / K) * e + G3 / K * a];
   }
   function landing(s2, life, i) {
     if (o.landAt != null) return Math.min(life, pick(o.landAt, i, 12, life));
@@ -6727,21 +8922,21 @@ function paintOf(g2, el2, v, alpha) {
     return s2.endsWith("%") ? parseFloat(s2) / 100 : parseFloat(s2);
   };
   const X2 = (u) => user ? u : bb.x + u * bb.width, Y = (u) => user ? u : bb.y + u * bb.height;
-  let G2;
+  let G3;
   if (gr.tagName === "radialGradient") {
     const cx = P2("cx", 0.5), cy = P2("cy", 0.5), r = P2("r", 0.5);
-    if (user) G2 = g2.createRadialGradient(P2("fx", cx), P2("fy", cy), 0, cx, cy, r);
+    if (user) G3 = g2.createRadialGradient(P2("fx", cx), P2("fy", cy), 0, cx, cy, r);
     else {
-      G2 = g2.createRadialGradient(P2("fx", cx), P2("fy", cy), 0, cx, cy, r);
-      G2.bb = [bb.x, bb.y, Math.max(1e-6, bb.width), Math.max(1e-6, bb.height)];
+      G3 = g2.createRadialGradient(P2("fx", cx), P2("fy", cy), 0, cx, cy, r);
+      G3.bb = [bb.x, bb.y, Math.max(1e-6, bb.width), Math.max(1e-6, bb.height)];
     }
-  } else G2 = g2.createLinearGradient(X2(P2("x1", 0)), Y(P2("y1", 0)), X2(P2("x2", 1)), Y(P2("y2", 0)));
+  } else G3 = g2.createLinearGradient(X2(P2("x1", 0)), Y(P2("y1", 0)), X2(P2("x2", 1)), Y(P2("y2", 0)));
   for (const s2 of stops) {
     const cs = getComputedStyle(s2), off = s2.getAttribute("offset") || "0", o = Math.min(1, Math.max(0, off.endsWith("%") ? parseFloat(off) / 100 : parseFloat(off)));
     const c = rgb(cs.stopColor || s2.getAttribute("stop-color") || "#000"), so = +(cs.stopOpacity || 1);
-    G2.addColorStop(o, `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${so})`);
+    G3.addColorStop(o, `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${so})`);
   }
-  return G2;
+  return G3;
 }
 function paint(g2, el2, cs, a, isUse) {
   const tag = el2.tagName;
@@ -6847,8 +9042,8 @@ function paper(o = {}) {
 }
 function inkBleed(o = {}) {
   let st, lv;
-  const dirs = { down: [0, 1], up: [0, -1], right: [1, 0], left: [-1, 0] };
-  const wipe = o.wipe ? { dir: Array.isArray(o.wipe.dir) ? o.wipe.dir : dirs[o.wipe.dir || "down"], dur: o.wipe.dur != null ? o.wipe.dur : 1 } : null;
+  const dirs2 = { down: [0, 1], up: [0, -1], right: [1, 0], left: [-1, 0] };
+  const wipe = o.wipe ? { dir: Array.isArray(o.wipe.dir) ? o.wipe.dir : dirs2[o.wipe.dir || "down"], dur: o.wipe.dur != null ? o.wipe.dur : 1 } : null;
   const curve = (local) => bleedCurve(local - (wipe ? wipe.dur : 0), o);
   return {
     name: "inkBleed",
@@ -7134,1416 +9329,6 @@ var gl = {
   COPY
 };
 
-// src/fx/motion.js
-var TAU3 = Math.PI * 2;
-var frac2 = (x) => x - Math.floor(x);
-function gait(o = {}) {
-  const S2 = o.stride || 120, duty = o.duty != null ? o.duty : 0.62, lift = o.lift != null ? o.lift : S2 * 0.14;
-  const hip = o.hip || 190, leg = o.leg || hip * 1.04, offs = o.offsets || [0, 0.5], ahead = o.ahead != null ? o.ahead : 0.5;
-  const flight = o.flight != null ? o.flight : duty < 0.5 ? S2 * 0.08 : 0, toe = o.toe != null ? o.toe : 18;
-  function foot(d, phi) {
-    const c = d / S2 + phi, k = Math.floor(c), u = c - k;
-    const land = (j) => (j - phi) * S2 + S2 * duty * ahead;
-    if (u < duty) return { x: land(k), y: 0, contact: true, u, angle: 0 };
-    const v = (u - duty) / (1 - duty), e = (1 - Math.cos(Math.PI * v)) / 2;
-    return { x: land(k) + S2 * e, y: lift * Math.pow(Math.sin(Math.PI * v), 0.9) * (1 + 0.25 * Math.sin(Math.PI * v) * (1 - v)), contact: false, u, angle: toe * Math.sin(Math.PI * v) * (v < 0.6 ? 1 : (1 - v) / 0.4) };
-  }
-  function at(d) {
-    d = Math.max(0, d);
-    const feet = offs.map((p) => foot(d, p));
-    let h3 = hip, planted = 0;
-    for (const f of feet) if (f.contact) {
-      planted++;
-      const dx = f.x - d;
-      const reach = Math.sqrt(Math.max(0, leg * leg - dx * dx));
-      h3 = Math.min(h3, reach);
-    }
-    if (!planted && flight) {
-      const ups = offs.map((p) => {
-        const u = frac2(d / S2 + p);
-        return u >= duty ? (u - duty) / (1 - duty) : null;
-      }).filter((x) => x != null);
-      const v = Math.min(...ups.map((x) => Math.min(x, 1 - x))) * 2;
-      h3 = hip + flight * Math.sin(Math.PI * clamp(v, 0, 1) / 2);
-    }
-    return { feet, hipX: d, hipY: h3, phase: frac2(d / S2) };
-  }
-  function rest(d) {
-    for (let i = 0; i < 400; i++) {
-      const x = d + i * S2 / 400;
-      if (offs.every((p) => frac2(x / S2 + p) < duty - 0.02 && frac2(x / S2 + p) > 0.02)) return x;
-    }
-    return d;
-  }
-  return { at, foot, rest, stride: S2, duty, o: { ...o, stride: S2, duty, lift, hip, leg, offsets: offs } };
-}
-function cycle(t, o = {}) {
-  const g2 = o.gait || gait(o), per = o.period || 1.1;
-  return g2.at(Math.max(0, t) * g2.stride / per);
-}
-function travel(t, keys, ease2 = smooth01) {
-  if (t <= keys[0][0]) return 0;
-  let d = 0;
-  for (let i = 1; i < keys.length; i++) {
-    const [t0, x0] = keys[i - 1], [t1, x1] = keys[i];
-    if (t >= t1) {
-      d += Math.abs(x1 - x0);
-      continue;
-    }
-    return d + Math.abs(x1 - x0) * ease2((t - t0) / (t1 - t0 || 1));
-  }
-  return d;
-}
-var VISEMES = ["M", "A", "E", "O"];
-function mouth(seg2, lt, o = {}) {
-  const closed = { open: 0, shape: "M", i: 0 };
-  if (!seg2) return closed;
-  const fps = o.fps != null ? o.fps : 12, tq = fps ? Math.floor(lt * fps + 1e-6) / fps : lt, u = tq - seg2.at;
-  if (u < -0.05 || seg2.end != null && tq > seg2.end + 0.1) return closed;
-  const env2 = seg2.env || seg2.entry && seg2.entry.env;
-  if (env2 && env2.rms && env2.rms.length) {
-    const fi = u * env2.rate, i0 = Math.floor(fi), w = fi - i0, g2 = (j) => env2.rms[Math.max(0, Math.min(env2.rms.length - 1, j))] || 0;
-    if (fi < 0 || i0 >= env2.rms.length) return closed;
-    const r = (g2(i0) * (1 - w) + g2(i0 + 1) * w) * (o.gain || 1);
-    const open = smooth01((r - (o.threshold != null ? o.threshold : 0.08)) / 0.5);
-    if (open < 0.12) return { open, shape: "M", i: 0 };
-    const c = env2.cen ? env2.cen[Math.max(0, Math.min(env2.cen.length - 1, i0))] || 0.5 : 0.5;
-    const shape = c < 0.2 ? "O" : c > 0.6 && open < 0.75 ? "E" : "A";
-    return { open, shape, i: VISEMES.indexOf(shape) };
-  }
-  const W = seg2.words || [];
-  for (let j = 0; j < W.length; j++) {
-    const a = W[j].t, b = W[j].end != null ? W[j].end : a + 0.2;
-    if (u >= a && u < b) {
-      const v = (u - a) / Math.max(0.05, b - a), open = Math.pow(Math.sin(Math.PI * clamp(v, 0, 1)), 0.55);
-      if (open < 0.15) return { open, shape: "M", i: 0 };
-      const ch = String(W[j].w || "").codePointAt(0) || j, pick = Math.floor(hash(ch * 0.713 + 3.1) * 3) + 1;
-      return { open, shape: VISEMES[pick], i: pick };
-    }
-  }
-  if (!W.length && seg2.dur) {
-    const open = Math.abs(Math.sin(u * Math.PI * 4));
-    return open < 0.2 ? { open, shape: "M", i: 0 } : { open, shape: "A", i: 1 };
-  }
-  return closed;
-}
-function boilPoints(pts, t, o = {}) {
-  const amp = o.amp != null ? o.amp : 1.2;
-  if (!amp) return pts;
-  const fr = boilFrame(t, o.fps || 12, o.frames || 0), seed = (o.seed || 0) * 13.37 + fr * 71.3, sm5 = o.smooth || 3;
-  return pts.map((p, i) => [p[0] + (noise1(i / sm5 + seed) - 0.5) * 2 * amp, p[1] + (noise1(i / sm5 + seed + 91.7) - 0.5) * 2 * amp]);
-}
-function follow(f, t, lag = 0.12, spread = null, n = 6) {
-  const sp = spread == null ? lag : spread;
-  if (!(sp > 0)) return f(t - lag);
-  let acc = null;
-  for (let i = 0; i < n; i++) {
-    const v = f(t - lag - sp * i / (n - 1));
-    if (acc == null) acc = Array.isArray(v) ? v.map(() => 0) : 0;
-    if (Array.isArray(v)) v.forEach((x, j) => {
-      acc[j] += x / n;
-    });
-    else acc += v / n;
-  }
-  return acc;
-}
-function spring2(f, t, o = {}) {
-  const w = TAU3 * (o.freq || 2.2), z = o.damping != null ? o.damping : 0.35, win2 = o.window || 1.6, dt = o.dt || 1 / 120;
-  const n = Math.ceil(win2 / dt), t0 = t - n * dt, first = f(t0), arr = Array.isArray(first);
-  let x = arr ? first.slice() : [first], v = x.map(() => 0);
-  for (let i = 1; i <= n; i++) {
-    const tt = t0 + i * dt, g2 = f(tt), gv = arr ? g2 : [g2];
-    for (let j = 0; j < x.length; j++) {
-      v[j] += (w * w * (gv[j] - x[j]) - 2 * z * w * v[j]) * dt;
-      x[j] += v[j] * dt;
-    }
-  }
-  return arr ? x : x[0];
-}
-function drag(f, t, o = {}) {
-  const h3 = o.h || 1 / 30, gain = o.gain != null ? o.gain : 0.06, max = o.max || 40;
-  const vel = (u) => (f(u + h3 / 2) - f(u - h3 / 2)) / h3;
-  const v = o.spring === false ? follow(vel, t, o.lag || 0.06) : spring2(vel, t, { freq: o.freq || 2.4, damping: o.damping || 0.45, window: o.window || 1.2, dt: o.dt || 1 / 90 });
-  return clamp(-gain * v, -max, max);
-}
-function ribbon(anchor, t, o = {}) {
-  const n = o.n || 8, len2 = o.len || 16, lag = o.lag != null ? o.lag : 0.045, hang = o.hang || [0, 1], sag = o.sag != null ? o.sag : 1;
-  const fl = o.flutter != null ? o.flutter : 4, fq = o.freq || 1.6, wave = o.wave != null ? o.wave : 0.8, wind = o.wind || [0, 0], seed = o.seed || 0;
-  const raw = [];
-  for (let i = 0; i <= n; i++) {
-    const a = anchor(t - i * lag);
-    raw.push([a[0] + (hang[0] * sag * len2 + wind[0]) * i, a[1] + (hang[1] * sag * len2 + wind[1]) * i]);
-  }
-  const pts = [raw[0].slice()];
-  for (let i = 1; i <= n; i++) {
-    const p = pts[i - 1], q = raw[i];
-    let dx = q[0] - p[0], dy = q[1] - p[1];
-    const l = Math.hypot(dx, dy) || 1;
-    dx /= l;
-    dy /= l;
-    const k = fl * (i / n) * Math.sin(TAU3 * fq * t - wave * i + seed) + fl * 0.4 * (i / n) * (noise1(t * fq * 0.7 + i * 0.37 + seed * 3.1) - 0.5);
-    pts.push([p[0] + dx * len2 - dy * k * 0.35, p[1] + dy * len2 + dx * k * 0.35]);
-  }
-  return pts;
-}
-function ribbonPath(pts, w0 = 10, w1 = 3, o = {}) {
-  const n = pts.length;
-  if (n < 2) return "";
-  const L = [], R2 = [], f = (x) => Math.round(x * 10) / 10;
-  for (let i = 0; i < n; i++) {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
-    const u = i / (n - 1), w = (w0 + (w1 - w0) * u) / 2 * (o.twist ? 0.55 + 0.45 * Math.abs(Math.cos(u * Math.PI * o.twist + (o.phase || 0))) : 1);
-    L.push([pts[i][0] - dy / l * w, pts[i][1] + dx / l * w]);
-    R2.push([pts[i][0] + dy / l * w, pts[i][1] - dx / l * w]);
-  }
-  return "M" + L.concat(R2.reverse()).map((p) => f(p[0]) + " " + f(p[1])).join(" L") + " Z";
-}
-var motion = { gait, cycle, travel, mouth, VISEMES, boilPoints, follow, spring: spring2, drag, ribbon, ribbonPath };
-
-// src/styles/geom.js
-var geom_exports = {};
-__export(geom_exports, {
-  arc: () => arc,
-  area: () => area,
-  bbox: () => bbox,
-  blob: () => blob,
-  capsule: () => capsule,
-  cloudScroll: () => cloudScroll,
-  ellipse: () => ellipse,
-  grass: () => grass,
-  hills: () => hills,
-  house: () => house,
-  peaks: () => peaks,
-  perimeter: () => perimeter,
-  polyD: () => polyD,
-  r1: () => r1,
-  rect: () => rect,
-  resample: () => resample2,
-  rnd: () => rnd,
-  rotate: () => rotate,
-  scale: () => scale,
-  smoothD: () => smoothD,
-  spiral: () => spiral,
-  star: () => star,
-  strokeOutline: () => strokeOutline,
-  translate: () => translate,
-  tree: () => tree,
-  waves: () => waves,
-  wobble: () => wobble
-});
-var TAU4 = Math.PI * 2;
-var r1 = (x) => Math.round(x * 10) / 10;
-var rnd = (seed, i) => hash(seed * 7.31 + i * 1.618 + 0.5);
-function ellipse(cx, cy, rx, ry = rx, rot = 0, n = 28) {
-  const c = Math.cos(rot * Math.PI / 180), s2 = Math.sin(rot * Math.PI / 180), out = [];
-  for (let i = 0; i < n; i++) {
-    const a = i / n * TAU4, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
-    out.push([cx + x * c - y * s2, cy + x * s2 + y * c]);
-  }
-  return out;
-}
-function capsule(x0, y0, r0, x1, y1, r1_, n = 10) {
-  const a = Math.atan2(y1 - y0, x1 - x0), out = [];
-  for (let i = 0; i <= n; i++) {
-    const t = a + Math.PI / 2 + i / n * Math.PI;
-    out.push([x0 + Math.cos(t) * r0, y0 + Math.sin(t) * r0]);
-  }
-  for (let i = 0; i <= n; i++) {
-    const t = a - Math.PI / 2 + i / n * Math.PI;
-    out.push([x1 + Math.cos(t) * r1_, y1 + Math.sin(t) * r1_]);
-  }
-  return out;
-}
-function blob(cx, cy, rx, ry = rx, seed = 1, k = 0.18, n = 30) {
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const a = i / n * TAU4, r = 1 + k * (noise1(seed * 9.1 + Math.cos(a) * 1.3 + 4) - 0.5) * 2 + k * 0.5 * (noise1(seed * 3.3 + Math.sin(a) * 2.1) - 0.5);
-    out.push([cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r]);
-  }
-  return out;
-}
-var rect = (x, y, w, h3) => [[x, y], [x + w, y], [x + w, y + h3], [x, y + h3]];
-function star(cx, cy, r0, r1_, n = 5, rot = -90) {
-  const out = [];
-  for (let i = 0; i < n * 2; i++) {
-    const a = (rot + i * 180 / n) * Math.PI / 180, r = i % 2 ? r1_ : r0;
-    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-  }
-  return out;
-}
-var translate = (pts, dx, dy) => pts.map((p) => [p[0] + dx, p[1] + dy]);
-var scale = (pts, sx, sy = sx, cx = 0, cy = 0) => pts.map((p) => [cx + (p[0] - cx) * sx, cy + (p[1] - cy) * sy]);
-function rotate(pts, deg, cx = 0, cy = 0) {
-  const c = Math.cos(deg * Math.PI / 180), s2 = Math.sin(deg * Math.PI / 180);
-  return pts.map((p) => [cx + (p[0] - cx) * c - (p[1] - cy) * s2, cy + (p[0] - cx) * s2 + (p[1] - cy) * c]);
-}
-function bbox(pts) {
-  let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
-  for (const p of pts) {
-    a = Math.min(a, p[0]);
-    b = Math.min(b, p[1]);
-    c = Math.max(c, p[0]);
-    d = Math.max(d, p[1]);
-  }
-  return [a, b, c, d];
-}
-function area(pts) {
-  let s2 = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i], q = pts[(i + 1) % pts.length];
-    s2 += p[0] * q[1] - q[0] * p[1];
-  }
-  return s2 / 2;
-}
-function perimeter(pts, closed = true) {
-  let L = 0;
-  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
-    const p = pts[i], q = pts[(i + 1) % pts.length];
-    L += Math.hypot(q[0] - p[0], q[1] - p[1]);
-  }
-  return L;
-}
-function resample2(pts, step = 6, closed = true) {
-  const L = perimeter(pts, closed), n = Math.max(closed ? 6 : 2, Math.round(L / step)), out = [];
-  const segs = [];
-  let acc = 0;
-  for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) {
-    const p = pts[i], q = pts[(i + 1) % pts.length], l = Math.hypot(q[0] - p[0], q[1] - p[1]);
-    segs.push([p, q, acc, l]);
-    acc += l;
-  }
-  for (let k = 0; k < (closed ? n : n + 1); k++) {
-    const d = L * k / n;
-    let s2 = segs[segs.length - 1];
-    for (const g2 of segs) if (d <= g2[2] + g2[3]) {
-      s2 = g2;
-      break;
-    }
-    const u = s2[3] ? (d - s2[2]) / s2[3] : 0;
-    out.push([s2[0][0] + (s2[1][0] - s2[0][0]) * u, s2[0][1] + (s2[1][1] - s2[0][1]) * u]);
-  }
-  return out;
-}
-function wobble(pts, o = {}) {
-  const amp = o.amp != null ? o.amp : 0.9, step = o.step || 5, seed = o.seed || 1, closed = o.closed !== false;
-  const q = resample2(pts, step, closed), m = q.length;
-  return q.map((p, i) => {
-    if (!closed && (i === 0 || i === m - 1)) return p;
-    const a = q[(i - 1 + m) % m], b = q[(i + 1) % m], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
-    const nick = rnd(seed * 3.1, i * 1.93) > 0.94 ? 1.9 : 1, k = amp * (rnd(seed * 13.7, i * 0.731) - 0.5) * 2 * nick;
-    return [p[0] - dy / l * k, p[1] + dx / l * k];
-  });
-}
-var polyD = (pts, closed = true) => pts.length ? "M" + pts.map((p) => r1(p[0]) + " " + r1(p[1])).join(" L") + (closed ? " Z" : "") : "";
-function smoothD(pts, closed = true, k = 1) {
-  const n = pts.length;
-  if (n < 3) return polyD(pts, closed);
-  const P2 = (i) => closed ? pts[(i + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
-  let d = `M${r1(pts[0][0])} ${r1(pts[0][1])}`;
-  for (let i = 0; i < (closed ? n : n - 1); i++) {
-    const p0 = P2(i - 1), p1 = P2(i), p2 = P2(i + 1), p3 = P2(i + 2);
-    d += ` C${r1(p1[0] + (p2[0] - p0[0]) / 6 * k)} ${r1(p1[1] + (p2[1] - p0[1]) / 6 * k)} ${r1(p2[0] - (p3[0] - p1[0]) / 6 * k)} ${r1(p2[1] - (p3[1] - p1[1]) / 6 * k)} ${r1(p2[0])} ${r1(p2[1])}`;
-  }
-  return d + (closed ? " Z" : "");
-}
-function strokeOutline(pts, w = 4, taper = true) {
-  const n = pts.length, L = [], R2 = [];
-  for (let i = 0; i < n; i++) {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
-    const u = n > 1 ? i / (n - 1) : 0.5, ww = (typeof w === "function" ? w(u) : w) / 2 * (taper ? Math.pow(Math.sin(Math.PI * Math.min(1, 0.06 + u * 0.9)), 0.7) : 1);
-    L.push([pts[i][0] - dy / l * ww, pts[i][1] + dx / l * ww]);
-    R2.push([pts[i][0] + dy / l * ww, pts[i][1] - dx / l * ww]);
-  }
-  return L.concat(R2.reverse());
-}
-function arc(a, b, bend = 0, n = 8) {
-  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, cx = mx - dy / l * bend, cy = my + dx / l * bend, out = [];
-  for (let i = 0; i <= n; i++) {
-    const u = i / n, v = 1 - u;
-    out.push([v * v * a[0] + 2 * u * v * cx + u * u * b[0], v * v * a[1] + 2 * u * v * cy + u * u * b[1]]);
-  }
-  return out;
-}
-function spiral(cx, cy, r0, turns = 1.5, grow = 0.5, rot = 0, dir = 1, n = 40) {
-  const out = [];
-  for (let i = 0; i <= n; i++) {
-    const u = i / n, a = rot + dir * u * turns * TAU4, r = r0 * (1 - grow * u);
-    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-  }
-  return out;
-}
-function hills(x0, x1, top, amp, seed = 1, o = {}) {
-  const step = o.step || 16, freq = o.freq || 6e-3, base2 = o.base != null ? o.base : 760, out = [[x0, base2]];
-  for (let x = x0; x <= x1 + 0.1; x += step) {
-    const n = noise1(x * freq + seed * 17.3) * 0.7 + noise1(x * freq * 2.7 + seed * 5.1) * 0.3;
-    const peak = o.peaks ? Math.pow(Math.max(0, n), o.peaks) : n;
-    out.push([x, top + amp * (1 - 2 * peak)]);
-  }
-  out.push([x1, base2]);
-  return out;
-}
-function peaks(x0, x1, base2, hMin, hMax, n = 5, seed = 1) {
-  const out = [];
-  const w = (x1 - x0) / n;
-  for (let i = 0; i < n; i++) {
-    const cx = x0 + w * (i + 0.5) + (rnd(seed, i) - 0.5) * w * 0.4, h3 = hMin + (hMax - hMin) * rnd(seed + 3, i), ww = w * (0.55 + 0.4 * rnd(seed + 7, i));
-    const pts = [];
-    for (let k = 0; k <= 16; k++) {
-      const u = k / 16, a = Math.PI * u;
-      pts.push([cx - ww * Math.cos(a), base2 - h3 * Math.pow(Math.sin(a), 0.65) * (1 + 0.06 * Math.sin(a * 5 + i))]);
-    }
-    out.push({ cx, h: h3, pts: [[cx - ww, base2 + 40], ...pts, [cx + ww, base2 + 40]] });
-  }
-  return out;
-}
-function tree(x, y, h3, o = {}) {
-  const kind = o.kind || "round", seed = o.seed || 1, lean = o.lean || 0, tw = o.trunk || h3 * 0.07;
-  const top = [x + lean * h3, y - h3 * (kind === "pine" ? 0.95 : 0.62)];
-  const trunk = [[x - tw, y], [x - tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [top[0] - tw * 0.35, top[1]], [top[0] + tw * 0.35, top[1]], [x + tw * 0.5 + lean * h3 * 0.6, y - h3 * 0.5], [x + tw, y]];
-  const crown = [];
-  if (kind === "pine") {
-    for (let i = 0; i < 4; i++) {
-      const yy = y - h3 * (0.38 + i * 0.17), ww = h3 * (0.36 - i * 0.07);
-      crown.push([[x + lean * h3 * (0.4 + i * 0.15) - ww, yy + h3 * 0.05], [x + lean * h3 * (0.5 + i * 0.15), yy - h3 * 0.2], [x + lean * h3 * (0.4 + i * 0.15) + ww, yy + h3 * 0.05]]);
-    }
-  } else if (kind === "willow") {
-    crown.push(blob(top[0], top[1], h3 * 0.3, h3 * 0.2, seed, 0.22));
-    for (let i = 0; i < 5; i++) {
-      const sx = top[0] - h3 * 0.28 + i * h3 * 0.14;
-      crown.push(strokeOutline(arc([sx, top[1]], [sx - h3 * 0.05, top[1] + h3 * 0.45], 8), h3 * 0.05));
-    }
-  } else {
-    const n = o.lobes || 3;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n - 0.5) * 1.8, r = h3 * (0.26 + 0.06 * rnd(seed, i));
-      crown.push(blob(top[0] + Math.sin(a) * h3 * 0.22, top[1] - Math.cos(a) * h3 * 0.1 + h3 * 0.04, r, r * 0.85, seed + i, 0.14));
-    }
-  }
-  return { trunk, crown, top, kind };
-}
-function house(x, y, w, h3, o = {}) {
-  const kind = o.kind || "cottage", rh = h3 * (kind === "temple" ? 0.55 : 0.45), ov2 = w * 0.12, curl = kind === "temple" ? h3 * 0.12 : 0;
-  const walls = rect(x - w / 2, y - h3, w, h3);
-  const roof = kind === "flat" ? rect(x - w / 2 - ov2 * 0.3, y - h3 - h3 * 0.1, w + ov2 * 0.6, h3 * 0.1) : [[x - w / 2 - ov2, y - h3 + curl * 0.2], [x - w / 2 - ov2 - curl * 0.6, y - h3 - curl], [x - w / 2 - ov2 * 0.2, y - h3 - rh * 0.1], [x, y - h3 - rh], [x + w / 2 + ov2 * 0.2, y - h3 - rh * 0.1], [x + w / 2 + ov2 + curl * 0.6, y - h3 - curl], [x + w / 2 + ov2, y - h3 + curl * 0.2]];
-  const door = rect(x - w * 0.1, y - h3 * 0.55, w * 0.2, h3 * 0.55), win2 = rect(x + w * 0.18, y - h3 * 0.7, w * 0.18, h3 * 0.2), win22 = rect(x - w * 0.36, y - h3 * 0.7, w * 0.18, h3 * 0.2);
-  return { walls, roof, door, windows: [win2, win22] };
-}
-function waves(x0, x1, y, amp = 8, len2 = 90, phase = 0, base2 = 760, step = 8) {
-  const out = [[x0, base2]];
-  for (let x = x0; x <= x1 + 0.1; x += step) out.push([x, y + amp * Math.sin(x / len2 * TAU4 + phase) + amp * 0.4 * Math.sin(x / len2 * 2.3 * TAU4 + phase * 1.7)]);
-  out.push([x1, base2]);
-  return out;
-}
-function grass(x, y, h3 = 28, n = 5, seed = 1) {
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const dx = (i - (n - 1) / 2) * 5, lean = (i - (n - 1) / 2) * 0.22 + (rnd(seed, i) - 0.5) * 0.3, hh = h3 * (0.6 + 0.5 * rnd(seed + 2, i));
-    out.push(strokeOutline(arc([x + dx, y], [x + dx + lean * hh, y - hh], -lean * 6, 6), 4.2));
-  }
-  return out;
-}
-function cloudScroll(cx, cy, w, o = {}) {
-  const seed = o.seed || 1, h3 = w * 0.32, body = [];
-  const bumps = 4;
-  for (let i = 0; i <= bumps; i++) {
-    const u = i / bumps, x = cx - w / 2 + u * w;
-    const r = h3 * (0.55 + 0.35 * Math.sin(Math.PI * u)) * (0.9 + 0.2 * rnd(seed, i));
-    for (let k = 0; k <= 6; k++) {
-      const a = Math.PI + k / 6 * Math.PI;
-      body.push([x + Math.cos(a) * r * 0.6, cy + Math.sin(a) * r]);
-    }
-  }
-  body.push([cx + w / 2 + h3 * 0.2, cy + h3 * 0.25], [cx - w / 2 - h3 * 0.2, cy + h3 * 0.25]);
-  const curls = [spiral(cx - w / 2 + h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.1, -1), spiral(cx + w / 2 - h3 * 0.1, cy - h3 * 0.05, h3 * 0.55, 1.3, 0.75, Math.PI * 0.9, 1), spiral(cx - w * 0.08, cy - h3 * 0.45, h3 * 0.42, 1.1, 0.7, Math.PI * 0.5, 1)];
-  return { body, curls, h: h3 };
-}
-
-// src/styles/color.js
-var color_exports = {};
-__export(color_exports, {
-  hex2rgb: () => hex2rgb,
-  kmeans: () => kmeans,
-  luma: () => luma,
-  mix: () => mix,
-  nearest: () => nearest,
-  rgb2hex: () => rgb2hex,
-  rgba: () => rgba,
-  shade: () => shade
-});
-function hex2rgb(c) {
-  const s2 = String(c).trim();
-  let m = /^#([0-9a-f]{3})$/i.exec(s2);
-  if (m) return [...m[1]].map((ch) => parseInt(ch + ch, 16));
-  m = /^#([0-9a-f]{6})/i.exec(s2);
-  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
-  m = /rgba?\(([^)]+)\)/i.exec(s2);
-  if (m) return m[1].split(/[ ,/]+/).slice(0, 3).map(Number);
-  return [0, 0, 0];
-}
-var rgb2hex = (c) => "#" + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
-var mix = (a, b, t) => {
-  const A = hex2rgb(a), B4 = hex2rgb(b);
-  return rgb2hex(A.map((v, i) => v + (B4[i] - v) * t));
-};
-var shade = (c, k) => k >= 0 ? mix(c, "#ffffff", k) : mix(c, "#000000", -k);
-var luma = (c) => {
-  const [r, g2, b] = hex2rgb(c);
-  return (0.2126 * r + 0.7152 * g2 + 0.0722 * b) / 255;
-};
-function rgba(c, a) {
-  const [r, g2, b] = hex2rgb(c);
-  return `rgba(${r},${g2},${b},${a})`;
-}
-function nearest(c, palette) {
-  const A = hex2rgb(c);
-  let best = palette[0], bd = Infinity;
-  for (const p of palette) {
-    const B4 = hex2rgb(p), d = (A[0] - B4[0]) ** 2 * 0.3 + (A[1] - B4[1]) ** 2 * 0.59 + (A[2] - B4[2]) ** 2 * 0.11;
-    if (d < bd) {
-      bd = d;
-      best = p;
-    }
-  }
-  return best;
-}
-function kmeans(px4, k = 6, o = {}) {
-  let s2 = (o.seed || 7) >>> 0;
-  const R2 = () => (s2 = s2 * 1664525 + 1013904223 >>> 0) / 4294967296;
-  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
-  const C2 = [px4[Math.floor(R2() * px4.length)].slice()];
-  while (C2.length < k) {
-    const D = px4.map((p) => Math.min(...C2.map((c) => d2(p, c)))), tot = D.reduce((a, b) => a + b, 0) || 1;
-    let r = R2() * tot, i = 0;
-    for (; i < D.length - 1 && r > D[i]; i++) r -= D[i];
-    C2.push(px4[i].slice());
-  }
-  let lab = new Array(px4.length).fill(0);
-  for (let it = 0; it < (o.iter || 16); it++) {
-    lab = px4.map((p) => {
-      let bi = 0, bd = Infinity;
-      C2.forEach((c, j) => {
-        const d = d2(p, c);
-        if (d < bd) {
-          bd = d;
-          bi = j;
-        }
-      });
-      return bi;
-    });
-    const S2 = C2.map(() => [0, 0, 0, 0]);
-    px4.forEach((p, i) => {
-      const a = S2[lab[i]];
-      a[0] += p[0];
-      a[1] += p[1];
-      a[2] += p[2];
-      a[3]++;
-    });
-    S2.forEach((a, j) => {
-      if (a[3]) C2[j] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]];
-    });
-  }
-  const n = C2.map((_, j) => lab.filter((l) => l === j).length);
-  return C2.map((c, j) => ({ rgb: c.map(Math.round), hex: rgb2hex(c), share: n[j] / px4.length })).sort((a, b) => b.share - a.share);
-}
-
-// src/styles/materials.js
-var holesD = (piece, f) => (piece.holes || []).map((h3) => " " + f(h3)).join("");
-var farCol = (piece, k = -0.16) => piece.far ? shade(piece.col, k) : piece.col;
-function svgDefs(v, id, inner) {
-  if (document.getElementById(id)) return;
-  const w = document.createElement("div");
-  w.innerHTML = `<svg id="${id}" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>${inner}</defs></svg>`;
-  (v.stage || document.body).appendChild(w.firstElementChild);
-}
-var lineOf = (piece, f = 1) => polyD(strokeOutline(piece.line, (piece.w || 3) * f, piece.taper !== false), true);
-var MATERIALS = {
-  // 剪纸: scissor-cut edges (seeded normal wobble), flat colour, ornaments cut out as holes (evenodd), lifted shadow
-  cut: {
-    label: "\u526A\u7EB8\uFF08\u526A\u5200\u6BDB\u8FB9 \xB7 \u5E73\u6D82 \xB7 \u9542\u7A7A \xB7 \u6295\u5F71\uFF09",
-    defs(v, P2) {
-      if (v && v.stage && window.vk) window.vk.gl.paperCut(v, { prefix: "pc", seed: P2.seed || 4, shadow: P2.shadow || [3, 5, 3, 0.35] });
-    },
-    group: (P2, kind) => kind === "char" ? 'filter="url(#pc-shadow)"' : kind === "layer" ? 'filter="url(#pc)"' : "",
-    paint(p, P2) {
-      const amp = P2.cutAmp != null ? P2.cutAmp : 0.9, W = (pts) => polyD(wobble(pts, { amp, step: p.step || 5, seed: p.seed || 1 }), true);
-      if (p.line) return `<path d="${W(strokeOutline(p.line, (p.w || 3) * 1.15))}" fill="${farCol(p)}"/>`;
-      const holes = (p.holes || []).concat(p.orn || []);
-      return `<path d="${W(p.pts)}${holes.map((h3) => " " + W(h3)).join("")}" fill="${farCol(p)}"${holes.length ? ' fill-rule="evenodd"' : ""}${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}"`
-  },
-  // 水墨: pale wash fill + wobbling brush outline (ink-line filter from vk.installInk)
-  ink: {
-    label: "\u6C34\u58A8\uFF08\u6DE1\u5F69\u6655\u67D3 + \u6BDB\u7B14\u52FE\u7EBF\uFF09",
-    defs(v, P2) {
-      if (v && v.stage && window.vk && !document.querySelector("#ink-line")) window.vk.installInk({ seed: P2.seed || 7 });
-    },
-    group: (P2, kind) => kind === "char" ? 'filter="url(#ink-wob)"' : "",
-    paint(p, P2) {
-      const ink = P2.ink || "#1f2529", paper2 = P2.paper || "#e4e5d8";
-      if (p.line) return `<path d="${lineOf(p, 1.25)}" fill="${ink}" opacity="${p.op != null ? p.op : 0.92}"/>`;
-      const wash = mix(farCol(p, -0.1), paper2, P2.wash != null ? P2.wash : 0.28), lw = p.role === "skin" || p.role === "eyeW" ? 1.8 : 2.6;
-      return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${wash}" fill-rule="evenodd" stroke="${ink}" stroke-width="${p.lw || lw}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${mix(col3, P2.paper || "#e4e5d8", 0.2)}" stroke="${P2.ink || "#1f2529"}" stroke-width="1.6" stroke-linejoin="round"`
-  },
-  // flat vector (product promo): clean smooth shapes, no outline, soft back-side shade
-  flat: {
-    label: "\u6241\u5E73\u77E2\u91CF\uFF08\u5E73\u6ED1\u5F62 \xB7 \u65E0\u63CF\u8FB9 \xB7 \u4FA7\u5149\uFF09",
-    defs() {
-    },
-    group: () => "",
-    paint(p, P2) {
-      if (p.line) return `<path d="${lineOf(p)}" fill="${p.col}"/>`;
-      return `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.22)}" fill-rule="evenodd"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}"`
-  },
-  // 皮影: translucent dyed leather, dark tooled outline, carved ornaments (holes), multiply onto the lit screen
-  leather: {
-    label: "\u76AE\u5F71\uFF08\u534A\u900F\u660E\u67D3\u8272\u76AE \xB7 \u9542\u523B\u82B1\u7EB9 \xB7 \u80CC\u5149\uFF09",
-    defs(v) {
-      svgDefs(v, "vk-sp-defs", `<filter id="sp-leather" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".035 .09" numOctaves="3" seed="11" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 .35  0 0 0 0 .2  0 0 0 0 .08  0 0 0 -.9 .55" result="v"/><feComposite in="v" in2="SourceAlpha" operator="in" result="vv"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="vv"/></feMerge></filter>`);
-    },
-    group: (P2, kind) => kind === "char" ? 'filter="url(#sp-leather)" style="mix-blend-mode:multiply"' : kind === "layer" ? 'style="mix-blend-mode:multiply"' : "",
-    paint(p, P2) {
-      const line = P2.line || "#3a2112";
-      if (p.line) return `<path d="${lineOf(p, 1.1)}" fill="${line}"/>`;
-      const holes = (p.holes || []).concat(p.orn || []), d = polyD(p.pts, true) + holes.map((h3) => " " + polyD(h3, true)).join("");
-      return `<path d="${d}" fill="${farCol(p, -0.12)}" fill-opacity="${p.op != null ? p.op : P2.alpha || 0.8}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 2.2}" stroke-linejoin="round"/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}" fill-opacity=".75" stroke="${P2.line || "#3a2112"}" stroke-width="1.6"`
-  },
-  // 重彩装饰 (大闹天宫): saturated flat colour, bold dark contour, gilded ornaments
-  decor: {
-    label: "\u91CD\u5F69\u88C5\u9970\uFF08\u9971\u548C\u5E73\u6D82 \xB7 \u7C97\u58A8\u7EBF \xB7 \u63CF\u91D1\u7EB9\u6837\uFF09",
-    defs() {
-    },
-    group: () => "",
-    paint(p, P2) {
-      const line = P2.line || "#2a160e", gold = P2.gold || "#e9b949";
-      if (p.line) return `<path d="${lineOf(p, 1.15)}" fill="${line}"/>`;
-      let s2 = `<path d="${smoothD(p.pts, true)}${holesD(p, (h3) => smoothD(h3, true))}" fill="${farCol(p, -0.14)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 3.2}" stroke-linejoin="round"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${gold}" stroke="${line}" stroke-width="1.1"/>`;
-      return s2;
-    },
-    dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#2a160e"}" stroke-width="2.4" stroke-linejoin="round"`
-  },
-  // 赛博霓虹: dark body, glowing coloured contour (SVG blur-merge glow in each stroke's own colour)
-  neon: {
-    label: "\u9713\u8679\u7EBF\u63CF\uFF08\u6697\u5E95 \xB7 \u53D1\u5149\u8F6E\u5ED3\uFF09",
-    defs(v) {
-      svgDefs(v, "vk-neon-defs", `<filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b1"/><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b2"/><feColorMatrix in="b2" type="matrix" values="1.6 0 0 0 0  0 1.6 0 0 0  0 0 1.6 0 0  0 0 0 1.4 0" result="b3"/><feMerge><feMergeNode in="b3"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
-    },
-    group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#neon-glow)"' : "",
-    paint(p, P2) {
-      const body = P2.body || "#07050f";
-      if (p.line) return `<path d="${polyD(p.line, false)}" fill="none" stroke="${p.col}" stroke-width="${(p.w || 3) * 0.8}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      const col3 = p.far ? mix(p.col, body, 0.35) : p.col;
-      let s2 = `<path d="${smoothD(p.pts, true)}" fill="${p.fill || body}" fill-opacity="${p.fillOp != null ? p.fillOp : 0.92}" stroke="${col3}" stroke-width="${p.lw || 2.6}" stroke-linejoin="round"/>`;
-      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="none" stroke="${col3}" stroke-width="1.3" opacity=".8"/>`;
-      return s2;
-    },
-    dyn: (P2, col3) => `fill="${P2.body || "#07050f"}" fill-opacity=".6" stroke="${col3}" stroke-width="2.4" stroke-linejoin="round"`
-  },
-  // 像素: flat fills + thick dark outline; the scene is pixelated by the pack's post filter (vk.style … post.pixel)
-  pixel: {
-    label: "\u50CF\u7D20\uFF08\u5E73\u6D82 + \u7C97\u63CF\u8FB9\uFF0C\u6574\u5E27\u50CF\u7D20\u5316\uFF09",
-    defs() {
-    },
-    group: () => "",
-    paint(p, P2) {
-      const line = P2.line || "#1a1c2c";
-      if (p.line) return `<path d="${lineOf(p, 1.6)}" fill="${line}"/>`;
-      return `<path d="${polyD(p.pts, true)}${holesD(p, (h3) => polyD(h3, true))}" fill="${farCol(p, -0.2)}" fill-rule="evenodd" stroke="${line}" stroke-width="${p.lw || 5}" stroke-linejoin="miter" paint-order="stroke"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-    },
-    dyn: (P2, col3) => `fill="${col3}" stroke="${P2.line || "#1a1c2c"}" stroke-width="4" paint-order="stroke"`
-  },
-  // 蜡笔绘本: waxy fill with paper tooth showing through, rough wobbly outline, boil (seed stepped by the pack)
-  crayon: {
-    label: "\u8721\u7B14\uFF08\u8721\u8D28\u9897\u7C92 \xB7 \u7EB8\u7EB9\u900F\u51FA \xB7 \u6296\u52A8\u63CF\u8FB9\uFF09",
-    defs(v, P2) {
-      svgDefs(v, "vk-cr-defs", `<filter id="cr-wax" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence type="fractalNoise" baseFrequency=".9 .12" numOctaves="2" seed="3" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -3.2 2.15" result="tooth"/><feComposite in="SourceGraphic" in2="tooth" operator="in" result="wax"/><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="2" seed="5" result="w"/><feDisplacementMap in="wax" in2="w" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter><filter id="cr-line" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence class="cr-boil" type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="2" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4.5" xChannelSelector="R" yChannelSelector="G"/></filter>`);
-    },
-    group: (P2, kind) => kind === "char" || kind === "layer" ? 'filter="url(#cr-line)"' : "",
-    paint(p, P2) {
-      const line = P2.line || "#3b2a20";
-      if (p.line) return `<path d="${lineOf(p, 1.2)}" fill="${shade(p.col, -0.2)}" opacity=".9"/>`;
-      const col3 = farCol(p, -0.14), d = smoothD(p.pts, true) + holesD(p, (h3) => smoothD(h3, true));
-      let s2 = `<path d="${d}" fill="${col3}" fill-rule="evenodd" filter="url(#cr-wax)"${p.op != null ? ` opacity="${p.op}"` : ""}/>`;
-      if (p.role !== "eye" && p.role !== "mouth" && p.role !== "pupil") s2 += `<path d="${smoothD(p.pts, true)}" fill="none" stroke="${p.outline || shade(col3, -0.42)}" stroke-width="${p.lw || 2.4}" stroke-linejoin="round" opacity=".85"/>`;
-      if (p.orn && p.orn.length) s2 += `<path d="${p.orn.map((h3) => smoothD(h3, true)).join(" ")}" fill="${shade(col3, 0.35)}" filter="url(#cr-wax)"/>`;
-      return s2;
-    },
-    dyn: (P2, col3) => `fill="${col3}" stroke="${shade(col3, -0.4)}" stroke-width="2"`
-  }
-};
-var material = (id) => MATERIALS[id] || MATERIALS.flat;
-
-// src/styles/puppet.js
-var NS = "http://www.w3.org/2000/svg";
-var f1 = (x) => Math.round(x * 10) / 10;
-var f3 = (x) => Math.round(x * 1e3) / 1e3;
-var S = Math.sin;
-var C = Math.cos;
-var PI2 = Math.PI;
-var sm3 = smooth01;
-var BONES = [
-  { id: "hips" },
-  { id: "chest", parent: "hips", x: 0, y: -4 },
-  { id: "head", parent: "chest", x: 4, y: -126 },
-  { id: "tail", parent: "head", x: -30, y: -66 },
-  { id: "upperArmN", parent: "chest", x: 2, y: -114 },
-  { id: "foreArmN", parent: "upperArmN", y: 58 },
-  { id: "handN", parent: "foreArmN", y: 50 },
-  { id: "upperArmF", parent: "chest", x: -6, y: -112 },
-  { id: "foreArmF", parent: "upperArmF", y: 58 },
-  { id: "handF", parent: "foreArmF", y: 50 },
-  { id: "thighN", parent: "hips", x: -2, y: 4 },
-  { id: "shinN", parent: "thighN", y: 86 },
-  { id: "footN", parent: "shinN", y: 84 },
-  { id: "thighF", parent: "hips", x: 6, y: 2 },
-  { id: "shinF", parent: "thighF", y: 86 },
-  { id: "footF", parent: "shinF", y: 84 },
-  { id: "flapN", parent: "hips", x: 10, y: 6 },
-  { id: "flapB", parent: "hips", x: -14, y: 6 }
-];
-var IK = {
-  armN: { chain: ["upperArmN", "foreArmN", "handN"], bend: -1 },
-  armF: { chain: ["upperArmF", "foreArmF", "handF"], bend: -1 },
-  legN: { chain: ["thighN", "shinN", "footN"], bend: 1 },
-  legF: { chain: ["thighF", "shinF", "footF"], bend: 1 }
-};
-var SOLE = 188;
-var ANKLE = 14;
-var HIP = 180;
-var HEAD_R = 44;
-var HC = [8, -50];
-function skull() {
-  const out = [];
-  for (let i = 0; i < 44; i++) {
-    const a = i / 44 * PI2 * 2 - PI2;
-    let rx = 42, ry = 45;
-    const nose = 8 * Math.exp(-Math.pow((a - 0.2) / 0.11, 2)), chin = 3 * Math.exp(-Math.pow((a - 0.95) / 0.25, 2)), jaw = a > 0.5 && a < 2.2 ? -4 * S((a - 0.5) / 1.7 * PI2) : 0;
-    const r = 1 + (nose + chin + jaw) / 44;
-    out.push([HC[0] + C(a) * rx * r, HC[1] + S(a) * ry * r]);
-  }
-  return out;
-}
-function hairCap(kind) {
-  const out = [];
-  for (let i = 0; i <= 26; i++) {
-    const a = -1.15 - i / 26 * (PI2 * 2 - 1.15 - 2.45 + 0);
-    const k = 1.08;
-    out.push([HC[0] + C(a) * 42 * k, HC[1] + S(a) * 45 * k]);
-  }
-  const fringe = kind === "short" || kind === "long" || kind === "pony" ? [[18, -78], [30, -76], [34, -84]] : [[22, -84], [33, -82]];
-  return out.concat([[-14, -18], [-10, -36], [-4, -52], [2, -66], ...fringe]);
-}
-var sleeve = (len2, w0, w1) => capsule(0, -6, w0, 0, len2, w1, 8);
-var shoe = () => [[-11, -10], [11, -10], [13, 0], [26, 3], [34, 9], [35, 14], [-12, 14], [-14, 4]];
-function torso(o) {
-  const hem = o.robe === "long" ? 64 : 22;
-  return [[10, -128], [26, -116], [34, -96], [33, -64], [30, -34], [33, hem - 6], [36, hem], [-34, hem], [-31, hem - 8], [-30, -40], [-31, -80], [-28, -112], [-16, -124], [-6, -130]];
-}
-var MOUTH = [42, -27];
-var VIS = {
-  M: () => strokeOutline([[35, -27], [40, -26.4], [45, -27.6]], 2.6, true),
-  A: () => ellipse(40.5, -24.5, 5.2, 6.5, -8, 18),
-  E: () => ellipse(40, -25.5, 6.8, 3.4, -6, 18),
-  O: () => ellipse(40.5, -24.5, 3.8, 4.8, 0, 16)
-};
-var base = { crouch: 0, air: 0, armSwing: 1, look: 0, lean: 0 };
-var CLIPS = {
-  idle: (t) => ({ ...base, chest: -1 + S(t * 2) * 0.8, head: S(t * 1.1) * 1.6, upperArmN: -8 + S(t * 2) * 1.5, foreArmN: -18, upperArmF: 8, foreArmF: -16, armSwing: 1 }),
-  walk: (t) => ({ ...base, chest: 4, head: -3, foreArmN: -22, foreArmF: -18, armSwing: 1 }),
-  run: (t) => ({ ...base, chest: 14, head: -10, upperArmN: 0, foreArmN: -80, upperArmF: 0, foreArmF: -80, armSwing: 1.7, lean: 6 }),
-  talk: (t) => {
-    const g2 = 0.5 + 0.5 * S(t * 5.3) * S(t * 2.1 + 1);
-    return { ...base, chest: -2 + 2 * S(t * 2.4), head: -4 + 5 * S(t * 3.3) * g2, upperArmN: -34 - 18 * g2, foreArmN: -62 - 22 * S(t * 4.1), upperArmF: 8, foreArmF: -20, armSwing: 0, talk: g2 };
-  },
-  wave: (t) => ({ ...base, chest: -3, head: -6, upperArmN: -118, foreArmN: -50 + 28 * S(t * 9), upperArmF: 10, foreArmF: -20, armSwing: 0 }),
-  point: (t) => ({ ...base, chest: 2, head: -4, upperArmN: -84 + 2 * S(t * 3), foreArmN: -6, upperArmF: 12, foreArmF: -24, armSwing: 0 }),
-  cheer: (t) => {
-    const b = Math.abs(S(t * 6));
-    return { ...base, chest: -8, head: -12, upperArmN: -214 - 8 * b, foreArmN: 12, upperArmF: -142 - 10 * b, foreArmF: -24, crouch: 10 * b, armSwing: 0 };
-  },
-  bow: (t) => ({ ...base, chest: 30, head: 18, upperArmN: -30, foreArmN: -50, upperArmF: -20, foreArmF: -50, crouch: 6, armSwing: 0 }),
-  surprise: (t) => ({ ...base, chest: -14, head: -16, upperArmN: -110, foreArmN: -60, upperArmF: -96, foreArmF: -50, crouch: -2, armSwing: 0, look: -0.4, lean: -6 }),
-  think: (t) => ({ ...base, chest: 4, head: 8 + 2 * S(t * 1.3), upperArmN: -36, foreArmN: -128, upperArmF: 22, foreArmF: -70, armSwing: 0, look: -0.6 }),
-  look: (t) => ({ ...base, chest: -6, head: -22 + 2 * S(t * 1.2), upperArmN: -10, foreArmN: -16, upperArmF: 8, foreArmF: -14, armSwing: 0, look: -1 }),
-  sad: (t) => ({ ...base, chest: 12, head: 22, upperArmN: 4, foreArmN: -6, upperArmF: 8, foreArmF: -6, armSwing: 0, look: 1, crouch: 4 }),
-  // jump: 0–.25 crouch, .25–.85 airborne, .85–1.1 land (clip-local time; play with local:true)
-  jump: (t) => {
-    const c = sm3(t / 0.25) * (1 - sm3((t - 0.25) / 0.08)) + sm3((t - 0.85) / 0.06) * (1 - sm3((t - 1) / 0.2)), air = sm3((t - 0.25) / 0.08) * (1 - sm3((t - 0.8) / 0.08));
-    return { ...base, chest: 10 * c - 6 * air, head: -6 * air, upperArmN: -40 * c - 172 * air, foreArmN: -20 + 30 * air, upperArmF: -30 * c - 196 * air, foreArmF: -24, crouch: 34 * c, air, armSwing: 0, hop: 120 * Math.max(0, S(PI2 * clamp((t - 0.25) / 0.6))) };
-  }
-};
-function puppet(parent, o = {}) {
-  const st = o.style || {}, P2 = { ...st.P || {}, ...o.P || {} }, M = material(o.material || st.material || "flat");
-  const look = { skin: "skin", hair: "black", cloth: "red", cloth2: "cream", trim: "gold", pants: "cream", shoe: "black", sash: "gold", hairStyle: "bun", ...o.look || {} };
-  const col3 = (role) => st.colour ? st.colour(look[role] || role, role) : look[role] || "#888";
-  const C_ = {
-    skin: col3("skin"),
-    skin2: st.colour ? st.colour(look.skin, "skin2") : "#d9a882",
-    hair: col3("hair"),
-    cloth: col3("cloth"),
-    cloth2: col3("cloth2"),
-    trim: col3("trim"),
-    pants: col3("pants"),
-    shoe: col3("shoe"),
-    sash: col3("sash"),
-    eyeW: st.colour ? st.colour("white", "eyeW") : "#fbf6ea",
-    pupil: st.colour ? st.colour("ink", "pupil") : "#1e1b1f",
-    mouth: st.colour ? st.colour("mouth", "mouth") : "#a0302a",
-    cheek: st.colour ? st.colour("cheek", "cheek") : "#e7897a",
-    line: P2.line || "#1e1b1f"
-  };
-  const orn = o.ornament != null ? o.ornament : P2.ornament != null ? P2.ornament : 1, seedBase = o.seed || 1;
-  const hs = look.hairStyle;
-  const L = [];
-  const add = (bone, z, role, shape, x = {}) => L.push({ bone, z, role, col: x.col || C_[role] || col3(role), ...x, ...shape && Array.isArray(shape[0]) && !x.line ? { pts: shape } : {}, seed: seedBase * 31 + L.length });
-  add("flapB", 0, "cloth", [[-8, -6], [10, -6], [12, 50], [-14, 54]], { far: true });
-  add("upperArmF", 10, "cloth2", sleeve(58, 14, 11.5), { far: true });
-  add("foreArmF", 11, "cloth2", sleeve(50, 11.5, 10), { far: true });
-  add("foreArmF", 12, "trim", rect(-11.5, 38, 23, 9), { far: true });
-  add("handF", 13, "skin", ellipse(0, 10, 10.5, 11.5, 0, 16), { far: true });
-  add("thighF", 20, "pants", capsule(0, -6, 16, 0, 86, 12, 8), { far: true });
-  add("shinF", 21, "pants", capsule(0, 0, 12, 0, 80, 9.5, 8), { far: true });
-  add("footF", 22, "shoe", shoe(), { far: true });
-  if (hs === "long") add("tail", 1, "hair", [[-6, -6], [10, -4], [12, 40], [4, 92], [-20, 96], [-22, 40]], { far: false });
-  if (hs === "pony") add("tail", 1, "hair", strokeOutline([[0, 0], [-8, 20], [-12, 46], [-10, 72]], 16), {});
-  add("thighN", 32, "pants", capsule(0, -6, 16, 0, 86, 12, 8));
-  add("shinN", 33, "pants", capsule(0, 0, 12, 0, 80, 9.5, 8));
-  add("shinN", 33.5, "trim", rect(-11, 58, 22, 8));
-  add("footN", 34, "shoe", shoe());
-  add("head", 38, "skin2", capsule(4, 6, 12, 6, -36, 11, 6));
-  const T6 = torso(look), tornOrn = orn ? [ellipse(4, -78, 9, 9, 0, 14), ellipse(-14, -62, 4, 4, 0, 10), ellipse(22, -60, 4, 4, 0, 10), ellipse(4, -50, 3.6, 5, 0, 10)] : [];
-  add("chest", 40, "cloth", T6, { orn: tornOrn });
-  add("chest", 41, "trim", strokeOutline([[-6, -130], [6, -112], [18, -92], [28, -70]], 9, false));
-  add("chest", 41.5, "sash", [[-31, -20], [31, -22], [32, -8], [-30, -6]]);
-  add("flapN", 42, "cloth", [[-10, -6], [14, -6], [22, 56], [-6, 60]], { orn: orn ? [ellipse(6, 30, 4, 6, 0, 10)] : [] });
-  add("head", 49, "skin2", ellipse(-2, -46, 7.5, 10.5, -6, 14));
-  add("head", 50, "skin", skull());
-  add("head", 51, "cheek", ellipse(24, -34, 8.5, 5, -8, 14), { op: 0.45 });
-  if (hs !== "bald") add("head", 52, "hair", hairCap(hs));
-  if (hs === "bun") {
-    add("head", 53, "hair", ellipse(-16, -100, 17, 15, -20, 18));
-    add("head", 53.5, "trim", rect(-30, -90, 28, 6).map((p) => [p[0], p[1] + (p[0] + 16) * 0.3]));
-  }
-  if (hs === "twinbuns") {
-    add("head", 53, "hair", ellipse(-14, -96, 15, 14, 0, 16));
-    add("head", 53, "hair", ellipse(18, -100, 14, 13, 0, 16));
-    add("head", 53.4, "trim", ellipse(18, -100, 5, 5, 0, 10));
-    add("head", 53.4, "trim", ellipse(-14, -96, 5, 5, 0, 10));
-  }
-  if (hs === "cap") {
-    add("head", 53, "hair", [[44, -66], [40, -92], [16, -108], [-14, -106], [-36, -90], [-40, -64], [-30, -56], [-26, -70], [0, -74], [26, -74]]);
-    add("head", 53.5, "trim", strokeOutline([[44, -66], [20, -72], [-4, -73], [-30, -68]], 7, false));
-  }
-  add("head", 55, "brow", null, { line: [[38, -66], [30, -69], [22, -69]], w: 3.4, col: C_.hair });
-  add("head", 56, "eyeW", ellipse(31, -54, 6.2, 6.8, -6, 16), { cls: "pp-eye-open" });
-  add("head", 57, "pupil", ellipse(33.2, -53.5, 3.3, 4.4, 0, 12), { cls: "pp-eye-open pp-pupil" });
-  add("head", 57, "pupil", null, { line: arc([37, -54], [25, -55], -3.5, 6), w: 2.8, cls: "pp-eye-shut" });
-  for (const k of Object.keys(VIS)) add("head", 58, k === "M" ? "pupil" : "mouth", VIS[k](), { cls: "pp-mouth pp-m-" + k });
-  add("upperArmN", 60, "cloth2", sleeve(58, 14, 11.5));
-  add("foreArmN", 61, "cloth2", sleeve(50, 11.5, 10));
-  add("foreArmN", 62, "trim", rect(-11.5, 38, 23, 9));
-  add("handN", 63, "skin", ellipse(0, 10, 10.5, 11.5, 0, 16));
-  if (M === material("leather")) [["upperArmN", 0, -4], ["foreArmN", 0, 0], ["thighN", 0, -2], ["shinN", 0, 0], ["head", 4, 4]].forEach(([b, x, y]) => add(b, 64, "trim", ellipse(x, y, 3.2, 3.2, 0, 10)));
-  if (M.defs && o.video) M.defs(o.video, P2);
-  const g2 = document.createElementNS(NS, "g");
-  g2.setAttribute("class", "vk-puppet " + (o.cls || ""));
-  const attrs = M.group(P2, "char");
-  if (attrs) attrs.replace(/(\w[\w-]*)="([^"]*)"/g, (_, k, v) => g2.setAttribute(k, v));
-  const scarfG = document.createElementNS(NS, "g");
-  scarfG.setAttribute("class", "pp-scarf");
-  const inner = document.createElementNS(NS, "g");
-  g2.append(scarfG, inner);
-  const pieces = L.map((p, i) => ({ ...p, i })).sort((a, b) => a.z - b.z || a.i - b.i);
-  inner.innerHTML = pieces.map((p) => `<g class="pp-piece ${p.cls || ""}" data-b="${p.bone}">${/pp-mouth/.test(p.cls || "") ? `<g class="pp-v">${M.paint(p, P2)}</g>` : M.paint(p, P2)}</g>`).join("");
-  parent.appendChild(g2);
-  const pieceEls = [...inner.children].map((el2, i) => ({ el: el2, bone: pieces[i].bone, last: "", pupil: /pp-pupil/.test(pieces[i].cls || "") }));
-  let scarfPath = null;
-  if (look.scarf) {
-    scarfG.innerHTML = `<path ${M.dyn(P2, col3("scarf") === "scarf" ? C_.trim : st.colour ? st.colour(look.scarf, "scarf") : look.scarf)}/>`;
-    scarfPath = scarfG.firstElementChild;
-  }
-  const Q2 = (s2) => [...inner.querySelectorAll(s2)];
-  const E = { open: Q2(".pp-eye-open"), shut: Q2(".pp-eye-shut"), pupil: Q2(".pp-pupil"), mouths: Object.fromEntries(Object.keys(VIS).map((k) => [k, Q2(".pp-m-" + k)])) };
-  const setOp = (el2, v) => {
-    const s2 = String(Math.round(clamp(v) * 1e3) / 1e3);
-    if (el2.__op !== s2) {
-      el2.__op = s2;
-      el2.setAttribute("opacity", s2);
-    }
-  };
-  const rig = createRig({ root: inner, el: () => null, bones: BONES, clips: { ...CLIPS, ...o.clips || {} }, ik: IK, defaults: { ...base } });
-  const G2 = gait({ stride: 128, hip: HIP, leg: 184, lift: 18, duty: 0.62, ...o.gait || {} });
-  const RUN = gait({ stride: 230, hip: HIP - 6, leg: 184, lift: 34, duty: 0.36, ...o.runGait || {} });
-  function mats(pose2) {
-    const out = {};
-    for (const b of rig.bones) out[b.id] = mat.mul(b.parent ? out[b.parent] : mat.id(), rig.local(b.id, pose2));
-    return out;
-  }
-  function worldRot(id, pose2) {
-    let a = 0;
-    for (let b = rig.byId[id]; b; b = b.parent ? rig.byId[b.parent] : null) a += b.rot + (pose2[b.id] || 0);
-    return a;
-  }
-  const clipPose = (clip, t) => typeof clip === "function" ? clip(t) : typeof clip === "string" ? (rig.clips[clip] || CLIPS.idle)(t) : clip && clip.clipPose ? clip.clipPose(t) : CLIPS.idle(t);
-  function pose(t, s2 = {}) {
-    const sc = s2.scale != null ? s2.scale : o.scale || 0.6, dir = s2.facing || 1, d = s2.d || 0;
-    let p = { ...clipPose(s2.clip || "idle", t) };
-    const gw = s2.run || 0, g0 = G2.at(d), g1 = gw > 0 ? RUN.at(d * RUN.stride / G2.stride) : null;
-    const hipH = g1 ? g0.hipY + (g1.hipY - g0.hipY) * gw : g0.hipY;
-    const feet = g0.feet.map((f, i) => g1 ? { x: f.x + (g1.feet[i].x - f.x) * gw, y: f.y + (g1.feet[i].y - f.y) * gw, angle: f.angle + (g1.feet[i].angle - f.angle) * gw } : f);
-    const gy = (x) => s2.ground ? s2.ground(x) : s2.y != null ? s2.y : 600;
-    const air = clamp(p.air || 0), hop = (p.hop || 0) + (s2.lift || 0) / sc;
-    const hx = (s2.x || 0) + dir * d * sc, hy = gy(hx) - (hipH - (p.crouch || 0) + hop) * sc;
-    const root = { x: hx, y: hy, scale: sc, flip: dir, rot: dir * (p.lean || 0) };
-    const sw = p.armSwing != null ? p.armSwing : 1;
-    if (sw) {
-      const a = (feet[0].x - d) / (G2.stride * 0.5), b = (feet[1].x - d) / (G2.stride * 0.5);
-      p.upperArmN = (p.upperArmN || 0) + sw * 22 * b;
-      p.upperArmF = (p.upperArmF || 0) + sw * 22 * a;
-    }
-    const ank = (f, side) => {
-      const wx = (s2.x || 0) + dir * f.x * sc, wy = gy(wx) - (f.y + ANKLE) * sc;
-      if (!air) return [wx, wy];
-      const tx = hx + dir * (side ? -8 : 14) * sc, ty = hy + (HIP - 40) * sc;
-      return [wx + (tx - wx) * air, wy + (ty - wy) * air];
-    };
-    p = rig.solveIK("legN", ank(feet[0], 0), p, root);
-    p = rig.solveIK("legF", ank(feet[1], 1), p, root);
-    p.footN = (p.footN || 0) - worldRot("footN", { ...p, footN: 0 }) + feet[0].angle * (1 - air) + 20 * air;
-    p.footF = (p.footF || 0) - worldRot("footF", { ...p, footF: 0 }) + feet[1].angle * (1 - air) + 20 * air;
-    const vx = s2.vx != null ? s2.vx : 0;
-    p.flapN = 0.5 * Math.min(0, p.thighN || 0) + 0.15 * Math.max(0, p.thighN || 0) + (s2.flap || 0);
-    p.flapB = 0.45 * Math.max(0, p.thighF || 0) + 0.2 * Math.min(0, p.thighF || 0) + (s2.flap || 0);
-    p.tail = (p.tail || 0) + 6 * S(t * 2.3) + (s2.tail || 0) - (p.head || 0) * 0.6 - (p.chest || 0) * 0.5;
-    return { p, root, sc, dir, hx, hy };
-  }
-  const point = (bone, x, y, R2) => rig.point(bone, x, y, R2.p, R2.root);
-  const api = {
-    g: g2,
-    inner,
-    rig,
-    gait: G2,
-    runGait: RUN,
-    pieces: pieceEls,
-    colours: C_,
-    pose,
-    point: (bone, x, y, t, s2) => point(bone, x, y, pose(t, s2)),
-    // point of a bone for an already computed pose R (the value render() returns)
-    pointAt: (R2, bone, x = 0, y = 0) => point(bone, x, y, R2),
-    HC,
-    // subject for the camera (vk shots): head centre + radius, feet, facing
-    subject(t, s2) {
-      const R2 = pose(t, s2), h3 = point("head", HC[0], HC[1], R2);
-      return { head: h3, headR: HEAD_R * 1.1 * R2.sc, feet: [R2.hx, s2.ground ? s2.ground(R2.hx) : s2.y], facing: R2.dir };
-    },
-    // s (see pose) + {mouth: {open, shape} | seg (voice line) , blink, eyes: 'shut', opacity, scarfWind}
-    render(t, s2 = {}) {
-      setOp(g2, s2.opacity == null ? 1 : s2.opacity);
-      if (s2.opacity != null && s2.opacity <= 1e-3) return null;
-      const R2 = pose(t, s2), m = mats(R2.p);
-      rig.apply(R2.p, R2.root);
-      const lk = R2.p.look || 0, pupT = ` translate(${f1(lk > 0 ? -0.5 * lk : 1.2 * -lk)} ${f1(lk * 2.2)})`;
-      for (const pe of pieceEls) {
-        const k = m[pe.bone];
-        if (!k) continue;
-        const str = `matrix(${f3(k[0])} ${f3(k[1])} ${f3(k[2])} ${f3(k[3])} ${f1(k[4])} ${f1(k[5])})` + (pe.pupil ? pupT : "");
-        if (str !== pe.last) {
-          pe.last = str;
-          pe.el.setAttribute("transform", str);
-        }
-      }
-      const bl = s2.eyes === "shut" ? 1 : blink(t + (o.blinkOffset || 0), { period: 3.9, dur: 0.16 });
-      E.open.forEach((e) => setOp(e, 1 - bl));
-      E.shut.forEach((e) => setOp(e, bl));
-      const mo = s2.mouth || (s2.seg ? mouth(s2.seg, t) : { open: 0, shape: "M" });
-      for (const k of Object.keys(E.mouths)) E.mouths[k].forEach((e) => {
-        const on = mo.shape === k || k === "M" && !(mo.shape in E.mouths);
-        setOp(e, on ? 1 : 0);
-        if (on && k !== "M") {
-          const sy = 0.35 + 0.65 * clamp(mo.open);
-          const tr = `translate(0 ${f1(MOUTH[1] * (1 - sy))}) scale(1 ${f3(sy)})`;
-          if (e.__tr !== tr) {
-            e.__tr = tr;
-            const v = e.querySelector(".pp-v");
-            if (v) v.setAttribute("transform", tr);
-          }
-        }
-      });
-      if (scarfPath) {
-        const hist = s2.track || (s2.speed ? (u) => ({ ...s2, d: (s2.d || 0) - (t - u) * s2.speed }) : () => s2);
-        const anchor = (u) => {
-          const Ru = u === t ? R2 : pose(u, hist(u));
-          return point("chest", -14, -118, Ru);
-        };
-        const L0 = (o.scarfLen || 1) * 8 * R2.sc / 0.6, pts = ribbon(anchor, t, { n: 8, len: L0, lag: 0.04, hang: [-0.6 * R2.dir, 0.8], sag: 0.8, flutter: 18 * R2.sc, freq: 1.3, wave: 1.1, wind: [-(s2.scarfWind != null ? s2.scarfWind : 4) * R2.dir * R2.sc, -2.2 * R2.sc], seed: seedBase });
-        scarfPath.setAttribute("d", ribbonPath(pts, 22 * R2.sc, 9 * R2.sc, { twist: 1.2, phase: t * 2.2 }));
-      }
-      return R2;
-    }
-  };
-  return api;
-}
-var puppetBones = { BONES, IK, CLIPS, SOLE, HIP, HEAD_R };
-
-// src/styles/world.js
-var NS2 = "http://www.w3.org/2000/svg";
-var PLACES = ["mountain", "forest", "village", "river", "sea", "field", "city", "palace", "garden", "sky"];
-var TIMES = ["day", "dawn", "dusk", "night"];
-var PROPS = ["moon", "sun", "stars", "pine", "tree", "willow", "house", "temple", "bridge", "boat", "flowers", "grass", "rock", "clouds", "tower", "lantern"];
-var ALIAS = {
-  \u5C71: "mountain",
-  \u5C71\u6797: "forest",
-  \u6797: "forest",
-  \u68EE\u6797: "forest",
-  \u6811\u6797: "forest",
-  \u6751: "village",
-  \u6751\u5E84: "village",
-  \u6CB3: "river",
-  \u6C5F: "river",
-  \u6E56: "river",
-  \u6C60\u5858: "river",
-  \u6D77: "sea",
-  \u7530\u91CE: "field",
-  \u8349\u5730: "field",
-  \u57CE: "city",
-  \u57CE\u5E02: "city",
-  \u5BAB: "palace",
-  \u5BAB\u6BBF: "palace",
-  \u5929\u5BAB: "palace",
-  \u56ED: "garden",
-  \u82B1\u56ED: "garden",
-  \u5929\u7A7A: "sky",
-  \u767D\u5929: "day",
-  \u6E05\u6668: "dawn",
-  \u9ECE\u660E: "dawn",
-  \u9EC4\u660F: "dusk",
-  \u508D\u665A: "dusk",
-  \u591C: "night",
-  \u591C\u665A: "night",
-  \u6708: "moon",
-  \u6708\u4EAE: "moon",
-  \u592A\u9633: "sun",
-  \u661F: "stars",
-  \u661F\u661F: "stars",
-  \u677E: "pine",
-  \u6811: "tree",
-  \u67F3: "willow",
-  \u623F\u5B50: "house",
-  \u5E99: "temple",
-  \u6865: "bridge",
-  \u8239: "boat",
-  \u82B1: "flowers",
-  \u8349: "grass",
-  \u77F3: "rock",
-  \u4E91: "clouds",
-  \u5854: "tower",
-  \u706F\u7B3C: "lantern"
-};
-function parseSetting(s2) {
-  if (s2 && typeof s2 === "object") return { place: s2.place || "field", time: s2.time || "day", props: s2.props || [], seed: s2.seed || 1, ...s2 };
-  const words = String(s2 || "").split(/[\s,，、/|]+/).filter(Boolean).map((w) => ALIAS[w] || w.toLowerCase());
-  const out = { place: "field", time: "day", props: [], seed: 1 };
-  for (const w of words) {
-    if (PLACES.includes(w)) out.place = w;
-    else if (TIMES.includes(w)) out.time = w;
-    else if (PROPS.includes(w)) out.props.push(w);
-    else if (/^seed=?\d+/.test(w)) out.seed = +w.replace(/\D/g, "");
-  }
-  return out;
-}
-var g = (parent, cls, attrs = "") => {
-  const e = document.createElementNS(NS2, "g");
-  e.setAttribute("class", cls);
-  if (attrs) attrs.replace(/(\w[\w-]*)="([^"]*)"/g, (_, k, v) => e.setAttribute(k, v));
-  parent.appendChild(e);
-  return e;
-};
-function paintAll(style2, list2) {
-  const M = material(style2.worldMaterial || style2.material), P2 = style2.P || {};
-  return list2.map((p, i) => M.paint({ seed: i + 1, ...p, col: p.col || style2.colour(p.role, p.role) }, P2)).join("");
-}
-function buildWorld(sc, style2, setting, o = {}) {
-  const v = sc.video, W = v.W, H = v.H, S2 = parseSetting(setting), seed = o.seed || S2.seed || 1;
-  const gy0 = o.ground != null && typeof o.ground === "number" ? o.ground : Math.round(H * 0.82);
-  const ground = typeof o.ground === "function" ? o.ground : S2.place === "river" || S2.place === "sea" ? () => gy0 : (x) => gy0 + (o.flat ? 0 : 6 * Math.sin(x / 210 + seed));
-  const wrap = sc.html(`<svg class="vk-world" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="position:absolute;left:0;top:0;overflow:visible"></svg>`);
-  const host = sc.cam || sc.el, bgs = [...host.children].filter((c) => c.classList.contains("vk-bg"));
-  host.insertBefore(wrap, bgs.length ? bgs[bgs.length - 1].nextSibling : host.firstChild);
-  const L = {}, ctx = { sc, v, W, H, S: S2, seed, ground, gy0, style: style2, wrap, layers: L };
-  const M = material(style2.worldMaterial || style2.material), P2 = style2.P || {};
-  for (const n of ["sky", "far", "mid", "props", "ground", "actors", "front"]) L[n] = g(wrap, "vw-" + n, n === "actors" ? "" : style2.layerAttrs ? style2.layerAttrs(n, ctx) : M.group(P2, n === "sky" ? "" : "layer"));
-  const paint2 = (list2) => paintAll(style2, list2);
-  const H2 = style2.hooks || {};
-  (H2.sky || defaultSky)(L.sky, ctx);
-  if (H2.far !== false) (H2.far || defaultFar)(L.far, ctx, paint2);
-  if (H2.mid !== false) (H2.mid || defaultMid)(L.mid, ctx, paint2);
-  (H2.props || defaultProps)(L.props, ctx, paint2);
-  (H2.ground || defaultGround)(L.ground, ctx, paint2);
-  if (H2.front) H2.front(L.front, ctx, paint2);
-  if (H2.after) H2.after(ctx, paint2);
-  if (o.bake !== false && v.bake) ["sky", "far", "mid", "props", "ground"].forEach((n) => {
-    if (L[n].childNodes.length && !L[n].hasAttribute("data-live")) v.bake(L[n], { scale: o.bakeScale || 1 });
-  });
-  return { svg: wrap, ...L, ground, setting: S2, ctx };
-}
-function skyColours(style2, time) {
-  const c = (r) => style2.colour(r, r);
-  return time === "night" ? [c("night0"), c("night1")] : time === "dusk" ? [c("dusk0"), c("dusk1")] : time === "dawn" ? [c("dawn0"), c("dawn1")] : [c("sky0"), c("sky1")];
-}
-var gid = 0;
-function defaultSky(el2, ctx) {
-  const { W, H, S: S2, style: style2 } = ctx, [a, b] = skyColours(style2, S2.time), id = "vk-sky-" + ++gid;
-  let s2 = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect x="-40" y="-40" width="${W + 80}" height="${H + 80}" fill="url(#${id})"/>`;
-  s2 += celestial(ctx);
-  el2.innerHTML = s2;
-}
-function celestial(ctx, o = {}) {
-  const { W, S: S2, style: style2 } = ctx, c = (r) => style2.colour(r, r), M = material(style2.worldMaterial || style2.material), P2 = style2.P || {};
-  let s2 = "";
-  const night = S2.time === "night" || S2.props.includes("moon");
-  if (S2.props.includes("stars") || S2.time === "night") for (let i = 0; i < 26; i++) {
-    const x = rnd(ctx.seed + 3, i) * W, y = 30 + rnd(ctx.seed + 5, i) * 260, r = 1.4 + rnd(ctx.seed + 7, i) * 2.2;
-    s2 += M.paint({ pts: star(x, y, r * 1.8, r * 0.7, 4), col: c("star"), role: "star", seed: i }, P2);
-  }
-  if (night) {
-    const x = o.moonX || W * 0.78, y = o.moonY || 128;
-    s2 += M.paint({ pts: ellipse(x, y, 46, 46, 0, 40), col: c("moon"), role: "moon", seed: 9 }, P2);
-  } else if (S2.time === "dusk" || S2.time === "dawn" || S2.props.includes("sun")) {
-    const x = o.sunX || W * (S2.time === "dawn" ? 0.2 : 0.72), y = S2.time === "day" ? 120 : 250;
-    s2 += M.paint({ pts: ellipse(x, y, S2.time === "day" ? 50 : 66, S2.time === "day" ? 50 : 66, 0, 44), col: c("sun"), role: "sun", seed: 8 }, P2);
-  }
-  if (S2.props.includes("clouds") || S2.time === "day") for (let i = 0; i < 3; i++) {
-    const x = 160 + i * 420 + rnd(ctx.seed, i) * 120, y = 90 + rnd(ctx.seed + 1, i) * 90;
-    s2 += M.paint({ pts: blob(x, y, 90, 26, ctx.seed + i, 0.2), col: c("cloud"), role: "cloud", op: 0.9, seed: 20 + i }, P2);
-  }
-  return s2;
-}
-function defaultFar(el2, ctx, paint2) {
-  const { W, S: S2, seed, gy0 } = ctx, tall = S2.place === "mountain" ? 1.6 : S2.place === "city" ? 0 : 1;
-  if (S2.place === "city") return;
-  el2.innerHTML = paint2([{ pts: hills(-40, W + 40, gy0 - 250 * tall, 70 * tall, seed + 0.3, { base: gy0 + 40, freq: 4e-3, peaks: S2.place === "mountain" ? 1.4 : 0 }), role: "far" }]);
-}
-function defaultMid(el2, ctx, paint2) {
-  const { W, S: S2, seed, gy0 } = ctx, list2 = [];
-  if (S2.place === "city") {
-    for (let i = 0; i < 14; i++) {
-      const w = 60 + rnd(seed, i) * 70, h3 = 120 + rnd(seed + 2, i) * 240, x = i * 96 - 30;
-      list2.push({ pts: rect(x, gy0 - h3, w, h3 + 20), role: i % 2 ? "far" : "mid", orn: windowsOf(x, gy0 - h3, w, h3, seed + i) });
-    }
-    el2.innerHTML = paint2(list2);
-    return;
-  }
-  const amp = S2.place === "mountain" ? 70 : S2.place === "river" || S2.place === "sea" ? 20 : 40;
-  list2.push({ pts: hills(-40, W + 40, gy0 - (S2.place === "mountain" ? 130 : 80), amp, seed + 1.7, { base: gy0 + 40, freq: 6e-3 }), role: "mid" });
-  el2.innerHTML = paint2(list2);
-}
-function windowsOf(x, y, w, h3, seed) {
-  const out = [];
-  for (let r = 0; r < Math.floor(h3 / 34); r++) for (let c = 0; c < Math.floor(w / 22); c++) if (rnd(seed, r * 7 + c) > 0.45) out.push(rect(x + 8 + c * 22, y + 12 + r * 34, 9, 14));
-  return out;
-}
-function defaultProps(el2, ctx, paint2) {
-  const { W, S: S2, seed, ground, gy0 } = ctx, list2 = [], want = new Set(S2.props);
-  const P2 = S2.place;
-  if (P2 === "forest" || want.has("tree") || want.has("pine") || P2 === "mountain" || P2 === "village" || P2 === "garden") {
-    const kind = want.has("pine") || P2 === "mountain" ? "pine" : want.has("willow") ? "willow" : "round";
-    const xs = P2 === "forest" ? [90, 250, 980, 1130, 1230] : [110, 1150];
-    xs.forEach((x, i) => {
-      const h3 = (P2 === "forest" ? 260 : 220) * (0.75 + 0.4 * rnd(seed + 4, i));
-      const T6 = tree(x, ground(x) + 4, h3, { kind, seed: seed + i, lean: (rnd(seed + 6, i) - 0.5) * 0.12 });
-      list2.push({ pts: T6.trunk, role: "trunk" });
-      T6.crown.forEach((c, j) => list2.push({ pts: c, role: j % 2 ? "leaf2" : "leaf" }));
-    });
-  }
-  if (P2 === "village" || want.has("house")) [[930, 170, 140], [1110, 130, 110]].forEach(([x, w, h3], i) => {
-    const Hs = house(x, ground(x) + 2, w, h3, { kind: "cottage" });
-    list2.push({ pts: Hs.walls, role: "wall" }, { pts: Hs.roof, role: "roof" }, { pts: Hs.door, role: "door" }, ...Hs.windows.map((p) => ({ pts: p, role: "door", op: 0.85 })));
-  });
-  if (P2 === "palace" || want.has("temple")) {
-    const Hs = house(980, ground(980) + 2, 300, 170, { kind: "temple" });
-    list2.push({ pts: rect(820, ground(980) - 10, 320, 14), role: "roof" }, { pts: Hs.walls, role: "wall" }, { pts: Hs.roof, role: "roof" }, { pts: Hs.door, role: "door" });
-  }
-  if (want.has("rock")) list2.push({ pts: blob(1020, gy0 - 20, 70, 40, seed + 9, 0.2), role: "mid" });
-  el2.innerHTML = paint2(list2);
-}
-function defaultGround(el2, ctx, paint2) {
-  const { W, H, S: S2, seed, ground, gy0 } = ctx, list2 = [];
-  if (S2.place === "river" || S2.place === "sea") {
-    list2.push({ pts: waves(-40, W + 40, gy0 - 40, 6, 120, seed, H + 60), role: "water" });
-    list2.push({ pts: waves(-40, W + 40, gy0 - 8, 4, 80, seed + 2, H + 60), role: "water2", op: 0.9 });
-    list2.push({ pts: [[-40, gy0 + 4], [520, gy0 - 6], [660, gy0 + 20], [660, H + 60], [-40, H + 60]], role: "ground" });
-  } else {
-    const pts = [[-40, H + 60]];
-    for (let x = -40; x <= W + 40; x += 20) pts.push([x, ground(x)]);
-    pts.push([W + 40, H + 60]);
-    list2.push({ pts, role: "ground" });
-    const p2 = [[-40, H + 60]];
-    for (let x = -40; x <= W + 40; x += 20) p2.push([x, ground(x) + 44 + 8 * Math.sin(x / 90 + seed)]);
-    p2.push([W + 40, H + 60]);
-    list2.push({ pts: p2, role: "ground2" });
-  }
-  if (S2.place === "field" || S2.place === "garden" || S2.props.includes("grass") || S2.place === "forest" || S2.place === "mountain") [70, 300, 520, 760, 870, 1060, 1210].forEach((x, i) => grass(x, ground(x) + 6, 22 + 10 * rnd(seed, i), 5, seed + i).forEach((b) => list2.push({ pts: b, role: "leaf" })));
-  if (S2.place === "garden" || S2.props.includes("flowers")) [160, 420, 680, 940, 1180].forEach((x, i) => {
-    list2.push({ pts: ellipse(x, ground(x) - 14, 8, 8, 0, 12), role: "flower", orn: [ellipse(x, ground(x) - 14, 3, 3, 0, 8)] });
-  });
-  el2.innerHTML = paint2(list2);
-}
-
-// src/styles/transitions.js
-var T4 = {};
-var px3 = (v) => v.toFixed(1) + "px";
-var poly = (pts) => `polygon(${pts.map((p) => px3(p[0]) + " " + px3(p[1])).join(",")})`;
-var focal2 = (c) => ({ x: c.o.x == null ? c.W / 2 : c.o.x <= 1 ? c.o.x * c.W : c.o.x, y: c.o.y == null ? c.H / 2 : c.o.y <= 1 ? c.o.y * c.H : c.o.y });
-function tearEdge(e, W, H, o = {}) {
-  const J = o.jag || 26, n = o.n || 34, seed = o.seed || 3, tilt = (o.tilt != null ? o.tilt : 0.18) * H;
-  const x0 = -J * 2 - tilt + e * (W + J * 4 + tilt * 2), pts = [[-10, -10]];
-  for (let i = 0; i <= n; i++) {
-    const y = -10 + (H + 20) * i / n, j = (hash(seed * 31 + i) - 0.5) * 2 * J + (i % 2 ? 0.4 : -0.4) * J;
-    pts.push([x0 + j + tilt * (i / n - 0.5), y]);
-  }
-  pts.push([-10, H + 10]);
-  return pts;
-}
-T4.tear = (e, c) => ({ in: { clipPath: poly(tearEdge(e, c.W, c.H, c.o)), filter: e < 1 ? "drop-shadow(-4px 0 6px rgba(0,0,0,.35))" : "" }, out: { transform: `translateX(${(-e * 18).toFixed(1)}px)` } });
-function pixelCols(e, W, H, o = {}) {
-  const cell = o.cell || 80, cols = Math.ceil(W / cell), rows2 = Math.ceil(H / cell), pts = [[0, 0]];
-  for (let i = 0; i < cols; i++) {
-    const d = i / cols * 0.55 + hash(i * 7.1 + (o.seed || 1)) * 0.15, k = clamp01((e - d) / 0.3);
-    const hgt = Math.round(k * rows2) * cell;
-    pts.push([i * cell, hgt], [(i + 1) * cell, hgt]);
-  }
-  pts.push([cols * cell, 0]);
-  return pts;
-}
-T4.pixel = (e, c) => e >= 1 ? {} : { in: { clipPath: poly(pixelCols(e, c.W, c.H, c.o)) } };
-function scallop(e, cx, cy, R2, o = {}) {
-  const k = o.lobes || 9, n = 180, pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = i / n * Math.PI * 2, lobe = Math.abs(Math.sin(a * k / 2 + (o.phase || 0)));
-    pts.push([cx + Math.cos(a) * R2 * e * (0.82 + 0.18 * Math.sqrt(lobe)), cy + Math.sin(a) * R2 * e * (0.82 + 0.18 * Math.sqrt(lobe))]);
-  }
-  return pts;
-}
-T4.cloud = (e, c) => {
-  const f = focal2(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y)) * 1.25;
-  return e >= 1 ? {} : { in: { clipPath: poly(scallop(Math.max(e, 1e-3), f.x, f.y, R2, { phase: e * 1.2 })) } };
-};
-function blobIris(e, cx, cy, R2, o = {}) {
-  const n = 96, st = Math.floor((o.frame || 0) / (o.every || 4)), pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = i / n * Math.PI * 2, w = 1 + 0.07 * Math.sin(3 * a + st * 1.7) + 0.04 * Math.sin(7 * a - st * 2.3) + 0.025 * (hash(st * 131 + i) - 0.5);
-    pts.push([cx + Math.cos(a) * R2 * e * w, cy + Math.sin(a) * R2 * e * w]);
-  }
-  return pts;
-}
-T4.scribble = (e, c) => {
-  const f = focal2(c), R2 = Math.hypot(Math.max(f.x, c.W - f.x), Math.max(f.y, c.H - f.y)) * 1.15;
-  return e >= 1 ? {} : { in: { clipPath: poly(blobIris(Math.max(e, 1e-3), f.x, f.y, R2, { frame: c.frame })) } };
-};
-T4.lamp = (e, c) => {
-  const r = c.raw, fl = 0.08 * Math.sin(c.frame * 2.7) * Math.sin(Math.PI * r);
-  return { in: { opacity: r >= 0.5 ? 1 : 0 }, flash: clamp01(1 - Math.abs(2 * r - 1) * 1.15 + fl), flashColor: c.o.color || "#1c0c05" };
-};
-T4.scan = (e, c) => {
-  const r = c.raw, h3 = Math.max(4e-3, e);
-  return r >= 1 ? {} : { in: { clipPath: `inset(${((1 - h3) / 2 * 100).toFixed(3)}% 0% ${((1 - h3) / 2 * 100).toFixed(3)}% 0%)`, filter: `brightness(${(1 + 1.4 * (1 - e)).toFixed(3)})` }, out: { filter: `brightness(${(1 - 0.6 * e).toFixed(3)})` } };
-};
-var STYLE_TRANSITIONS = ["tear", "pixel", "cloud", "scribble", "lamp", "scan"];
-var installed = false;
-function installStyleTransitions() {
-  if (installed) return STYLE_TRANSITIONS;
-  installed = true;
-  for (const k of STYLE_TRANSITIONS) if (!registry.transitions[k]) registry.transitions[k] = T4[k];
-  return STYLE_TRANSITIONS;
-}
-
-// src/styles/index.js
-var STYLES = {};
-var ROLES = ["world", "chars", "type", "motion", "sound", "fx"];
-var ROLE_ALIAS = { bg: "world", background: "world", world: "world", scene: "world", scenes: "world", chars: "chars", char: "chars", character: "chars", characters: "chars", type: "type", typography: "type", text: "type", title: "type", titles: "type", motion: "motion", camera: "motion", pacing: "motion", transitions: "motion", sound: "sound", audio: "sound", music: "sound", fx: "fx", effects: "fx" };
-function registerStyle(data, runtime = {}) {
-  const pack = { ...data, ...runtime, id: data.id || runtime.id };
-  if (!pack.id) throw new Error("[vk.style] pack needs an id");
-  if (pack.theme && typeof pack.theme === "object") {
-    registry.themes["style:" + pack.id] = resolveTheme(pack.theme);
-    pack.themeName = "style:" + pack.id;
-  } else pack.themeName = pack.theme || "tech-blue";
-  STYLES[pack.id] = pack;
-  return pack;
-}
-function parseToken(tok) {
-  if (STYLES[tok]) return { id: tok, role: null };
-  const m = /^(.+?)[.:/-](bg|background|world|scene|scenes|chars?|characters?|type|typography|text|titles?|motion|camera|pacing|transitions|sound|audio|music|fx|effects)$/.exec(String(tok));
-  if (m && STYLES[m[1]]) return { id: m[1], role: ROLE_ALIAS[m[2]] };
-  throw new Error('[vk.style] unknown style "' + tok + '" (have: ' + Object.keys(STYLES).join(", ") + ")");
-}
-function resolveParts(spec) {
-  const parts = {};
-  const setAll = (id) => ROLES.forEach((r) => {
-    parts[r] = STYLES[id];
-  });
-  if (typeof spec === "string") spec = spec.split(/\s*[+,]\s*/);
-  if (Array.isArray(spec)) {
-    spec.forEach((tok, i) => {
-      const { id, role } = parseToken(tok);
-      if (i === 0) setAll(id);
-      if (role) parts[role] = STYLES[id];
-      else if (i > 0) setAll(id);
-    });
-  } else if (spec && typeof spec === "object") {
-    const base2 = spec.base || spec.world || spec.bg || Object.values(spec)[0];
-    setAll(parseToken(base2).id);
-    for (const [k, v] of Object.entries(spec)) {
-      if (k === "base") continue;
-      const r = ROLE_ALIAS[k];
-      if (r) parts[r] = STYLES[parseToken(v).id];
-    }
-  }
-  if (!parts.world) throw new Error("[vk.style] empty style spec");
-  return parts;
-}
-var lookup = (pack, name, role) => {
-  const H = pack.hues || {}, Pl = pack.palette || {};
-  if (name != null && typeof name === "string" && /^(#|rgb|hsl)/.test(name)) return name;
-  return H[name] || Pl[name] || H[role] || Pl[role] || (role === "skin2" && H.skin ? shade(H.skin, -0.12) : null) || "#888888";
-};
-var Style = class {
-  constructor(spec) {
-    installStyleTransitions();
-    this.spec = spec;
-    this.parts = resolveParts(spec);
-    const ids = ROLES.map((r) => this.parts[r].id), uniq = [...new Set(ids)];
-    this.id = uniq.length === 1 ? uniq[0] : ROLES.map((r) => r + ":" + this.parts[r].id).join(" ");
-    this.base = this.parts.world;
-    const W = this.parts.world, Ch = this.parts.chars;
-    this.worldView = { id: W.id, material: W.worldMaterial || W.material, P: { ...W.P || {}, ...W.worldP || {} }, hooks: W.hooks || {}, layerAttrs: W.layerAttrs, colour: (n, r) => lookup(W, n, r), pack: W, style: this };
-    this.charView = { id: Ch.id, material: Ch.material, P: { ...Ch.P || {} }, colour: (n, r) => lookup(Ch, n, r), pack: Ch, style: this };
-  }
-  get name() {
-    return ROLES.every((r) => this.parts[r] === this.base) ? this.base.name : ROLES.map((r) => this.parts[r].name).filter((x, i, a) => a.indexOf(x) === i).join(" + ");
-  }
-  get palette() {
-    return this.base.palette;
-  }
-  get qa() {
-    return [...new Set(ROLES.flatMap((r) => this.parts[r].qa || []))];
-  }
-  colour(name, role) {
-    return lookup(this.base, name, role);
-  }
-  // video defaults (an explicit cfg value always wins)
-  videoCfg(cfg = {}) {
-    const T6 = this.parts.type, M = this.parts.motion, W = this.parts.world, Snd = this.parts.sound, d = {};
-    d.theme = T6.themeName;
-    const vt = W.video || {};
-    if (vt.texture) d.texture = vt.texture;
-    if (M.transitions && M.transitions.default) d.transition = M.transitions.default;
-    if (M.camera && M.camera.push != null) d.push = M.camera.push;
-    if (vt.fadeOut != null) d.fadeOut = vt.fadeOut;
-    if (Snd.sound && Snd.sound.scoreOptions) d.scoreOptions = Snd.sound.scoreOptions;
-    if (T6.video && T6.video.karaoke) d.karaoke = T6.video.karaoke;
-    const out = { ...d, ...cfg };
-    delete out.style;
-    return out;
-  }
-  install(v) {
-    this.video = v;
-    v.style = this;
-    const seen = /* @__PURE__ */ new Set();
-    for (const r of ROLES) {
-      const p = this.parts[r];
-      if (seen.has(p)) continue;
-      seen.add(p);
-      if (p.install) p.install(v, this, r);
-    }
-    const mats = /* @__PURE__ */ new Set([this.worldView.material, this.charView.material]);
-    mats.forEach((m) => {
-      const M = material(m);
-      if (M.defs) M.defs(v, m === this.charView.material ? this.charView.P : this.worldView.P);
-    });
-    return this;
-  }
-  // ---- building blocks ----
-  world(sc, setting, o = {}) {
-    const W = this.parts.world;
-    o = { ...W.worldOptions || {}, ...o };
-    const w = buildWorld(sc, this.worldView, setting, o);
-    if (W.decorate) W.decorate(sc, w, this, o);
-    if (o.post !== false) this.post(sc, o, w);
-    return w;
-  }
-  post(sc, o = {}, w) {
-    const W = this.parts.world;
-    if (W.post && !sc.__vkPost) {
-      sc.__vkPost = true;
-      W.post(sc, this, o, w);
-    }
-    return sc;
-  }
-  character(parent, o = {}) {
-    const Ch = this.parts.chars;
-    const opts = Ch.charOptions ? Ch.charOptions({ ...o }, this) : o;
-    const p = puppet(parent, { style: this.charView, video: this.video || parent.ownerSVGElement && null, ...opts, P: { ...this.charView.P, ...opts.P || {} } });
-    if (Ch.charAfter) Ch.charAfter(p, this, opts);
-    return p;
-  }
-  title(sc, text3, o = {}) {
-    const T6 = this.parts.type;
-    return T6.title ? T6.title(sc, text3, o, this) : defaultTitle(sc, text3, o);
-  }
-  label(sc, text3, o = {}) {
-    const T6 = this.parts.type;
-    return T6.label ? T6.label(sc, text3, o, this) : null;
-  }
-  effect(sc, name = "signature", o = {}) {
-    const F2 = this.parts.fx;
-    if (!F2.effect) return null;
-    return F2.effect(sc, name, o, this);
-  }
-  transition(kind = "default") {
-    const M = this.parts.motion, T6 = M.transitions || {};
-    return T6[kind] || T6.default || "fade:0.5";
-  }
-  sfx(sc, kind, t, gain = 1) {
-    const Sd = this.parts.sound, map = Sd.sound && Sd.sound.sfx || {};
-    const e = map[kind];
-    if (!e) return;
-    [].concat(Array.isArray(e[0]) ? e : [e]).forEach(([voice, g2 = 1, f, dt = 0]) => sc.sfx(t + dt, voice, g2 * gain, f));
-  }
-  music(v, o = {}) {
-    const Sd = this.parts.sound;
-    return Sd.music ? Sd.music(v || this.video, o, this) : null;
-  }
-  get pacing() {
-    return { scene: 5, hold: 1, transition: 0.6, ...this.parts.motion.pacing || {} };
-  }
-  get camera() {
-    return { push: 0, punch: 0.1, ...this.parts.motion.camera || {} };
-  }
-  get voice() {
-    return { voice: "zh-CN-XiaoxiaoNeural", rate: "+0%", ...(this.parts.sound.sound || {}).voice || {} };
-  }
-  toJSON() {
-    return { id: this.id, name: this.name, parts: Object.fromEntries(ROLES.map((r) => [r, this.parts[r].id])) };
-  }
-};
-function defaultTitle(sc, text3, o) {
-  return sc.add(window.vk.title(text3, { at: o.at || 0.3, ...o }));
-}
-function style(spec) {
-  return spec instanceof Style ? spec : new Style(spec);
-}
-function listStyles() {
-  return Object.values(STYLES).map((p) => ({ id: p.id, name: p.name, en: p.en, description: p.description, material: p.material, tags: p.tags || [] }));
-}
-
 // styles/ink/style.json
 var style_default = {
   id: "ink",
@@ -8626,7 +9411,7 @@ var style_default = {
 
 // styles/ink/style.js
 var style_default2 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   return {
     install(v) {
       vk2.installInk({ seed: 7 });
@@ -8645,13 +9430,13 @@ var style_default2 = (vk2) => {
       far(el2, ctx, paint2) {
         const { W, gy0, seed, S: st } = ctx, tall = st.place === "mountain" ? 1 : 0.55;
         el2.innerHTML = paint2([
-          ...G2.peaks(-80, W * 0.62, gy0 + 30, 220 * tall, 380 * tall, 3, seed + 1).map((p) => ({ pts: p.pts, role: "far", op: 0.7 })),
-          ...G2.peaks(W * 0.45, W + 80, gy0 + 30, 160 * tall, 300 * tall, 3, seed + 4).map((p) => ({ pts: p.pts, role: "far", op: 0.55 }))
+          ...G3.peaks(-80, W * 0.62, gy0 + 30, 220 * tall, 380 * tall, 3, seed + 1).map((p) => ({ pts: p.pts, role: "far", op: 0.7 })),
+          ...G3.peaks(W * 0.45, W + 80, gy0 + 30, 160 * tall, 300 * tall, 3, seed + 4).map((p) => ({ pts: p.pts, role: "far", op: 0.55 }))
         ]);
       },
       mid(el2, ctx, paint2) {
         const { W, gy0, seed, S: st } = ctx, tall = st.place === "mountain" ? 1 : 0.5;
-        el2.innerHTML = paint2([...G2.peaks(-60, W * 0.42, gy0 + 20, 90 * tall, 210 * tall, 2, seed + 7).map((p) => ({ pts: p.pts, role: "mid" })), { pts: G2.hills(W * 0.55, W + 60, gy0 - 70 * tall, 30, seed + 2, { base: gy0 + 30, freq: 8e-3 }), role: "mid", op: 0.8 }]);
+        el2.innerHTML = paint2([...G3.peaks(-60, W * 0.42, gy0 + 20, 90 * tall, 210 * tall, 2, seed + 7).map((p) => ({ pts: p.pts, role: "mid" })), { pts: G3.hills(W * 0.55, W + 60, gy0 - 70 * tall, 30, seed + 2, { base: gy0 + 30, freq: 8e-3 }), role: "mid", op: 0.8 }]);
       }
     },
     decorate(sc, w, S2) {
@@ -8775,7 +9560,7 @@ var style_default3 = {
 
 // styles/papercut/style.js
 var style_default4 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   return {
     install(v, S2, role) {
     },
@@ -8786,9 +9571,9 @@ var style_default4 = (vk2) => {
         const [a, b] = st.time === "night" ? [c("night0"), c("night1")] : st.time === "dusk" ? [c("dusk0"), c("dusk1")] : [c("sky0"), c("sky1")];
         let s2 = `<rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="${b}"/><rect x="-60" y="-60" width="${W + 120}" height="${H * 0.45}" fill="${a}" opacity=".85"/>`;
         const night = st.time === "night", sx = W * 0.76, sy = st.time === "day" ? 140 : 210, r = night ? 52 : 74;
-        s2 += `<g filter="url(#pc)">` + M.paint({ pts: G2.ellipse(sx, sy, r, r, 0, 56), holes: [G2.ellipse(sx, sy, r - 12, r - 12, 0, 50)], col: night ? c("moon") : c("sun"), seed: 3 }, P2) + M.paint({ pts: G2.ellipse(sx, sy, r - 20, r - 20, 0, 48), col: night ? c("moon") : c("sun"), seed: 5 }, P2);
+        s2 += `<g filter="url(#pc)">` + M.paint({ pts: G3.ellipse(sx, sy, r, r, 0, 56), holes: [G3.ellipse(sx, sy, r - 12, r - 12, 0, 50)], col: night ? c("moon") : c("sun"), seed: 3 }, P2) + M.paint({ pts: G3.ellipse(sx, sy, r - 20, r - 20, 0, 48), col: night ? c("moon") : c("sun"), seed: 5 }, P2);
         [[210, 120, 1], [560, 80, 0.8], [1010, 300, 0.7]].forEach(([x, y, k], i) => {
-          s2 += M.paint({ pts: G2.blob(x, y, 96 * k, 24 * k, 7 + i, 0.18), holes: [G2.ellipse(x - 30 * k, y, 14 * k, 6 * k, 0, 14), G2.ellipse(x + 26 * k, y + 2, 10 * k, 5 * k, 0, 12)], col: c("cloud"), seed: 11 + i }, P2);
+          s2 += M.paint({ pts: G3.blob(x, y, 96 * k, 24 * k, 7 + i, 0.18), holes: [G3.ellipse(x - 30 * k, y, 14 * k, 6 * k, 0, 14), G3.ellipse(x + 26 * k, y + 2, 10 * k, 5 * k, 0, 12)], col: c("cloud"), seed: 11 + i }, P2);
         });
         el2.innerHTML = s2 + "</g>";
       }
@@ -8799,7 +9584,7 @@ var style_default4 = (vk2) => {
       const svg3 = K.svgLayer(sc, { fixed: true, z: 20 }), M = vk2.style.material("cut"), P2 = S2.charView.P;
       const g2 = K.svgEl(svg3, "g", { filter: "url(#pc-shadow)" });
       const ban = [[-w / 2, -h3 / 2], [w / 2, -h3 / 2], [w / 2 - 26, 0], [w / 2, h3 / 2], [-w / 2, h3 / 2], [-w / 2 + 26, 0]];
-      g2.innerHTML = M.paint({ pts: G2.scale(ban, 1.04, 1.1), col: gold, seed: 2 }, P2) + M.paint({ pts: ban, col: red, seed: 3, holes: [G2.rect(-w / 2 + 40, -h3 / 2 + 12, w - 80, 4), G2.rect(-w / 2 + 40, h3 / 2 - 16, w - 80, 4)] }, P2) + `<text x="0" y="${o.sub ? 6 : 30}" text-anchor="middle" font-family="Ma Shan Zheng, Noto Serif SC, serif" font-size="${o.size || 96}" fill="#fbf3e2" letter-spacing="8">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="56" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="700" font-size="24" fill="#f2d79a" letter-spacing="6">${K.esc(o.sub)}</text>` : "");
+      g2.innerHTML = M.paint({ pts: G3.scale(ban, 1.04, 1.1), col: gold, seed: 2 }, P2) + M.paint({ pts: ban, col: red, seed: 3, holes: [G3.rect(-w / 2 + 40, -h3 / 2 + 12, w - 80, 4), G3.rect(-w / 2 + 40, h3 / 2 - 16, w - 80, 4)] }, P2) + `<text x="0" y="${o.sub ? 6 : 30}" text-anchor="middle" font-family="Ma Shan Zheng, Noto Serif SC, serif" font-size="${o.size || 96}" fill="#fbf3e2" letter-spacing="8">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="56" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="700" font-size="24" fill="#f2d79a" letter-spacing="6">${K.esc(o.sub)}</text>` : "");
       sc.on((l) => {
         const u = K.ease.back(K.prog(l, p.at, 0.55)), a = K.win(l, p.at, 0.2, p.out, 0.4);
         K.attr(g2, "transform", `translate(${p.x} ${p.y}) rotate(${(-4 * (1 - u)).toFixed(2)}) scale(${(0.4 + 0.6 * u).toFixed(3)})`);
@@ -8917,7 +9702,7 @@ var style_default5 = {
 
 // styles/shadow/style.js
 var style_default6 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   const flick = (t) => 1 + 0.035 * Math.sin(t * 7.3) + 0.025 * Math.sin(t * 13.1 + 1) + 0.02 * (vk2.noise1(t * 6) - 0.5);
   return {
     hooks: {
@@ -8928,18 +9713,18 @@ var style_default6 = (vk2) => {
           <rect x="-80" y="-80" width="${W + 160}" height="${H + 160}" fill="url(#${id})"/>`;
         if (st.time === "night" || st.props.includes("moon")) {
           const M = vk2.style.material("leather");
-          el2.innerHTML += `<g style="mix-blend-mode:multiply">${M.paint({ pts: G2.ellipse(W * 0.78, 130, 44, 44, 0, 40), holes: [G2.ellipse(W * 0.78 + 16, 122, 36, 38, 0, 36)], col: c("moon"), seed: 2 }, ctx.style.P)}</g>`;
+          el2.innerHTML += `<g style="mix-blend-mode:multiply">${M.paint({ pts: G3.ellipse(W * 0.78, 130, 44, 44, 0, 40), holes: [G3.ellipse(W * 0.78 + 16, 122, 36, 38, 0, 36)], col: c("moon"), seed: 2 }, ctx.style.P)}</g>`;
         }
       },
       far(el2, ctx, paint2) {
         const { W, gy0, seed } = ctx, holes = [];
-        for (let i = 0; i < 18; i++) holes.push(G2.ellipse(40 + i * 72, gy0 - 50 - 14 * Math.sin(i), 16, 6, 10, 12));
-        el2.innerHTML = paint2([{ pts: G2.hills(-60, W + 60, gy0 - 120, 34, seed + 2, { base: gy0 + 10, freq: 6e-3 }), role: "far", holes, op: 0.5 }]);
+        for (let i = 0; i < 18; i++) holes.push(G3.ellipse(40 + i * 72, gy0 - 50 - 14 * Math.sin(i), 16, 6, 10, 12));
+        el2.innerHTML = paint2([{ pts: G3.hills(-60, W + 60, gy0 - 120, 34, seed + 2, { base: gy0 + 10, freq: 6e-3 }), role: "far", holes, op: 0.5 }]);
       },
       mid: false,
       ground(el2, ctx, paint2) {
         const { W, H, gy0, style: style2 } = ctx, c = (r) => style2.colour(r, r), holes = [];
-        for (let i = 0; i < 26; i++) holes.push(G2.rect(18 + i * 50, gy0 + 22, 28, 8));
+        for (let i = 0; i < 26; i++) holes.push(G3.rect(18 + i * 50, gy0 + 22, 28, 8));
         el2.innerHTML = paint2([{ pts: [[-60, gy0 + 4], [W + 60, gy0 + 4], [W + 60, H + 60], [-60, H + 60]], role: "ground", holes, op: 0.95 }]);
       }
     },
@@ -8970,8 +9755,8 @@ var style_default6 = (vk2) => {
       const w = Math.max(300, String(text3).length * 120 + 110), h3 = 150, svg3 = K.svgLayer(sc, { fixed: true, z: 20 });
       const g2 = K.svgEl(svg3, "g", { style: "mix-blend-mode:multiply", filter: "url(#sp-leather)" });
       const orn = [];
-      for (let i = 0; i < 9; i++) orn.push(G2.star(-w / 2 + 34 + i * (w - 68) / 8, -h3 / 2 + 18, 7, 3, 4), G2.star(-w / 2 + 34 + i * (w - 68) / 8, h3 / 2 - 18, 7, 3, 4));
-      g2.innerHTML = M.paint({ pts: G2.blob(0, 0, w / 2, h3 / 2, 5, 0.04, 60), col: S2.colour("red"), holes: orn, seed: 2 }, P2) + `<text x="0" y="${o.sub ? 10 : 34}" text-anchor="middle" font-family="Ma Shan Zheng, serif" font-size="${o.size || 100}" fill="#fff6dd" stroke="#3a1a08" stroke-width="2.5" paint-order="stroke" letter-spacing="10">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="52" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="700" font-size="22" fill="#fff0c8" letter-spacing="6">${K.esc(o.sub)}</text>` : "");
+      for (let i = 0; i < 9; i++) orn.push(G3.star(-w / 2 + 34 + i * (w - 68) / 8, -h3 / 2 + 18, 7, 3, 4), G3.star(-w / 2 + 34 + i * (w - 68) / 8, h3 / 2 - 18, 7, 3, 4));
+      g2.innerHTML = M.paint({ pts: G3.blob(0, 0, w / 2, h3 / 2, 5, 0.04, 60), col: S2.colour("red"), holes: orn, seed: 2 }, P2) + `<text x="0" y="${o.sub ? 10 : 34}" text-anchor="middle" font-family="Ma Shan Zheng, serif" font-size="${o.size || 100}" fill="#fff6dd" stroke="#3a1a08" stroke-width="2.5" paint-order="stroke" letter-spacing="10">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="52" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="700" font-size="22" fill="#fff0c8" letter-spacing="6">${K.esc(o.sub)}</text>` : "");
       sc.on((l) => {
         const u = K.ease.out(K.prog(l, p.at, 0.6)), a = K.win(l, p.at, 0.3, p.out, 0.4);
         K.attr(g2, "transform", `translate(${p.x} ${p.y}) rotate(${(3 * Math.sin(l * 2.1) * (1 - u * 0.7)).toFixed(2)})`);
@@ -8990,10 +9775,10 @@ var style_default6 = (vk2) => {
       const holes = [];
       for (let i = 0; i < 8; i++) {
         const a = i / 8 * Math.PI * 2;
-        holes.push(G2.ellipse(Math.cos(a) * 52, Math.sin(a) * 52, 14, 7, i * 45, 14));
+        holes.push(G3.ellipse(Math.cos(a) * 52, Math.sin(a) * 52, 14, 7, i * 45, 14));
       }
-      holes.push(G2.star(0, 0, 22, 9, 6));
-      g2.innerHTML = M.paint({ pts: G2.star(0, 0, 96, 70, 12), col: S2.colour("gold"), holes, seed: 4 }, P2) + M.paint({ pts: G2.ellipse(0, 0, 14, 14, 0, 16), col: S2.colour("red"), seed: 5 }, P2);
+      holes.push(G3.star(0, 0, 22, 9, 6));
+      g2.innerHTML = M.paint({ pts: G3.star(0, 0, 96, 70, 12), col: S2.colour("gold"), holes, seed: 4 }, P2) + M.paint({ pts: G3.ellipse(0, 0, 14, 14, 0, 16), col: S2.colour("red"), seed: 5 }, P2);
       sc.on((l) => {
         const u = K.prog(l, at, 0.7), e = K.ease.back(u);
         K.attr(fl, "opacity", (0.3 * Math.max(0, 1 - Math.abs(l - at - 0.05) / 0.35)).toFixed(3));
@@ -9103,10 +9888,10 @@ var style_default7 = {
 
 // styles/opera/style.js
 var style_default8 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   const cloud = (M, P2, c, x, y, w, seed, fill) => {
-    const C2 = G2.cloudScroll(x, y, w, { seed });
-    return M.paint({ pts: C2.body, col: fill || c("cloud"), seed, lw: 3 }, P2) + C2.curls.map((s2) => `<path d="${G2.polyD(s2, false)}" fill="none" stroke="${c("cloudLine")}" stroke-width="3" stroke-linecap="round"/>`).join("") + C2.curls.slice(0, 2).map((s2) => `<path d="${G2.polyD(s2.slice(0, Math.ceil(s2.length * 0.55)), false)}" fill="none" stroke="${c("gold")}" stroke-width="2" stroke-linecap="round" transform="translate(0 4)"/>`).join("");
+    const C2 = G3.cloudScroll(x, y, w, { seed });
+    return M.paint({ pts: C2.body, col: fill || c("cloud"), seed, lw: 3 }, P2) + C2.curls.map((s2) => `<path d="${G3.polyD(s2, false)}" fill="none" stroke="${c("cloudLine")}" stroke-width="3" stroke-linecap="round"/>`).join("") + C2.curls.slice(0, 2).map((s2) => `<path d="${G3.polyD(s2.slice(0, Math.ceil(s2.length * 0.55)), false)}" fill="none" stroke="${c("gold")}" stroke-width="2" stroke-linecap="round" transform="translate(0 4)"/>`).join("");
   };
   return {
     hooks: {
@@ -9117,7 +9902,7 @@ var style_default8 = (vk2) => {
         for (let i = 0; i < 6; i++) s2 += `<rect x="-60" y="${-60 + i * (H * 0.62 / 6)}" width="${W + 120}" height="${H * 0.62 / 6 + 2}" fill="${vk2.color.mix(a, b, i / 5)}"/>`;
         s2 += `<rect x="-60" y="${H * 0.62 - 62}" width="${W + 120}" height="${H}" fill="${b}"/>`;
         const sx = W * 0.8, sy = st.time === "dusk" ? 200 : 120;
-        s2 += M.paint({ pts: G2.ellipse(sx, sy, 58, 58, 0, 48), col: st.time === "night" ? c("moon") : c("sun"), orn: [G2.ellipse(sx, sy, 40, 40, 0, 40)].map((p) => p), seed: 2 }, P2).replace(/fill="#e9b949"/, `fill="none"`);
+        s2 += M.paint({ pts: G3.ellipse(sx, sy, 58, 58, 0, 48), col: st.time === "night" ? c("moon") : c("sun"), orn: [G3.ellipse(sx, sy, 40, 40, 0, 40)].map((p) => p), seed: 2 }, P2).replace(/fill="#e9b949"/, `fill="none"`);
         for (let i = 0; i < 12; i++) {
           const a2 = i / 12 * Math.PI * 2;
           s2 += `<path d="M${(sx + Math.cos(a2) * 70).toFixed(1)} ${(sy + Math.sin(a2) * 70).toFixed(1)} L${(sx + Math.cos(a2 + 0.12) * 96).toFixed(1)} ${(sy + Math.sin(a2 + 0.12) * 96).toFixed(1)}" stroke="${c("gold")}" stroke-width="5" stroke-linecap="round"/>`;
@@ -9130,7 +9915,7 @@ var style_default8 = (vk2) => {
       far(el2, ctx, paint2) {
         const { W, gy0, seed } = ctx;
         const list2 = [];
-        [[90, 260], [250, 330], [1120, 300], [1230, 230]].forEach(([x, h3], i) => list2.push({ pts: G2.capsule(x, gy0 - h3, 46 + 8 * (i % 2), x + 10, gy0 + 40, 70, 14), role: i % 2 ? "far" : "mid", orn: [G2.ellipse(x - 10, gy0 - h3 + 60, 6, 6, 0, 10), G2.ellipse(x + 14, gy0 - h3 + 120, 5, 5, 0, 10)] }));
+        [[90, 260], [250, 330], [1120, 300], [1230, 230]].forEach(([x, h3], i) => list2.push({ pts: G3.capsule(x, gy0 - h3, 46 + 8 * (i % 2), x + 10, gy0 + 40, 70, 14), role: i % 2 ? "far" : "mid", orn: [G3.ellipse(x - 10, gy0 - h3 + 60, 6, 6, 0, 10), G3.ellipse(x + 14, gy0 - h3 + 120, 5, 5, 0, 10)] }));
         el2.innerHTML = paint2(list2);
       },
       mid: false,
@@ -9138,9 +9923,9 @@ var style_default8 = (vk2) => {
         const { S: st, gy0 } = ctx, list2 = [];
         if (st.place === "palace" || st.props.includes("temple")) {
           [[860, 280, 150], [1060, 200, 110]].forEach(([x, w, h3], i) => {
-            const Hs = G2.house(x, gy0 - 30, w, h3, { kind: "temple" });
-            list2.push({ pts: G2.rect(x - w / 2 - 20, gy0 - 40, w + 40, 16), role: "door" }, { pts: Hs.walls, role: "wall", orn: [G2.rect(x - w * 0.38, gy0 - 30 - h3 * 0.9, w * 0.76, 6)] }, { pts: Hs.roof, role: "roof", orn: [G2.ellipse(x, gy0 - 30 - h3 - h3 * 0.3, 8, 8, 0, 12)] }, { pts: Hs.door, role: "door" });
-            for (let k = 0; k < 4; k++) list2.push({ pts: G2.rect(x - w * 0.42 + k * w * 0.28, gy0 - 30 - h3, 10, h3), role: "deepred" });
+            const Hs = G3.house(x, gy0 - 30, w, h3, { kind: "temple" });
+            list2.push({ pts: G3.rect(x - w / 2 - 20, gy0 - 40, w + 40, 16), role: "door" }, { pts: Hs.walls, role: "wall", orn: [G3.rect(x - w * 0.38, gy0 - 30 - h3 * 0.9, w * 0.76, 6)] }, { pts: Hs.roof, role: "roof", orn: [G3.ellipse(x, gy0 - 30 - h3 - h3 * 0.3, 8, 8, 0, 12)] }, { pts: Hs.door, role: "door" });
+            for (let k = 0; k < 4; k++) list2.push({ pts: G3.rect(x - w * 0.42 + k * w * 0.28, gy0 - 30 - h3, 10, h3), role: "deepred" });
           });
         }
         el2.innerHTML = paint2(list2);
@@ -9158,7 +9943,7 @@ var style_default8 = (vk2) => {
       const p = K.placeOpts(sc, o, 0.5, 0.2), M = vk2.style.material("decor"), P2 = S2.charView.P, c = (n) => S2.colour(n);
       const w = Math.max(300, String(text3).length * 120 + 120), h3 = 156, svg3 = K.svgLayer(sc, { fixed: true, z: 20 }), g2 = K.svgEl(svg3, "g", {});
       const tas = (x) => M.paint({ pts: [[x - 8, h3 / 2], [x + 8, h3 / 2], [x + 12, h3 / 2 + 60], [x, h3 / 2 + 76], [x - 12, h3 / 2 + 60]], col: c("red"), seed: 3 }, P2);
-      g2.innerHTML = tas(-w / 2 + 30) + tas(w / 2 - 30) + M.paint({ pts: G2.rect(-w / 2 - 14, -h3 / 2 - 14, w + 28, h3 + 28), col: c("gold"), orn: [], seed: 1 }, P2) + M.paint({ pts: G2.rect(-w / 2, -h3 / 2, w, h3), col: "#1f3f7a", orn: [G2.ellipse(-w / 2 + 16, -h3 / 2 + 16, 5, 5, 0, 10), G2.ellipse(w / 2 - 16, -h3 / 2 + 16, 5, 5, 0, 10), G2.ellipse(-w / 2 + 16, h3 / 2 - 16, 5, 5, 0, 10), G2.ellipse(w / 2 - 16, h3 / 2 - 16, 5, 5, 0, 10)], seed: 2 }, P2) + `<text x="0" y="${o.sub ? 10 : 34}" text-anchor="middle" font-family="Ma Shan Zheng, serif" font-size="${o.size || 104}" fill="${c("gold")}" stroke="#2a160e" stroke-width="3" paint-order="stroke" letter-spacing="12">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="56" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="900" font-size="22" fill="#fff4d6" letter-spacing="5">${K.esc(o.sub)}</text>` : "");
+      g2.innerHTML = tas(-w / 2 + 30) + tas(w / 2 - 30) + M.paint({ pts: G3.rect(-w / 2 - 14, -h3 / 2 - 14, w + 28, h3 + 28), col: c("gold"), orn: [], seed: 1 }, P2) + M.paint({ pts: G3.rect(-w / 2, -h3 / 2, w, h3), col: "#1f3f7a", orn: [G3.ellipse(-w / 2 + 16, -h3 / 2 + 16, 5, 5, 0, 10), G3.ellipse(w / 2 - 16, -h3 / 2 + 16, 5, 5, 0, 10), G3.ellipse(-w / 2 + 16, h3 / 2 - 16, 5, 5, 0, 10), G3.ellipse(w / 2 - 16, h3 / 2 - 16, 5, 5, 0, 10)], seed: 2 }, P2) + `<text x="0" y="${o.sub ? 10 : 34}" text-anchor="middle" font-family="Ma Shan Zheng, serif" font-size="${o.size || 104}" fill="${c("gold")}" stroke="#2a160e" stroke-width="3" paint-order="stroke" letter-spacing="12">${K.esc(text3)}</text>` + (o.sub ? `<text x="0" y="56" text-anchor="middle" font-family="Noto Serif SC, serif" font-weight="900" font-size="22" fill="#fff4d6" letter-spacing="5">${K.esc(o.sub)}</text>` : "");
       sc.on((l) => {
         const u = K.ease.back(K.prog(l, p.at, 0.5)), a = K.win(l, p.at, 0.12, p.out, 0.35);
         K.attr(g2, "transform", `translate(${p.x} ${(p.y - 260 * (1 - u)).toFixed(1)})`);
@@ -9281,7 +10066,7 @@ var style_default9 = {
 
 // styles/tech/style.js
 var style_default10 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   return {
     hooks: {
       sky(el2, ctx) {
@@ -9289,16 +10074,16 @@ var style_default10 = (vk2) => {
         let s2 = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c("sky0")}"/><stop offset=".72" stop-color="${c("sky1")}"/><stop offset="1" stop-color="${c("dusk1")}"/></linearGradient>
           <radialGradient id="${id}g" cx=".5" cy=".78" r=".55"><stop offset="0" stop-color="${c("accent")}" stop-opacity=".45"/><stop offset="1" stop-color="${c("accent")}" stop-opacity="0"/></radialGradient></defs>
           <rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="url(#${id})"/><rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="url(#${id}g)"/>`;
-        for (let i = 0; i < 40; i++) s2 += `<circle cx="${(G2.rnd(ctx.seed + 3, i) * W).toFixed(1)}" cy="${(G2.rnd(ctx.seed + 5, i) * H * 0.5).toFixed(1)}" r="${(0.6 + G2.rnd(ctx.seed + 7, i) * 1.3).toFixed(2)}" fill="${c("star")}" opacity="${(0.25 + 0.5 * G2.rnd(ctx.seed + 9, i)).toFixed(2)}"/>`;
+        for (let i = 0; i < 40; i++) s2 += `<circle cx="${(G3.rnd(ctx.seed + 3, i) * W).toFixed(1)}" cy="${(G3.rnd(ctx.seed + 5, i) * H * 0.5).toFixed(1)}" r="${(0.6 + G3.rnd(ctx.seed + 7, i) * 1.3).toFixed(2)}" fill="${c("star")}" opacity="${(0.25 + 0.5 * G3.rnd(ctx.seed + 9, i)).toFixed(2)}"/>`;
         el2.innerHTML = s2;
       },
       far(el2, ctx) {
         const { W, gy0, seed, style: style2 } = ctx, c = (r) => style2.colour(r, r);
         let s2 = "";
         for (let i = 0; i < 22; i++) {
-          const w = 34 + G2.rnd(seed, i) * 60, h3 = 60 + G2.rnd(seed + 2, i) * 190, x = i * 62 - 20;
+          const w = 34 + G3.rnd(seed, i) * 60, h3 = 60 + G3.rnd(seed + 2, i) * 190, x = i * 62 - 20;
           s2 += `<rect x="${x}" y="${gy0 - h3}" width="${w.toFixed(1)}" height="${h3 + 4}" fill="${c("far")}"/>`;
-          for (let r = 0; r < h3 / 22 - 1; r++) for (let q = 0; q < w / 14 - 1; q++) if (G2.rnd(seed + i, r * 9 + q) > 0.78) s2 += `<rect x="${(x + 6 + q * 14).toFixed(1)}" y="${(gy0 - h3 + 10 + r * 22).toFixed(1)}" width="5" height="8" fill="${c("accent2")}" opacity=".55"/>`;
+          for (let r = 0; r < h3 / 22 - 1; r++) for (let q = 0; q < w / 14 - 1; q++) if (G3.rnd(seed + i, r * 9 + q) > 0.78) s2 += `<rect x="${(x + 6 + q * 14).toFixed(1)}" y="${(gy0 - h3 + 10 + r * 22).toFixed(1)}" width="5" height="8" fill="${c("accent2")}" opacity=".55"/>`;
         }
         el2.innerHTML = s2 + `<rect x="-60" y="${gy0 - 3}" width="${W + 120}" height="3" fill="${c("accent2")}" opacity=".9"/>`;
       },
@@ -9458,7 +10243,7 @@ var style_default11 = {
 
 // styles/neon/style.js
 var style_default12 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   const SCAN = `void main(){ vec2 sp = scenePx(vUv); float l = .5 + .5 * sin(sp.y * 3.14159 * .5); float v = length((sp / uNS - .5) * vec2(1., .8));
     float a = .1 * l + .45 * smoothstep(.45, .95, v) + .03 * (fbm3(vec2(sp.x * .02, uStep * 3.1)) - .5);
     gl_FragColor = vec4(0., 0., 0., clamp(a, 0., 1.)); }`;
@@ -9475,16 +10260,16 @@ var style_default12 = (vk2) => {
         let bands = "";
         for (let i = 0; i < 6; i++) bands += `<rect x="${sx - r}" y="${(sy + 10 + i * 24).toFixed(1)}" width="${2 * r}" height="${4 + i * 2.4}" fill="${c("night0")}"/>`;
         s2 += `<g opacity=".9"><circle cx="${sx}" cy="${sy}" r="${r}" fill="url(#${id}s)"/>${bands}</g>`;
-        for (let i = 0; i < 50; i++) s2 += `<circle cx="${(G2.rnd(seed + 3, i) * W).toFixed(1)}" cy="${(G2.rnd(seed + 5, i) * H * 0.45).toFixed(1)}" r="${(0.5 + G2.rnd(seed + 7, i)).toFixed(2)}" fill="${c("star")}" opacity=".7"/>`;
+        for (let i = 0; i < 50; i++) s2 += `<circle cx="${(G3.rnd(seed + 3, i) * W).toFixed(1)}" cy="${(G3.rnd(seed + 5, i) * H * 0.45).toFixed(1)}" r="${(0.5 + G3.rnd(seed + 7, i)).toFixed(2)}" fill="${c("star")}" opacity=".7"/>`;
         el2.innerHTML = s2;
       },
       far(el2, ctx) {
         const { gy0, seed, style: style2 } = ctx, c = (r) => style2.colour(r, r);
         let s2 = "";
         for (let i = 0; i < 24; i++) {
-          const w = 40 + G2.rnd(seed, i) * 54, h3 = 80 + G2.rnd(seed + 2, i) * 230, x = i * 56 - 30, col3 = i % 3 ? c("accent2") : c("accent");
+          const w = 40 + G3.rnd(seed, i) * 54, h3 = 80 + G3.rnd(seed + 2, i) * 230, x = i * 56 - 30, col3 = i % 3 ? c("accent2") : c("accent");
           s2 += `<rect x="${x}" y="${(gy0 - h3).toFixed(1)}" width="${w.toFixed(1)}" height="${h3 + 4}" fill="${c("far")}" stroke="${col3}" stroke-width="1.2" stroke-opacity=".55"/>`;
-          for (let r = 0; r < h3 / 18 - 1; r++) if (G2.rnd(seed + i, r) > 0.55) s2 += `<rect x="${x + 6}" y="${(gy0 - h3 + 10 + r * 18).toFixed(1)}" width="${(w - 12).toFixed(1)}" height="2" fill="${col3}" opacity="${(0.35 + 0.5 * G2.rnd(seed + 9, i * 31 + r)).toFixed(2)}"/>`;
+          for (let r = 0; r < h3 / 18 - 1; r++) if (G3.rnd(seed + i, r) > 0.55) s2 += `<rect x="${x + 6}" y="${(gy0 - h3 + 10 + r * 18).toFixed(1)}" width="${(w - 12).toFixed(1)}" height="2" fill="${col3}" opacity="${(0.35 + 0.5 * G3.rnd(seed + 9, i * 31 + r)).toFixed(2)}"/>`;
         }
         el2.innerHTML = s2;
       },
@@ -9508,9 +10293,9 @@ var style_default12 = (vk2) => {
     // diagonal rain streaks (pure function of t)
     decorate(sc, w) {
       const svg3 = K.svgLayer(sc, { z: 3 }), N = 70, lines = [];
-      for (let i = 0; i < N; i++) lines.push(K.svgEl(svg3, "line", { stroke: "#9fdcff", "stroke-width": 1.2, opacity: (0.18 + 0.25 * G2.rnd(3, i)).toFixed(2) }));
+      for (let i = 0; i < N; i++) lines.push(K.svgEl(svg3, "line", { stroke: "#9fdcff", "stroke-width": 1.2, opacity: (0.18 + 0.25 * G3.rnd(3, i)).toFixed(2) }));
       sc.on((l) => lines.forEach((e, i) => {
-        const sp = 900 + 400 * G2.rnd(5, i), y = (G2.rnd(7, i) * 900 + l * sp) % 900 - 100, x = G2.rnd(9, i) * 1400 - 60 - y * 0.25;
+        const sp = 900 + 400 * G3.rnd(5, i), y = (G3.rnd(7, i) * 900 + l * sp) % 900 - 100, x = G3.rnd(9, i) * 1400 - 60 - y * 0.25;
         K.attr(e, "x1", x.toFixed(1));
         K.attr(e, "y1", y.toFixed(1));
         K.attr(e, "x2", (x - 9).toFixed(1));
@@ -9540,8 +10325,8 @@ var style_default12 = (vk2) => {
         const a = i / 7 * Math.PI * 2 + 0.3;
         let px4 = x, py = y, d = `M${px4.toFixed(0)} ${py.toFixed(0)}`;
         for (let k = 1; k < 6; k++) {
-          px4 = x + Math.cos(a) * k * 40 + (G2.rnd(i, k) - 0.5) * 30;
-          py = y + Math.sin(a) * k * 40 + (G2.rnd(i + 9, k) - 0.5) * 30;
+          px4 = x + Math.cos(a) * k * 40 + (G3.rnd(i, k) - 0.5) * 30;
+          py = y + Math.sin(a) * k * 40 + (G3.rnd(i + 9, k) - 0.5) * 30;
           d += ` L${px4.toFixed(0)} ${py.toFixed(0)}`;
         }
         bolt += `<path d="${d}" fill="none" stroke="${i % 2 ? S2.colour("magenta") : S2.colour("cyan")}" stroke-width="3" stroke-linejoin="round"/>`;
@@ -9661,7 +10446,7 @@ var style_default13 = {
 
 // styles/pixel/style.js
 var style_default14 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   const stair = (x0, x1, y0, step, amp, seed, base2) => {
     const pts = [[x0, base2]];
     for (let x = x0; x <= x1; x += step) {
@@ -9712,14 +10497,14 @@ var style_default14 = (vk2) => {
       props(el2, ctx, paint2) {
         const { S: st, gy0 } = ctx, list2 = [], xs = st.place === "forest" ? [80, 240, 1e3, 1160] : [120, 1120];
         xs.forEach((x, i) => {
-          list2.push({ pts: G2.rect(x - 12, gy0 - 96, 24, 100), role: "trunk" }, { pts: [[x - 64, gy0 - 96], [x + 64, gy0 - 96], [x + 64, gy0 - 160], [x + 40, gy0 - 160], [x + 40, gy0 - 200], [x - 40, gy0 - 200], [x - 40, gy0 - 160], [x - 64, gy0 - 160]], role: i % 2 ? "leaf2" : "leaf" });
+          list2.push({ pts: G3.rect(x - 12, gy0 - 96, 24, 100), role: "trunk" }, { pts: [[x - 64, gy0 - 96], [x + 64, gy0 - 96], [x + 64, gy0 - 160], [x + 40, gy0 - 160], [x + 40, gy0 - 200], [x - 40, gy0 - 200], [x - 40, gy0 - 160], [x - 64, gy0 - 160]], role: i % 2 ? "leaf2" : "leaf" });
         });
-        [[520, gy0 - 210], [568, gy0 - 210]].forEach(([x, y]) => list2.push({ pts: G2.rect(x, y, 48, 48), role: "sun", orn: [] }));
+        [[520, gy0 - 210], [568, gy0 - 210]].forEach(([x, y]) => list2.push({ pts: G3.rect(x, y, 48, 48), role: "sun", orn: [] }));
         el2.innerHTML = paint2(list2) + `<text x="544" y="${gy0 - 172}" text-anchor="middle" font-family="Archivo" font-weight="900" font-size="34" fill="#1a1c2c">?</text><text x="592" y="${gy0 - 172}" text-anchor="middle" font-family="Archivo" font-weight="900" font-size="34" fill="#1a1c2c">?</text>`;
       },
       ground(el2, ctx, paint2) {
         const { W, H, gy0, style: style2 } = ctx, c = (r) => style2.colour(r, r);
-        let s2 = paint2([{ pts: G2.rect(-64, gy0, W + 128, 24), role: "ground" }, { pts: G2.rect(-64, gy0 + 24, W + 128, H), role: "ground2" }]);
+        let s2 = paint2([{ pts: G3.rect(-64, gy0, W + 128, 24), role: "ground" }, { pts: G3.rect(-64, gy0 + 24, W + 128, H), role: "ground2" }]);
         for (let i = 0; i < 30; i++) s2 += `<rect x="${i * 48 - 32}" y="${gy0 + 40 + i % 2 * 24}" width="16" height="8" fill="${c("trunk")}" opacity=".6"/>`;
         el2.innerHTML = s2;
       }
@@ -9868,7 +10653,7 @@ var style_default15 = {
 
 // styles/crayon/style.js
 var style_default16 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom;
+  const K = vk2.style.kit, G3 = vk2.geom;
   const heart = (x, y, r) => {
     const out = [];
     for (let i = 0; i < 28; i++) {
@@ -9898,26 +10683,26 @@ var style_default16 = (vk2) => {
         let s2 = `<rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="${b}"/>`;
         s2 += `<rect x="-60" y="-60" width="${W + 120}" height="${H * 0.62}" fill="${a}" filter="url(#cr-wax)" opacity=".9"/>`;
         let st2 = "";
-        for (let i = 0; i < 9; i++) st2 += `M${-40 + G2.rnd(3, i) * 200} ${60 + i * 36} C${400} ${50 + i * 36 + 14 * Math.sin(i)}, ${800} ${66 + i * 36}, ${W + 40} ${58 + i * 36}`;
+        for (let i = 0; i < 9; i++) st2 += `M${-40 + G3.rnd(3, i) * 200} ${60 + i * 36} C${400} ${50 + i * 36 + 14 * Math.sin(i)}, ${800} ${66 + i * 36}, ${W + 40} ${58 + i * 36}`;
         s2 += `<path d="${st2}" fill="none" stroke="${vk2.color.shade(a, -0.08)}" stroke-width="7" stroke-linecap="round" opacity=".35" filter="url(#cr-wax)"/>`;
         const sx = W * 0.8, sy = 130;
-        s2 += `<g filter="url(#cr-line)">` + M.paint({ pts: G2.blob(sx, sy, 62, 62, 4, 0.06), col: st.time === "night" ? c("moon") : c("sun"), seed: 2 }, P2);
+        s2 += `<g filter="url(#cr-line)">` + M.paint({ pts: G3.blob(sx, sy, 62, 62, 4, 0.06), col: st.time === "night" ? c("moon") : c("sun"), seed: 2 }, P2);
         if (st.time !== "night") for (let i = 0; i < 12; i++) {
           const ang = i / 12 * Math.PI * 2;
           s2 += `<path d="M${(sx + Math.cos(ang) * 78).toFixed(0)} ${(sy + Math.sin(ang) * 78).toFixed(0)} L${(sx + Math.cos(ang) * 110).toFixed(0)} ${(sy + Math.sin(ang) * 110).toFixed(0)}" stroke="${c("sun")}" stroke-width="9" stroke-linecap="round"/>`;
         }
         [[220, 110], [600, 80], [1e3, 250]].forEach(([x, y], i) => {
-          s2 += M.paint({ pts: G2.blob(x, y, 86, 30, 9 + i, 0.25), col: c("cloud"), seed: 30 + i }, P2);
+          s2 += M.paint({ pts: G3.blob(x, y, 86, 30, 9 + i, 0.25), col: c("cloud"), seed: 30 + i }, P2);
         });
         el2.innerHTML = s2 + "</g>";
       },
       far(el2, ctx, paint2) {
         const { W, gy0, seed } = ctx;
-        el2.innerHTML = paint2([{ pts: G2.hills(-60, W + 60, gy0 - 170, 60, seed + 0.5, { base: gy0 + 40, freq: 5e-3 }), role: "far" }]);
+        el2.innerHTML = paint2([{ pts: G3.hills(-60, W + 60, gy0 - 170, 60, seed + 0.5, { base: gy0 + 40, freq: 5e-3 }), role: "far" }]);
       },
       mid(el2, ctx, paint2) {
         const { W, gy0, seed } = ctx;
-        el2.innerHTML = paint2([{ pts: G2.hills(-60, W + 60, gy0 - 80, 40, seed + 2.2, { base: gy0 + 40, freq: 8e-3 }), role: "mid" }]);
+        el2.innerHTML = paint2([{ pts: G3.hills(-60, W + 60, gy0 - 80, 40, seed + 2.2, { base: gy0 + 40, freq: 8e-3 }), role: "mid" }]);
       }
     },
     title(sc, text3, o = {}, S2) {
@@ -9943,9 +10728,9 @@ var style_default16 = (vk2) => {
       const svg3 = K.svgLayer(sc, { fixed: true, z: 14 }), cols = ["yellow", "red", "blue", "pink", "orange", "green"].map((n) => S2.colour(n));
       const items = [];
       for (let i = 0; i < 9; i++) {
-        const a = -Math.PI * (0.08 + 0.84 * i / 8), R2 = 150 + 40 * G2.rnd(4, i);
+        const a = -Math.PI * (0.08 + 0.84 * i / 8), R2 = 150 + 40 * G3.rnd(4, i);
         const g2 = K.svgEl(svg3, "g", { filter: "url(#cr-line)", opacity: 0 });
-        g2.innerHTML = M.paint({ pts: i % 3 === 1 ? heart(0, 0, 26) : G2.star(0, 0, 30, 13, 5), col: cols[i % cols.length], seed: 40 + i }, P2);
+        g2.innerHTML = M.paint({ pts: i % 3 === 1 ? heart(0, 0, 26) : G3.star(0, 0, 30, 13, 5), col: cols[i % cols.length], seed: 40 + i }, P2);
         items.push({ g: g2, a, R: R2, d: i * 0.05 });
       }
       sc.on((l) => items.forEach((it) => {
@@ -10076,7 +10861,7 @@ var style_default17 = {
 
 // styles/reel/style.js
 var style_default18 = (vk2) => {
-  const K = vk2.style.kit, G2 = vk2.geom, A = vk2.accents;
+  const K = vk2.style.kit, G3 = vk2.geom, A = vk2.accents;
   const C2 = { ink: "#0A0A12", paper: "#F4EFE6", pink: "#FF3B8B", yellow: "#FFD23F", cyan: "#25E1E8", violet: "#5B3BFF" };
   const voices = {
     "reel-kick": (k, t, v) => k.tone(t, "sine", 170, 45, 0.3, 0.95 * v),
@@ -10113,7 +10898,7 @@ var style_default18 = (vk2) => {
     hooks: {
       // flat paper field with two big drifting colour discs (poster composition)
       sky: hook(({ W, H, c, seed }) => {
-        const r = G2.rnd(seed, 1) > 0.5;
+        const r = G3.rnd(seed, 1) > 0.5;
         return `<rect x="-60" y="-60" width="${W + 120}" height="${H + 120}" fill="${c("sky0")}"/><circle cx="${(r ? 0.82 : 0.18) * W}" cy="${0.2 * H}" r="${0.25 * H}" fill="${c("far")}"/><circle cx="${(r ? 0.1 : 0.9) * W}" cy="${0.62 * H}" r="${0.11 * H}" fill="${c("leaf")}"/>`;
       }),
       // hard-edged geometric skyline: blocks, half-discs and triangles in the four colours with ink offset shadows
@@ -10121,7 +10906,7 @@ var style_default18 = (vk2) => {
         let s2 = "";
         const cols = ["mid", "trunk", "leaf", "far"];
         for (let i = 0; i < 12; i++) {
-          const w = 70 + G2.rnd(seed, i) * 90, h3 = 50 + G2.rnd(seed + 2, i) * 150, x = i * (W / 11) - 30, k = cols[i % 4], kind = i % 3;
+          const w = 70 + G3.rnd(seed, i) * 90, h3 = 50 + G3.rnd(seed + 2, i) * 150, x = i * (W / 11) - 30, k = cols[i % 4], kind = i % 3;
           const shape = kind === 0 ? `<rect x="${x}" y="${gy0 - h3}" width="${w.toFixed(1)}" height="${h3 + 2}" rx="6"` : kind === 1 ? `<path d="M${x} ${gy0} A${w / 2} ${w / 2} 0 0 1 ${x + w} ${gy0} Z"` : `<path d="M${x} ${gy0} L${x + w / 2} ${gy0 - h3} L${x + w} ${gy0} Z"`;
           s2 += shape.replace("<rect", `<rect transform="translate(8 8)" opacity=".9"`).replace("<path", `<path transform="translate(8 8)" opacity=".9"`) + ` fill="${c("ink")}"/>` + shape + ` fill="${c(k)}"/>`;
         }
@@ -10407,7 +11192,7 @@ set("rustle", (k, t, v) => k.buf(t, "rustle", () => rustle(k.sr), 0.3 * v));
 set("shaker", (k, t, v) => k.noise(t, 0.07, "highpass", 6500, 0.8, 0.1 * v, 0.02));
 function bed(v, spec = {}) {
   const S2 = v.scenes, end = spec.to != null ? spec.to : S2.length ? S2[S2.length - 1].start + S2[S2.length - 1].dur : 10;
-  const bpm = spec.bpm || 90, beat = 60 / bpm, step = beat / 4, from = spec.from || 0, G2 = spec.gain != null ? spec.gain : 1;
+  const bpm = spec.bpm || 90, beat = 60 / bpm, step = beat / 4, from = spec.from || 0, G3 = spec.gain != null ? spec.gain : 1;
   const fi = spec.fadeIn != null ? spec.fadeIn : 1, fo = spec.fadeOut != null ? spec.fadeOut : 1.5;
   const env2 = (t) => Math.min(1, (t - from) / Math.max(0.01, fi), (end - t) / Math.max(0.01, fo));
   let count = 0;
@@ -10430,7 +11215,7 @@ function bed(v, spec = {}) {
           if (tr.rest && rnd2() < tr.rest) continue;
         }
         ni++;
-        v.sfx(+t.toFixed(3), tr.voice, (tr.gain != null ? tr.gain : 0.6) * G2 * e * (c === "o" ? 0.55 : 1), f || void 0);
+        v.sfx(+t.toFixed(3), tr.voice, (tr.gain != null ? tr.gain : 0.6) * G3 * e * (c === "o" ? 0.55 : 1), f || void 0);
         count++;
       }
     }
@@ -11230,7 +12015,7 @@ function ghosts(el2, n) {
 function slamFx(defaults) {
   return (el2, o, api) => {
     o = { ...defaults, ...o };
-    const d = num2(o.d, 0.4), G2 = ghosts(el2, o.echo === true ? 3 : o.echo || 0), sh = o.shadow;
+    const d = num2(o.d, 0.4), G3 = ghosts(el2, o.echo === true ? 3 : o.echo || 0), sh = o.shadow;
     if (o.origin) el2.style.transformOrigin = o.origin;
     api.fn(el2, (local) => {
       let p = clamp01((local - o.t) / d);
@@ -11247,9 +12032,9 @@ function slamFx(defaults) {
       el2.style.opacity = p > 0 ? s2.a.toFixed(3) : "0";
       el2.style.transform = `translate(${s2.x.toFixed(2)}px,${(s2.y + wy).toFixed(2)}px) rotate(${(s2.rot + wr).toFixed(3)}deg) scale(${s2.s.toFixed(4)})`;
       if (sh) el2.style.textShadow = shadowCss(sh, 1);
-      const E = echoGhosts(p, { n: G2.length, step: o.echoStep, alpha: o.echoAlpha });
-      G2.forEach((g2, i) => {
-        const e = E[i];
+      const E2 = echoGhosts(p, { n: G3.length, step: o.echoStep, alpha: o.echoAlpha });
+      G3.forEach((g2, i) => {
+        const e = E2[i];
         if (!e || p <= 0) {
           g2.style.opacity = "0";
           return;
@@ -11667,7 +12452,25 @@ var vk = {
   },
   register,
   registry,
-  list,
+  // vk.list(kind) → names · vk.list(kind, {detail:true}) → [{name, description, params:{p:{type, default, range, description}}, example, aliases, …}]
+  // vk.list() → kinds · kinds: fx transitions textures backgrounds blocks eases themes formats sounds materials styles three threeMaterials threeRigs
+  list(kind, o) {
+    if (kind == null) return KINDS2.slice();
+    const k = normKind(kind);
+    return o || !registry[k] || k === "meta" ? listDetail(k, o || {}) : list(k);
+  },
+  describe: (kind, name) => describe(kind, name),
+  commonParams: common,
+  names,
+  schemas: schemas_exports,
+  suggest,
+  lev,
+  get strict() {
+    return STRICT.on;
+  },
+  setStrict,
+  unknownMessage,
+  unknownName,
   get fx() {
     return registry.fx;
   },
@@ -11729,7 +12532,7 @@ var vk = {
   shapePath,
   shapePoints,
   shapePolygon,
-  resample,
+  resample: resample2,
   splitText: split2,
   // beat helpers bound to the current video's grid
   beat: (n) => current.beats.at(n),
