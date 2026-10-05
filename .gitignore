@@ -4,3 +4,36 @@ out/
 .DS_Store
 .venv/
 __pycache__/
+
+# ---- generated artifacts (never commit renders) ----
+*.mp4
+*.mov
+*.webm
+*.png
+*.jpg
+*.jpeg
+*-contact*.*
+*.contact.*
+contact-sheet*
+*.sheet.png
+
+# ---- TTS / voice-over caches (regenerate with `vk tts`) ----
+# Caches that were committed before (examples/explainer-vo, tadpole, wusong) stay tracked so those
+# examples render offline; git keeps tracking them, these rules only stop NEW caches/entries from being added.
+*.vo/
+*.vo.json
+*.audio.json
+*.words.json
+
+# ---- scratch / temp / research ----
+scripts/.tmp/
+.tmp/
+tmp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+research/
+downloads/
+.research/
