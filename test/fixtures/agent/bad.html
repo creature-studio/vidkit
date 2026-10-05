@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><body>
+<script src="../../../dist/vidkit.js"></script>
+<script>
+// test fixture: unknown fx name + Math.random / Date.now inside render closures
+vk.video({ format: '16:9', fps: 30 });
+let x = 0;
+vk.scene('a', 2, [vk.title('Bad page', { fx: 'letterz' })]);
+vk.scene('b', 2, sc => {
+  const el = sc.html('<div class="vk-h2">jitter</div>', { flow: true });
+  sc.on(local => { el.style.opacity = Math.random(); x += 1; el.dataset.t = Date.now(); });
+});
+</script>
