@@ -11,7 +11,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test test/",
-    "examples": "node scripts/render-examples.mjs"
+    "examples": "node scripts/render-examples.mjs",
+    "docs": "node scripts/docs.mjs"
   },
   "files": ["src", "dist", "bin", "cli", "fonts", "styles", "tools", "vendor", "README.md"],
   "engines": { "node": ">=18" },

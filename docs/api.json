@@ -1,0 +1,6211 @@
+{
+ "version": "0.2.0",
+ "options": {
+  "video": {
+   "format": {
+    "type": "string",
+    "default": "16:9",
+    "description": "'16:9' '1080p' '9:16' '1:1' '4:5' (aliases landscape vertical square portrait) — or w/h"
+   },
+   "w": {
+    "type": "number",
+    "description": "custom width (px)"
+   },
+   "h": {
+    "type": "number",
+    "description": "custom height (px)"
+   },
+   "fps": {
+    "type": "number",
+    "default": 30,
+    "range": [
+     1,
+     120
+    ],
+    "description": "frames per second"
+   },
+   "theme": {
+    "type": "string|object",
+    "default": "tech-blue",
+    "description": "theme name or {extends, modes:{dark:{accent}}}"
+   },
+   "style": {
+    "type": "string|array|object",
+    "description": "style pack id(s): 'papercut', ['ink','papercut.chars'], {base, chars, …}"
+   },
+   "transition": {
+    "type": "string",
+    "default": "fade:0.4",
+    "description": "default scene transition 'name:seconds'"
+   },
+   "push": {
+    "type": "number",
+    "default": 0,
+    "range": [
+     0,
+     0.3
+    ],
+    "description": "default slow push-in per scene"
+   },
+   "ease": {
+    "type": "ease",
+    "description": "default ease (theme default otherwise)"
+   },
+   "texture": {
+    "type": "object",
+    "description": "film-wide textures {grain: {amount}, vignette: .3, …}"
+   },
+   "bpm": {
+    "type": "number",
+    "description": "beat grid tempo"
+   },
+   "beatOffset": {
+    "type": "number",
+    "default": 0,
+    "description": "first beat (s)"
+   },
+   "beats": {
+    "type": "array|string",
+    "description": "explicit beat times or a `vk analyze` JSON path"
+   },
+   "music": {
+    "type": "string",
+    "description": "music file (mixed at render, ducked under voice)"
+   },
+   "musicStart": {
+    "type": "number",
+    "default": 0,
+    "description": "music offset (s)"
+   },
+   "voice": {
+    "type": "object|string",
+    "description": "TTS config {manifest, voice, rate, lead, tail, cast:{who:{voice}}}"
+   },
+   "captions": {
+    "type": "array|string",
+    "description": "[[start,end,text]] or an align JSON"
+   },
+   "karaoke": {
+    "type": "enum",
+    "default": "sweep",
+    "description": "word-timed caption style",
+    "values": [
+     "sweep",
+     "on",
+     "pop"
+    ]
+   },
+   "lyrics": {
+    "type": "object|string",
+    "description": "lyric align JSON for vk.lyricVideo"
+   },
+   "mix": {
+    "type": "object",
+    "description": "{lufs:-14, duck:-10, fadeOut:2}"
+   },
+   "autoSfx": {
+    "type": "boolean",
+    "default": false,
+    "description": "whoosh on every transition"
+   },
+   "score": {
+    "type": "array",
+    "description": "[[t, sound, gain, freq]] offline-synthesised SFX"
+   },
+   "motionBlur": {
+    "type": "object",
+    "description": "sub-frame motion blur {shutter:'1/40', samples:4} (vk render)"
+   },
+   "cover": {
+    "type": "object",
+    "description": "defaults for cover transitions {colors, n, axis}"
+   },
+   "fadeOut": {
+    "type": "number",
+    "description": "fade the last scene to black over N seconds"
+   },
+   "seed": {
+    "type": "number",
+    "default": 1,
+    "description": "seed of Math.random in setup code"
+   },
+   "strict": {
+    "type": "boolean",
+    "default": false,
+    "description": "unknown names throw (with did-you-mean); Math.random() during a frame throws. CLI vk peek/qa/render turn it on by default"
+   },
+   "draft": {
+    "type": "boolean",
+    "default": false,
+    "description": "draft preview quality (lower 3D res/AA, no DOF/bloom); vk peek/render --draft set it"
+   },
+   "manual": {
+    "type": "boolean",
+    "default": false,
+    "description": "call v.start() yourself"
+   },
+   "bake": {
+    "type": "boolean",
+    "default": true,
+    "description": "static-layer cache (vk.bake)"
+   },
+   "title": {
+    "type": "string",
+    "description": "title shown in contact sheets"
+   },
+   "safe": {
+    "type": "object",
+    "description": "override title-safe margins {top,right,bottom,left}"
+   }
+  },
+  "scene": {
+   "bg": {
+    "type": "string|object|array",
+    "description": "'dark' | 'light' | 'accent' (palette mode) | CSS colour | {type:'mesh'|'grid'|…} | array of layers"
+   },
+   "mode": {
+    "type": "enum",
+    "description": "palette mode for text",
+    "values": [
+     "dark",
+     "light",
+     "accent"
+    ]
+   },
+   "transition": {
+    "type": "string|object",
+    "description": "entrance transition 'name:seconds' or {type, d, ease, focal:{x,y}}"
+   },
+   "cap": {
+    "type": "string|array",
+    "description": "caption text, [\"a\",\"b\"] split evenly, or [[start,end,text],…]"
+   },
+   "camera": {
+    "type": "array",
+    "description": "camera keys [{t, x, y, s, r, ease}]"
+   },
+   "cameraHold": {
+    "type": "boolean",
+    "default": false,
+    "description": "omitted camera keys keep the previous value"
+   },
+   "shots": {
+    "type": "array",
+    "description": "shot list [{t, shot:\"medium\", on: subject, punch, pan, dolly}]"
+   },
+   "push": {
+    "type": "number",
+    "default": 0,
+    "range": [
+     0,
+     0.3
+    ],
+    "description": "slow push-in over the scene"
+   },
+   "shake": {
+    "type": "array",
+    "description": "[{t, amp, d}] handheld shakes"
+   },
+   "texture": {
+    "type": "object",
+    "description": "per-scene textures {name: opts}"
+   },
+   "layout": {
+    "type": "enum",
+    "default": "center",
+    "description": "content layout",
+    "values": [
+     "center",
+     "left",
+     "top",
+     "bottom"
+    ]
+   },
+   "sfx": {
+    "type": "boolean",
+    "default": true,
+    "description": "false = no automatic transition whoosh"
+   },
+   "vo": {
+    "type": "string|array",
+    "description": "voice-over text (run `vk tts page.html`); arrays = several lines / speakers"
+   },
+   "voLead": {
+    "type": "number",
+    "description": "seconds before the voice starts"
+   },
+   "hold": {
+    "type": "number",
+    "default": 2.2,
+    "description": "extra seconds after the last animation when dur is \"auto\""
+   },
+   "snap": {
+    "type": "string",
+    "description": "'beat' | 'bar' | 'b:2' — extend the cut to the grid"
+   },
+   "start": {
+    "type": "time",
+    "description": "absolute start (default: previous end − transition)"
+   },
+   "end": {
+    "type": "time",
+    "description": "absolute cut time"
+   },
+   "beat": {
+    "type": "object",
+    "description": "whole-frame beat pulse"
+   },
+   "energy": {
+    "type": "object",
+    "description": "whole-frame energy modulation"
+   }
+  },
+  "node": {
+   "at": {
+    "type": "time",
+    "description": "entrance time (scene-local s, \"b:8\" beat, \"+0.3\" after the previous element; default: cascade)"
+   },
+   "fx": {
+    "type": "fx",
+    "description": "entrance effect name(s), space-combinable ('up blur'); false = none"
+   },
+   "d": {
+    "type": "number",
+    "range": [
+     0,
+     10
+    ],
+    "description": "entrance duration (s); default depends on the fx"
+   },
+   "ease": {
+    "type": "ease",
+    "description": "easing name / cubic-bezier(a,b,c,d) / spring(k,w) / steps(n)"
+   },
+   "each": {
+    "type": "number",
+    "range": [
+     0,
+     2
+    ],
+    "description": "stagger between letters/words/items (s)"
+   },
+   "out": {
+    "type": "time",
+    "description": "exit time (scene-local s); exit uses outFx (default: the entrance fx reversed)"
+   },
+   "outFx": {
+    "type": "fx",
+    "description": "exit effect"
+   },
+   "sfx": {
+    "type": "string",
+    "description": "sound played at the entrance (a sounds name)"
+   },
+   "size": {
+    "type": "number|string",
+    "description": "font size: number = px at 720p (auto-scaled) or a theme step 'h1' 'h2' 'body' …"
+   },
+   "color": {
+    "type": "color",
+    "description": "text colour (CSS) or a palette name (accent, fg, muted …)"
+   },
+   "bg": {
+    "type": "color",
+    "description": "element background"
+   },
+   "weight": {
+    "type": "number",
+    "description": "font weight"
+   },
+   "font": {
+    "type": "enum",
+    "description": "font family slot",
+    "values": [
+     "display",
+     "mono",
+     "sans",
+     "serif",
+     "condensed",
+     "brush"
+    ]
+   },
+   "align": {
+    "type": "enum",
+    "description": "text alignment",
+    "values": [
+     "left",
+     "center",
+     "right"
+    ]
+   },
+   "w": {
+    "type": "number",
+    "description": "width: ≤1 = fraction of the frame, >1 = px"
+   },
+   "maxW": {
+    "type": "number",
+    "description": "max width (same units as w)"
+   },
+   "mt": {
+    "type": "number",
+    "description": "margin-top (same units as w)"
+   },
+   "pos": {
+    "type": "object",
+    "description": "absolute position {x, y, right, bottom, anchor:\"center\"|\"tl\"…}; leaves the centred flow"
+   },
+   "fixed": {
+    "type": "boolean",
+    "default": false,
+    "description": "not affected by the scene camera"
+   },
+   "class": {
+    "type": "string",
+    "description": "extra CSS class (vk-bleed = allowed outside the safe area)"
+   },
+   "id": {
+    "type": "string",
+    "description": "element id"
+   },
+   "style": {
+    "type": "string",
+    "description": "inline CSS"
+   },
+   "on": {
+    "type": "function",
+    "description": "per-frame hook on(el, local, p, t) — must depend on time only"
+   },
+   "beat": {
+    "type": "object",
+    "description": "beat pulse {scale, brightness, unit:\"beat\"|\"bar\", k, beats:[…]}"
+   },
+   "energy": {
+    "type": "object",
+    "description": "music-energy modulation {scale:[a,b], brightness:[a,b], band}"
+   },
+   "markAt": {
+    "type": "time",
+    "description": "when **/==/__ inline marks animate"
+   }
+  }
+ },
+ "easeForms": [
+  "cubic-bezier(x1,y1,x2,y2)",
+  "bezier(x1,y1,x2,y2)",
+  "spring(k,w)",
+  "steps(n)"
+ ],
+ "three": {
+  "products": [
+   "earbuds",
+   "earbud",
+   "phone",
+   "bottle"
+  ],
+  "materials": [
+   "chrome",
+   "metal",
+   "gold",
+   "titanium",
+   "anodized",
+   "glass",
+   "glassLite",
+   "ceramic",
+   "plastic",
+   "matte",
+   "rubber",
+   "screen"
+  ],
+  "rigs": [
+   "orbit",
+   "dolly",
+   "push",
+   "fly",
+   "crane",
+   "zoomScale",
+   "keys",
+   "seq",
+   "shake",
+   "punch",
+   "add",
+   "apply",
+   "lerp"
+  ],
+  "grades": [
+   "neutral",
+   "teal-orange",
+   "cool",
+   "warm",
+   "bleach",
+   "mono",
+   "cyber"
+  ],
+  "envs": [
+   "studio",
+   "room",
+   "loft",
+   "<url>.hdr"
+  ],
+  "particleTargets": [
+   "galaxy",
+   "sphere",
+   "torus",
+   "cloud",
+   "{text, font}",
+   "{draw(g,w,h)}",
+   "{image|asset}"
+  ]
+ },
+ "kinds": {
+  "elements": {
+   "common": {
+    "at": {
+     "type": "time",
+     "description": "entrance time (scene-local s, \"b:8\" beat, \"+0.3\" after the previous element; default: cascade)"
+    },
+    "fx": {
+     "type": "fx",
+     "description": "entrance effect name(s), space-combinable ('up blur'); false = none"
+    },
+    "d": {
+     "type": "number",
+     "range": [
+      0,
+      10
+     ],
+     "description": "entrance duration (s); default depends on the fx"
+    },
+    "ease": {
+     "type": "ease",
+     "description": "easing name / cubic-bezier(a,b,c,d) / spring(k,w) / steps(n)"
+    },
+    "each": {
+     "type": "number",
+     "range": [
+      0,
+      2
+     ],
+     "description": "stagger between letters/words/items (s)"
+    },
+    "out": {
+     "type": "time",
+     "description": "exit time (scene-local s); exit uses outFx (default: the entrance fx reversed)"
+    },
+    "outFx": {
+     "type": "fx",
+     "description": "exit effect"
+    },
+    "sfx": {
+     "type": "string",
+     "description": "sound played at the entrance (a sounds name)"
+    },
+    "size": {
+     "type": "number|string",
+     "description": "font size: number = px at 720p (auto-scaled) or a theme step 'h1' 'h2' 'body' …"
+    },
+    "color": {
+     "type": "color",
+     "description": "text colour (CSS) or a palette name (accent, fg, muted …)"
+    },
+    "bg": {
+     "type": "color",
+     "description": "element background"
+    },
+    "weight": {
+     "type": "number",
+     "description": "font weight"
+    },
+    "font": {
+     "type": "enum",
+     "description": "font family slot",
+     "values": [
+      "display",
+      "mono",
+      "sans",
+      "serif",
+      "condensed",
+      "brush"
+     ]
+    },
+    "align": {
+     "type": "enum",
+     "description": "text alignment",
+     "values": [
+      "left",
+      "center",
+      "right"
+     ]
+    },
+    "w": {
+     "type": "number",
+     "description": "width: ≤1 = fraction of the frame, >1 = px"
+    },
+    "maxW": {
+     "type": "number",
+     "description": "max width (same units as w)"
+    },
+    "mt": {
+     "type": "number",
+     "description": "margin-top (same units as w)"
+    },
+    "pos": {
+     "type": "object",
+     "description": "absolute position {x, y, right, bottom, anchor:\"center\"|\"tl\"…}; leaves the centred flow"
+    },
+    "fixed": {
+     "type": "boolean",
+     "default": false,
+     "description": "not affected by the scene camera"
+    },
+    "class": {
+     "type": "string",
+     "description": "extra CSS class (vk-bleed = allowed outside the safe area)"
+    },
+    "id": {
+     "type": "string",
+     "description": "element id"
+    },
+    "style": {
+     "type": "string",
+     "description": "inline CSS"
+    },
+    "on": {
+     "type": "function",
+     "description": "per-frame hook on(el, local, p, t) — must depend on time only"
+    },
+    "beat": {
+     "type": "object",
+     "description": "beat pulse {scale, brightness, unit:\"beat\"|\"bar\", k, beats:[…]}"
+    },
+    "energy": {
+     "type": "object",
+     "description": "music-energy modulation {scale:[a,b], brightness:[a,b], band}"
+    },
+    "markAt": {
+     "type": "time",
+     "description": "when **/==/__ inline marks animate"
+    }
+   },
+   "count": 16,
+   "entries": [
+    {
+     "name": "col",
+     "description": "vertical column of child nodes",
+     "params": {
+      "gap": {
+       "type": "number",
+       "description": "px"
+      },
+      "alignItems": {
+       "type": "string"
+      }
+     },
+     "example": "vk.col([vk.h2('Title'), vk.text('…')])",
+     "source": "builtin"
+    },
+    {
+     "name": "el",
+     "description": "custom element: fn(ctx) → Element (ctx.scene, ctx.px, ctx.at)",
+     "params": {},
+     "example": "vk.el(ctx => { const d = document.createElement('div'); ctx.scene.on(l => { d.textContent = l.toFixed(1); }); return d; })",
+     "source": "builtin"
+    },
+    {
+     "name": "grid",
+     "description": "CSS grid of child nodes",
+     "params": {
+      "cols": {
+       "type": "number",
+       "default": 3
+      },
+      "gap": {
+       "type": "number",
+       "default": 24,
+       "description": "px"
+      }
+     },
+     "example": "vk.grid(items, { cols: 4 })",
+     "source": "builtin"
+    },
+    {
+     "name": "h2",
+     "description": "section heading; default fx reveal",
+     "params": {},
+     "example": "vk.h2('Growth ==6.5×==', { fx: 'words' })",
+     "source": "builtin"
+    },
+    {
+     "name": "hero",
+     "description": "giant wordmark; default fx letters",
+     "params": {
+      "cursor": {
+       "type": "boolean",
+       "default": false,
+       "description": "accent cursor block after the word"
+      },
+      "outline": {
+       "type": "boolean",
+       "default": false,
+       "description": "stroked ghost text"
+      },
+      "size": {
+       "type": "number",
+       "description": "720p px"
+      }
+     },
+     "example": "vk.hero('Spark', { cursor: true })",
+     "source": "builtin"
+    },
+    {
+     "name": "html",
+     "description": "raw HTML string → element (single root is returned as-is)",
+     "params": {
+      "wrap": {
+       "type": "boolean",
+       "default": false,
+       "description": "always wrap in a div"
+      }
+     },
+     "example": "vk.html('<div class=\"vk-h2\">raw</div>', { fx: 'up' })",
+     "source": "builtin"
+    },
+    {
+     "name": "label",
+     "description": "eyebrow label above a title; default fx fade",
+     "params": {},
+     "example": "vk.label('CHAPTER 2')",
+     "source": "builtin"
+    },
+    {
+     "name": "row",
+     "description": "horizontal flex row of child nodes",
+     "params": {
+      "gap": {
+       "type": "number",
+       "description": "px"
+      },
+      "justify": {
+       "type": "string",
+       "description": "CSS justify-content"
+      },
+      "alignItems": {
+       "type": "string"
+      }
+     },
+     "example": "vk.row([vk.badge('A'), vk.badge('B')], { gap: 16 })",
+     "source": "builtin"
+    },
+    {
+     "name": "small",
+     "description": "small print / footnote; default fx fade",
+     "params": {},
+     "example": "vk.small('source: …')",
+     "source": "builtin"
+    },
+    {
+     "name": "spacer",
+     "description": "vertical space (px) between nodes in a column",
+     "params": {},
+     "example": "vk.spacer(24)",
+     "source": "builtin"
+    },
+    {
+     "name": "split",
+     "description": "two columns (left nodes, right nodes)",
+     "params": {
+      "ratio": {
+       "type": "string|number",
+       "default": "1/1",
+       "description": "'5/7' (of 12) or 0..1"
+      },
+      "gap": {
+       "type": "number",
+       "default": 56,
+       "description": "px"
+      },
+      "alignItems": {
+       "type": "string",
+       "default": "center"
+      }
+     },
+     "example": "vk.split([vk.h2('Left')], [vk.terminal(['$ vk peek x.html'])], { ratio: '5/7' })",
+     "source": "builtin"
+    },
+    {
+     "name": "stack",
+     "description": "kinetic stacked lines, each scaled to fill the width w (default: the full content width — set w to keep it small); default fx stack",
+     "params": {
+      "w": {
+       "type": "number",
+       "default": 1,
+       "description": "width: 0–1 = fraction of the frame, >1 = px"
+      }
+     },
+     "example": "vk.stack(['lint', 'peek', 'render'], { w: .32 })",
+     "source": "builtin"
+    },
+    {
+     "name": "sub",
+     "description": "subtitle line; default fx up",
+     "params": {},
+     "example": "vk.sub('**accent** words', { at: 1 })",
+     "source": "builtin"
+    },
+    {
+     "name": "svg",
+     "description": "inline SVG (markup or inner paths with viewBox); default fx draw",
+     "params": {
+      "viewBox": {
+       "type": "string",
+       "default": "0 0 400 300"
+      },
+      "strokeWidth": {
+       "type": "number",
+       "default": 4
+      },
+      "w": {
+       "type": "number",
+       "description": "px"
+      },
+      "h": {
+       "type": "number",
+       "description": "px"
+      }
+     },
+     "example": "vk.svg('<path d=\"M20 150 C120 20 280 280 380 150\"/>', { w: 400 })",
+     "source": "builtin"
+    },
+    {
+     "name": "text",
+     "description": "body paragraph; default fx up",
+     "params": {},
+     "example": "vk.text('One or two sentences.', { maxW: .5 })",
+     "source": "builtin"
+    },
+    {
+     "name": "title",
+     "description": "main title (h1); default fx letters",
+     "params": {
+      "size": {
+       "type": "number|string",
+       "description": "720p px or 'h1'…"
+      }
+     },
+     "example": "vk.title('Hello\\nworld', { at: .2 })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "fx": {
+   "common": {
+    "at": {
+     "type": "time",
+     "description": "entrance time (scene-local s, \"b:8\" beat, \"+0.3\" after the previous element; default: cascade)"
+    },
+    "fx": {
+     "type": "fx",
+     "description": "entrance effect name(s), space-combinable ('up blur'); false = none"
+    },
+    "d": {
+     "type": "number",
+     "range": [
+      0,
+      10
+     ],
+     "description": "entrance duration (s); default depends on the fx"
+    },
+    "ease": {
+     "type": "ease",
+     "description": "easing name / cubic-bezier(a,b,c,d) / spring(k,w) / steps(n)"
+    },
+    "each": {
+     "type": "number",
+     "range": [
+      0,
+      2
+     ],
+     "description": "stagger between letters/words/items (s)"
+    },
+    "out": {
+     "type": "time",
+     "description": "exit time (scene-local s); exit uses outFx (default: the entrance fx reversed)"
+    },
+    "outFx": {
+     "type": "fx",
+     "description": "exit effect"
+    },
+    "sfx": {
+     "type": "string",
+     "description": "sound played at the entrance (a sounds name)"
+    },
+    "size": {
+     "type": "number|string",
+     "description": "font size: number = px at 720p (auto-scaled) or a theme step 'h1' 'h2' 'body' …"
+    },
+    "color": {
+     "type": "color",
+     "description": "text colour (CSS) or a palette name (accent, fg, muted …)"
+    },
+    "bg": {
+     "type": "color",
+     "description": "element background"
+    },
+    "weight": {
+     "type": "number",
+     "description": "font weight"
+    },
+    "font": {
+     "type": "enum",
+     "description": "font family slot",
+     "values": [
+      "display",
+      "mono",
+      "sans",
+      "serif",
+      "condensed",
+      "brush"
+     ]
+    },
+    "align": {
+     "type": "enum",
+     "description": "text alignment",
+     "values": [
+      "left",
+      "center",
+      "right"
+     ]
+    },
+    "w": {
+     "type": "number",
+     "description": "width: ≤1 = fraction of the frame, >1 = px"
+    },
+    "maxW": {
+     "type": "number",
+     "description": "max width (same units as w)"
+    },
+    "mt": {
+     "type": "number",
+     "description": "margin-top (same units as w)"
+    },
+    "pos": {
+     "type": "object",
+     "description": "absolute position {x, y, right, bottom, anchor:\"center\"|\"tl\"…}; leaves the centred flow"
+    },
+    "fixed": {
+     "type": "boolean",
+     "default": false,
+     "description": "not affected by the scene camera"
+    },
+    "class": {
+     "type": "string",
+     "description": "extra CSS class (vk-bleed = allowed outside the safe area)"
+    },
+    "id": {
+     "type": "string",
+     "description": "element id"
+    },
+    "style": {
+     "type": "string",
+     "description": "inline CSS"
+    },
+    "on": {
+     "type": "function",
+     "description": "per-frame hook on(el, local, p, t) — must depend on time only"
+    },
+    "beat": {
+     "type": "object",
+     "description": "beat pulse {scale, brightness, unit:\"beat\"|\"bar\", k, beats:[…]}"
+    },
+    "energy": {
+     "type": "object",
+     "description": "music-energy modulation {scale:[a,b], brightness:[a,b], band}"
+    },
+    "markAt": {
+     "type": "time",
+     "description": "when **/==/__ inline marks animate"
+    }
+   },
+   "count": 52,
+   "entries": [
+    {
+     "name": "assemble",
+     "description": "letters fly in from seeded scattered positions",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.9,
+       "range": [
+        0,
+        5
+       ],
+       "description": "duration"
+      },
+      "spread": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        5
+       ],
+       "description": "scatter radius (em)"
+      },
+      "seed": {
+       "type": "number",
+       "default": 7,
+       "description": "scatter seed"
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'assemble' })",
+     "source": "builtin"
+    },
+    {
+     "name": "blur",
+     "description": "fade in from a 14 px blur",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'blur' })",
+     "source": "builtin"
+    },
+    {
+     "name": "brush",
+     "description": "brush wipe top → bottom with soft edge",
+     "params": {},
+     "combinable": true,
+     "pack": "ink",
+     "example": "vk.title('Hello', { fx: 'brush' })",
+     "source": "builtin"
+    },
+    {
+     "name": "brush-x",
+     "description": "brush wipe left → right",
+     "params": {},
+     "combinable": true,
+     "pack": "ink",
+     "example": "vk.title('Hello', { fx: 'brush-x' })",
+     "source": "builtin"
+    },
+    {
+     "name": "count",
+     "description": "number counter (thousands separator, decimals, prefix/suffix)",
+     "params": {
+      "from": {
+       "type": "number",
+       "default": 0,
+       "description": "start value"
+      },
+      "to": {
+       "type": "number",
+       "description": "end value (default: the text)"
+      },
+      "decimals": {
+       "type": "number",
+       "default": 0,
+       "range": [
+        0,
+        6
+       ],
+       "description": "decimals"
+      },
+      "sep": {
+       "type": "string",
+       "description": "thousands separator (',')"
+      },
+      "d": {
+       "type": "number",
+       "default": 1.2,
+       "description": "duration"
+      },
+      "prefix": {
+       "type": "string"
+      },
+      "suffix": {
+       "type": "string"
+      },
+      "format": {
+       "type": "function",
+       "description": "v => string"
+      }
+     },
+     "example": "vk.title('0', { fx: 'count', to: 2048, sep: ',' })",
+     "source": "builtin"
+    },
+    {
+     "name": "decode",
+     "description": "alias of scramble",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.5
+      },
+      "each": {
+       "type": "number",
+       "default": 0.04
+      },
+      "rate": {
+       "type": "number",
+       "default": 20
+      }
+     },
+     "aliasOf": "scramble",
+     "example": "vk.title('Hello', { fx: 'decode' })",
+     "source": "builtin"
+    },
+    {
+     "name": "domino",
+     "description": "per-letter 3D domino fall-in",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.55,
+       "range": [
+        0,
+        5
+       ],
+       "description": "per-piece duration (s)"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.05,
+       "range": [
+        0,
+        1
+       ],
+       "description": "stagger between pieces (s)"
+      },
+      "stagger": {
+       "type": "number",
+       "description": "alias of each"
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'domino' })",
+     "source": "builtin"
+    },
+    {
+     "name": "down",
+     "description": "fade in while sliding down",
+     "params": {
+      "dist": {
+       "type": "number",
+       "default": 28,
+       "range": [
+        0,
+        400
+       ],
+       "description": "travel distance (px at 720p)"
+      }
+     },
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'down' })",
+     "source": "builtin"
+    },
+    {
+     "name": "draw",
+     "description": "SVG stroke draw-on",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 1.2
+      },
+      "each": {
+       "type": "number",
+       "description": "stagger between paths"
+      }
+     },
+     "example": "vk.svg('<path d=\"M40 220 C 120 40, 220 40, 260 150\"/>', { fx: 'draw', viewBox: '0 0 500 300' })",
+     "source": "builtin"
+    },
+    {
+     "name": "draw-fill",
+     "description": "SVG stroke draw then fill",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 1.2
+      },
+      "fillD": {
+       "type": "number",
+       "default": 0.5,
+       "description": "fill fade duration"
+      },
+      "each": {
+       "type": "number"
+      }
+     },
+     "aliases": [
+      "fill"
+     ],
+     "example": "vk.title('Hello', { fx: 'draw-fill' })",
+     "source": "builtin"
+    },
+    {
+     "name": "drop",
+     "description": "per-letter drop with squash & stretch (vk.mg)",
+     "params": {
+      "each": {
+       "type": "number"
+      },
+      "d": {
+       "type": "number"
+      },
+      "shadow": {
+       "type": "array",
+       "description": "[dx,dy,colour]"
+      }
+     },
+     "lazy": true,
+     "example": "vk.title('MOTION', { fx: 'drop', shadow: [10, 10, '#0008'] })",
+     "source": "builtin"
+    },
+    {
+     "name": "echo",
+     "description": "echo ghosts scale in behind the text (vk.mg)",
+     "params": {
+      "echo": {
+       "type": "number",
+       "default": 3,
+       "description": "ghosts"
+      },
+      "echoStep": {
+       "type": "number"
+      },
+      "echoAlpha": {
+       "type": "number"
+      }
+     },
+     "lazy": true,
+     "example": "vk.title('Hello', { fx: 'echo' })",
+     "source": "builtin"
+    },
+    {
+     "name": "fade",
+     "description": "opacity 0 → 1",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'fade' })",
+     "source": "builtin"
+    },
+    {
+     "name": "fill",
+     "description": "alias of draw-fill",
+     "params": {},
+     "aliasOf": "draw-fill",
+     "example": "vk.title('Hello', { fx: 'fill' })",
+     "source": "builtin"
+    },
+    {
+     "name": "flip",
+     "description": "3D flip up around the bottom edge",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'flip' })",
+     "source": "builtin"
+    },
+    {
+     "name": "grow",
+     "description": "scaleX 0 → 1 from the left edge (bars, rules)",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'grow' })",
+     "source": "builtin"
+    },
+    {
+     "name": "grow-y",
+     "description": "scaleY 0 → 1 from the bottom",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'grow-y' })",
+     "source": "builtin"
+    },
+    {
+     "name": "hard-shadow",
+     "description": "hard drop shadow grows (combine: \"pop hard-shadow\") (vk.mg)",
+     "params": {
+      "shadowColor": {
+       "type": "color"
+      },
+      "shadowX": {
+       "type": "number"
+      },
+      "shadowY": {
+       "type": "number"
+      }
+     },
+     "lazy": true,
+     "combinable": true,
+     "example": "vk.title('POP', { fx: 'pop hard-shadow' })",
+     "source": "builtin"
+    },
+    {
+     "name": "highlight",
+     "description": "animate ==marker== spans (highlighter sweep)",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.6
+      },
+      "each": {
+       "type": "number",
+       "default": 0.25
+      }
+     },
+     "aliases": [
+      "marker"
+     ],
+     "example": "vk.text('mark ==this== part')",
+     "source": "builtin"
+    },
+    {
+     "name": "ink",
+     "description": "ink bleed-in (blur + scale)",
+     "params": {},
+     "combinable": true,
+     "pack": "ink",
+     "example": "vk.title('Hello', { fx: 'ink' })",
+     "source": "builtin"
+    },
+    {
+     "name": "left",
+     "description": "fade in from the left",
+     "params": {
+      "dist": {
+       "type": "number",
+       "default": 44,
+       "range": [
+        0,
+        400
+       ],
+       "description": "travel distance (px at 720p)"
+      }
+     },
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'left' })",
+     "source": "builtin"
+    },
+    {
+     "name": "letters",
+     "description": "per-letter slide up from a baseline clip (default title fx)",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.6,
+       "range": [
+        0,
+        5
+       ],
+       "description": "per-piece duration (s)"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.035,
+       "range": [
+        0,
+        1
+       ],
+       "description": "stagger between pieces (s)"
+      },
+      "stagger": {
+       "type": "number",
+       "description": "alias of each"
+      }
+     },
+     "example": "vk.title('Letters', { fx: 'letters', each: .04 })",
+     "source": "builtin"
+    },
+    {
+     "name": "letters-blur",
+     "description": "per-letter un-blur from 130 %",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.7,
+       "range": [
+        0,
+        5
+       ],
+       "description": "per-piece duration (s)"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.04,
+       "range": [
+        0,
+        1
+       ],
+       "description": "stagger between pieces (s)"
+      },
+      "stagger": {
+       "type": "number",
+       "description": "alias of each"
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'letters-blur' })",
+     "source": "builtin"
+    },
+    {
+     "name": "letters-fade",
+     "description": "per-letter fade + rise",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.5,
+       "range": [
+        0,
+        5
+       ],
+       "description": "per-piece duration (s)"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.03,
+       "range": [
+        0,
+        1
+       ],
+       "description": "stagger between pieces (s)"
+      },
+      "stagger": {
+       "type": "number",
+       "description": "alias of each"
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'letters-fade' })",
+     "source": "builtin"
+    },
+    {
+     "name": "letters-pop",
+     "description": "per-letter pop + bob (vk.mg)",
+     "params": {
+      "each": {
+       "type": "number"
+      },
+      "d": {
+       "type": "number"
+      },
+      "bob": {
+       "type": "number"
+      }
+     },
+     "lazy": true,
+     "example": "vk.title('Hello', { fx: 'letters-pop' })",
+     "source": "builtin"
+    },
+    {
+     "name": "marker",
+     "description": "alias of highlight",
+     "params": {},
+     "aliasOf": "highlight",
+     "example": "vk.title('Hello', { fx: 'marker' })",
+     "source": "builtin"
+    },
+    {
+     "name": "mask-rise",
+     "description": "per-letter rise from a mask line (vk.mg)",
+     "params": {
+      "each": {
+       "type": "number"
+      },
+      "d": {
+       "type": "number"
+      }
+     },
+     "lazy": true,
+     "example": "vk.title('Hello', { fx: 'mask-rise' })",
+     "source": "builtin"
+    },
+    {
+     "name": "morph",
+     "description": "SVG shape morph through paths / shapes (beat-synced with beats:n)",
+     "params": {
+      "paths": {
+       "type": "array",
+       "description": "path strings"
+      },
+      "shapes": {
+       "type": "array",
+       "description": "shape names ['circle','star','heart','square',…]"
+      },
+      "n": {
+       "type": "number",
+       "default": 120,
+       "description": "resample points"
+      },
+      "r": {
+       "type": "number",
+       "default": 100,
+       "description": "shape radius"
+      },
+      "cx": {
+       "type": "number",
+       "default": 0
+      },
+      "cy": {
+       "type": "number",
+       "default": 0
+      },
+      "beats": {
+       "type": "number",
+       "description": "one step every n beats (needs bpm)"
+      },
+      "each": {
+       "type": "number",
+       "description": "seconds per step"
+      },
+      "d": {
+       "type": "number",
+       "default": 0.9
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'morph' })",
+     "source": "builtin"
+    },
+    {
+     "name": "none",
+     "description": "no animation (visible at once)",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'none' })",
+     "source": "builtin"
+    },
+    {
+     "name": "pop",
+     "description": "pop from 60 % with overshoot (outBack)",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'pop' })",
+     "source": "builtin"
+    },
+    {
+     "name": "reveal",
+     "description": "mask reveal: slides up out of its own clip box",
+     "params": {},
+     "combinable": true,
+     "example": "vk.h2('Reveal', { fx: 'reveal' })",
+     "source": "builtin"
+    },
+    {
+     "name": "right",
+     "description": "fade in from the right",
+     "params": {
+      "dist": {
+       "type": "number",
+       "default": 44,
+       "range": [
+        0,
+        400
+       ],
+       "description": "travel distance (px at 720p)"
+      }
+     },
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'right' })",
+     "source": "builtin"
+    },
+    {
+     "name": "rise",
+     "description": "rise from below with blur, outExpo",
+     "params": {
+      "dist": {
+       "type": "number",
+       "default": 40,
+       "range": [
+        0,
+        400
+       ],
+       "description": "travel distance (px at 720p)"
+      }
+     },
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'rise' })",
+     "source": "builtin"
+    },
+    {
+     "name": "scale",
+     "description": "fade in from 90 % scale",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'scale' })",
+     "source": "builtin"
+    },
+    {
+     "name": "scramble",
+     "description": "random-glyph decode into the text (seeded)",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.5,
+       "description": "per-letter settle time"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.04,
+       "description": "stagger"
+      },
+      "rate": {
+       "type": "number",
+       "default": 20,
+       "description": "glyph changes per second"
+      },
+      "glyphs": {
+       "type": "string",
+       "description": "glyph set"
+      }
+     },
+     "aliases": [
+      "decode"
+     ],
+     "example": "vk.title('Hello', { fx: 'scramble' })",
+     "source": "builtin"
+    },
+    {
+     "name": "slam",
+     "description": "poster slam: big scale + rotation + offset → land (vk.mg)",
+     "params": {
+      "echo": {
+       "type": "number",
+       "default": 0,
+       "range": [
+        0,
+        6
+       ],
+       "description": "ghost copies"
+      },
+      "shadow": {
+       "type": "array",
+       "description": "hard shadow [dx, dy, colour]"
+      },
+      "wobble": {
+       "type": "number",
+       "description": "settle wobble"
+      },
+      "scale": {
+       "type": "number",
+       "description": "start scale"
+      },
+      "rot": {
+       "type": "number",
+       "description": "start rotation (deg)"
+      },
+      "x": {
+       "type": "number",
+       "default": 0
+      },
+      "y": {
+       "type": "number",
+       "default": 0
+      },
+      "dir": {
+       "type": "number",
+       "default": 1
+      }
+     },
+     "lazy": true,
+     "example": "vk.title('SLAM', { fx: 'slam', echo: 3 })",
+     "source": "builtin"
+    },
+    {
+     "name": "squash",
+     "description": "per-letter squash & stretch pop",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.55,
+       "range": [
+        0,
+        5
+       ],
+       "description": "per-piece duration (s)"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.05,
+       "range": [
+        0,
+        1
+       ],
+       "description": "stagger between pieces (s)"
+      },
+      "stagger": {
+       "type": "number",
+       "description": "alias of each"
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'squash' })",
+     "source": "builtin"
+    },
+    {
+     "name": "stack",
+     "description": "kinetic stack: each line fills the box width, alternating entrance directions (vk.stack)",
+     "params": {
+      "each": {
+       "type": "number",
+       "default": 0.22
+      },
+      "d": {
+       "type": "number",
+       "default": 0.55
+      },
+      "width": {
+       "type": "number",
+       "description": "box width (px)"
+      }
+     },
+     "example": "vk.stack(['KINETIC', 'TYPE'])",
+     "source": "builtin"
+    },
+    {
+     "name": "stamp",
+     "description": "seal stamp-in (scale 150 % + rotate)",
+     "params": {},
+     "combinable": true,
+     "pack": "ink",
+     "example": "vk.title('Hello', { fx: 'stamp' })",
+     "source": "builtin"
+    },
+    {
+     "name": "stretch",
+     "description": "font-stretch 62 % → 100 % + tracking (needs a variable-width font: font:\"display\")",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('STRETCH', { fx: 'stretch', font: 'display' })",
+     "source": "builtin"
+    },
+    {
+     "name": "swap",
+     "description": "keyword colour swap at t",
+     "params": {
+      "color": {
+       "type": "color",
+       "default": "accent",
+       "description": "target colour"
+      },
+      "d": {
+       "type": "number",
+       "default": 0.3
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'swap' })",
+     "source": "builtin"
+    },
+    {
+     "name": "type",
+     "description": "typewriter with caret (reserves the final width)",
+     "params": {
+      "cps": {
+       "type": "number",
+       "default": 30,
+       "range": [
+        1,
+        200
+       ],
+       "description": "characters per second"
+      },
+      "caret": {
+       "type": "boolean",
+       "default": true,
+       "description": "show caret"
+      },
+      "reserve": {
+       "type": "boolean",
+       "default": true,
+       "description": "keep final width"
+      },
+      "text": {
+       "type": "string",
+       "description": "text to type (default: element text)"
+      }
+     },
+     "example": "vk.text('npm i vidkit', { fx: 'type', cps: 14 })",
+     "source": "builtin"
+    },
+    {
+     "name": "underline",
+     "description": "animate __underline__ spans (draw-in)",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.6
+      },
+      "each": {
+       "type": "number",
+       "default": 0.25
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'underline' })",
+     "source": "builtin"
+    },
+    {
+     "name": "up",
+     "description": "fade in while sliding up",
+     "params": {
+      "dist": {
+       "type": "number",
+       "default": 28,
+       "range": [
+        0,
+        400
+       ],
+       "description": "travel distance (px at 720p)"
+      }
+     },
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'up' })",
+     "source": "builtin"
+    },
+    {
+     "name": "wave",
+     "description": "persistent sine wave per letter",
+     "params": {
+      "amp": {
+       "type": "number",
+       "default": 0.12,
+       "range": [
+        0,
+        1
+       ],
+       "description": "amplitude (em)"
+      },
+      "speed": {
+       "type": "number",
+       "default": 6,
+       "range": [
+        0,
+        30
+       ],
+       "description": "rad/s"
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'wave' })",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe",
+     "description": "clip-path wipe left → right",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'wipe' })",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe-down",
+     "description": "clip-path wipe top → bottom",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'wipe-down' })",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe-left",
+     "description": "clip-path wipe right → left",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'wipe-left' })",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe-up",
+     "description": "clip-path wipe bottom → top",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'wipe-up' })",
+     "source": "builtin"
+    },
+    {
+     "name": "words",
+     "description": "per-word pop 145 % → 100 % (use | to split CJK manually)",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.5,
+       "range": [
+        0,
+        5
+       ],
+       "description": "per-piece duration (s)"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.09,
+       "range": [
+        0,
+        1
+       ],
+       "description": "stagger between pieces (s)"
+      },
+      "stagger": {
+       "type": "number",
+       "description": "alias of each"
+      }
+     },
+     "example": "vk.title('用|代码|写|视频', { fx: 'words' })",
+     "source": "builtin"
+    },
+    {
+     "name": "words-up",
+     "description": "per-word push up",
+     "params": {
+      "d": {
+       "type": "number",
+       "default": 0.6,
+       "range": [
+        0,
+        5
+       ],
+       "description": "per-piece duration (s)"
+      },
+      "each": {
+       "type": "number",
+       "default": 0.08,
+       "range": [
+        0,
+        1
+       ],
+       "description": "stagger between pieces (s)"
+      },
+      "stagger": {
+       "type": "number",
+       "description": "alias of each"
+      }
+     },
+     "example": "vk.title('Hello', { fx: 'words-up' })",
+     "source": "builtin"
+    },
+    {
+     "name": "zoom",
+     "description": "fade in from 115 % scale",
+     "params": {},
+     "combinable": true,
+     "example": "vk.title('Hello', { fx: 'zoom' })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "transitions": {
+   "common": {
+    "d": {
+     "type": "number",
+     "default": 0.5,
+     "range": [
+      0,
+      3
+     ],
+     "description": "duration (s): the overlap with the previous scene"
+    },
+    "ease": {
+     "type": "ease",
+     "default": "inOutCubic",
+     "description": "progress easing"
+    },
+    "focal": {
+     "type": "object",
+     "description": "{x, y} focus point (px or 0–1) for iris / zoom / shape transitions"
+    }
+   },
+   "count": 48,
+   "entries": [
+    {
+     "name": "bars",
+     "description": "cover: bars grow across from one side then retract (vk.mg)",
+     "params": {
+      "n": {
+       "type": "number",
+       "default": 6,
+       "range": [
+        1,
+        20
+       ],
+       "description": "bars"
+      },
+      "colors": {
+       "type": "array"
+      },
+      "axis": {
+       "type": "enum",
+       "default": "alt",
+       "values": [
+        "x",
+        "y",
+        "alt"
+       ]
+      }
+     },
+     "lazy": true,
+     "cover": true,
+     "example": "vk.scene('Next', 4, { transition: 'bars:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "blinds",
+     "description": "venetian blinds",
+     "params": {
+      "n": {
+       "type": "number",
+       "default": 8,
+       "range": [
+        2,
+        40
+       ],
+       "description": "slats"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'blinds:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "blur",
+     "description": "blur cross-dissolve",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'blur:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "circle",
+     "description": "alias of iris",
+     "params": {},
+     "aliasOf": "iris",
+     "example": "vk.scene('Next', 4, { transition: 'circle:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "crossfade",
+     "description": "both scenes cross-fade",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'crossfade:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "diagonal",
+     "description": "diagonal wipe",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'diagonal:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "dip",
+     "description": "dip through black (color option)",
+     "params": {
+      "color": {
+       "type": "color",
+       "default": "#000",
+       "description": "dip colour"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'dip:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "fade",
+     "description": "new scene fades in over the old",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'fade:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "flash",
+     "description": "white flash cut",
+     "params": {
+      "color": {
+       "type": "color",
+       "default": "#fff",
+       "description": "flash colour"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'flash:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "glitch",
+     "description": "slice displacement + hue jitter",
+     "params": {},
+     "aliases": [
+      "slice"
+     ],
+     "example": "vk.scene('Next', 4, { transition: 'glitch:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "ink",
+     "description": "ink drop spreads into the new scene",
+     "params": {
+      "x": {
+       "type": "number",
+       "description": "focal x"
+      },
+      "y": {
+       "type": "number",
+       "description": "focal y"
+      }
+     },
+     "pack": "ink",
+     "example": "vk.scene('Next', 4, { transition: 'ink:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "iris",
+     "description": "circle iris opens from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "aliases": [
+      "circle"
+     ],
+     "example": "vk.scene('Next', 4, { transition: 'iris:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "iris-out",
+     "description": "old scene closes into a circle",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'iris-out:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "none",
+     "description": "hard cut (also \"cut\")",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'none:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "push-down",
+     "description": "new scene pushes the old one out (down)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'push-down:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "push-left",
+     "description": "new scene pushes the old one out (left)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'push-left:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "push-right",
+     "description": "new scene pushes the old one out (right)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'push-right:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "push-up",
+     "description": "new scene pushes the old one out (up)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'push-up:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "shape-blob",
+     "description": "blob-shaped mask grows from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'shape-blob:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "shape-diamond",
+     "description": "diamond-shaped mask grows from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'shape-diamond:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "shape-heart",
+     "description": "heart-shaped mask grows from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'shape-heart:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "shape-hexagon",
+     "description": "hexagon-shaped mask grows from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'shape-hexagon:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "shape-square",
+     "description": "square-shaped mask grows from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'shape-square:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "shape-star",
+     "description": "star-shaped mask grows from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'shape-star:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "shape-triangle",
+     "description": "triangle-shaped mask grows from the focal point",
+     "params": {
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'shape-triangle:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "slice",
+     "description": "alias of glitch",
+     "params": {},
+     "aliasOf": "glitch",
+     "example": "vk.scene('Next', 4, { transition: 'slice:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "slide-down",
+     "description": "new scene slides in (down)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'slide-down:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "slide-left",
+     "description": "new scene slides in (left)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'slide-left:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "slide-right",
+     "description": "new scene slides in (right)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'slide-right:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "slide-up",
+     "description": "new scene slides in (up)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'slide-up:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "split",
+     "description": "vertical split opens",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'split:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "split-h",
+     "description": "horizontal split opens",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'split-h:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "split-open",
+     "description": "old scene splits apart from the middle",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'split-open:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "stripes",
+     "description": "cover: n colour bars slide in staggered then out (vk.mg)",
+     "params": {
+      "n": {
+       "type": "number",
+       "default": 6,
+       "range": [
+        1,
+        20
+       ],
+       "description": "bars"
+      },
+      "colors": {
+       "type": "array",
+       "description": "bar colours"
+      },
+      "axis": {
+       "type": "enum",
+       "default": "alt",
+       "description": "direction",
+       "values": [
+        "x",
+        "y",
+        "alt"
+       ]
+      },
+      "stagger": {
+       "type": "number"
+      },
+      "travel": {
+       "type": "number"
+      },
+      "reverse": {
+       "type": "boolean",
+       "default": false
+      }
+     },
+     "lazy": true,
+     "cover": true,
+     "example": "vk.scene('B', 4, { transition: 'stripes:0.6' }, [])",
+     "source": "builtin"
+    },
+    {
+     "name": "wash",
+     "description": "soft blur wash cross-fade",
+     "params": {},
+     "pack": "ink",
+     "example": "vk.scene('Next', 4, { transition: 'wash:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "whip-down",
+     "description": "fast whip pan with motion blur (down)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'whip-down:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "whip-left",
+     "description": "fast whip pan with motion blur (left)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'whip-left:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "whip-right",
+     "description": "fast whip pan with motion blur (right)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'whip-right:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "whip-up",
+     "description": "fast whip pan with motion blur (up)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'whip-up:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe",
+     "description": "alias of wipe-right",
+     "params": {},
+     "aliasOf": "wipe-right",
+     "example": "vk.scene('Next', 4, { transition: 'wipe:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe-down",
+     "description": "clip wipe (down)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'wipe-down:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe-left",
+     "description": "clip wipe (left)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'wipe-left:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe-right",
+     "description": "clip wipe (right)",
+     "params": {},
+     "aliases": [
+      "wipe"
+     ],
+     "example": "vk.scene('Next', 4, { transition: 'wipe-right:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "wipe-up",
+     "description": "clip wipe (up)",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'wipe-up:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "zoom",
+     "description": "alias of zoom-in",
+     "params": {},
+     "aliasOf": "zoom-in",
+     "example": "vk.scene('Next', 4, { transition: 'zoom:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "zoom-in",
+     "description": "zoom in + fade",
+     "params": {},
+     "aliases": [
+      "zoom"
+     ],
+     "example": "vk.scene('Next', 4, { transition: 'zoom-in:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "zoom-out",
+     "description": "zoom out + fade",
+     "params": {},
+     "example": "vk.scene('Next', 4, { transition: 'zoom-out:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    },
+    {
+     "name": "zoom-through",
+     "description": "old scene scales 40× through the focal point (e.g. a letter hole)",
+     "params": {
+      "scale": {
+       "type": "number",
+       "default": 40,
+       "description": "final scale"
+      },
+      "focal": {
+       "type": "object",
+       "description": "{x, y}"
+      }
+     },
+     "example": "vk.scene('Next', 4, { transition: 'zoom-through:0.6' }, [vk.title('Next')])",
+     "source": "builtin"
+    }
+   ]
+  },
+  "textures": {
+   "common": {
+    "amount": {
+     "type": "number",
+     "description": "strength (0–1 for most)"
+    }
+   },
+   "count": 8,
+   "entries": [
+    {
+     "name": "flicker",
+     "description": "projector exposure flicker",
+     "params": {
+      "amount": {
+       "type": "number",
+       "default": 0.03,
+       "range": [
+        0,
+        1
+       ]
+      },
+      "fps": {
+       "type": "number",
+       "default": 24
+      }
+     },
+     "example": "vk.video({ texture: { flicker: { amount: .3 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "grain",
+     "description": "film grain (seeded tiles, 24 fps refresh)",
+     "params": {
+      "amount": {
+       "type": "number",
+       "default": 0.06,
+       "range": [
+        0,
+        1
+       ],
+       "description": "opacity"
+      },
+      "blend": {
+       "type": "string",
+       "default": "overlay",
+       "description": "CSS blend mode"
+      },
+      "fps": {
+       "type": "number",
+       "default": 24,
+       "description": "refresh rate"
+      }
+     },
+     "example": "vk.video({ texture: { grain: { amount: .05 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "halftone",
+     "description": "halftone dot screen",
+     "params": {
+      "size": {
+       "type": "number",
+       "default": 7,
+       "description": "cell px"
+      },
+      "dot": {
+       "type": "number",
+       "default": 28,
+       "range": [
+        0,
+        100
+       ],
+       "description": "dot size %"
+      },
+      "color": {
+       "type": "color"
+      },
+      "blend": {
+       "type": "string",
+       "default": "soft-light"
+      },
+      "angle": {
+       "type": "number"
+      }
+     },
+     "example": "vk.video({ texture: { halftone: { amount: .3 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "paper",
+     "description": "static paper fibre multiply",
+     "params": {
+      "amount": {
+       "type": "number",
+       "default": 0.5,
+       "range": [
+        0,
+        1
+       ]
+      },
+      "color": {
+       "type": "color",
+       "default": "#F4EEE2"
+      },
+      "seed": {
+       "type": "number",
+       "default": 42
+      }
+     },
+     "example": "vk.video({ texture: { paper: { amount: .3 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "rgb",
+     "description": "RGB misregistration (SVG filter on the scene stack)",
+     "params": {
+      "amount": {
+       "type": "number",
+       "default": 2,
+       "range": [
+        0,
+        20
+       ],
+       "description": "offset px"
+      },
+      "angle": {
+       "type": "number",
+       "default": 0,
+       "description": "deg"
+      },
+      "pulse": {
+       "type": "number",
+       "description": "pulse on beats (k)"
+      },
+      "fn": {
+       "type": "function",
+       "description": "t => multiplier"
+      }
+     },
+     "example": "vk.video({ texture: { rgb: { amount: .3 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "rice",
+     "description": "rice-paper fractal fibres + vignette (ink pack)",
+     "params": {
+      "amount": {
+       "type": "number",
+       "default": 0.55,
+       "range": [
+        0,
+        1
+       ]
+      },
+      "size": {
+       "type": "number",
+       "default": 300,
+       "description": "tile px"
+      },
+      "freq": {
+       "type": "number",
+       "default": 0.85
+      },
+      "seed": {
+       "type": "number",
+       "default": 4
+      },
+      "vignette": {
+       "type": "number",
+       "default": 0.22
+      },
+      "cache": {
+       "type": "boolean",
+       "default": true
+      }
+     },
+     "pack": "ink",
+     "example": "vk.video({ texture: { rice: { amount: .3 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "scanlines",
+     "description": "CRT scanlines (optional roll)",
+     "params": {
+      "amount": {
+       "type": "number",
+       "default": 0.22,
+       "range": [
+        0,
+        1
+       ]
+      },
+      "size": {
+       "type": "number",
+       "default": 4,
+       "description": "line pitch px"
+      },
+      "roll": {
+       "type": "number",
+       "description": "roll speed"
+      }
+     },
+     "example": "vk.video({ texture: { scanlines: { amount: .3 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "vignette",
+     "description": "radial vignette",
+     "params": {
+      "amount": {
+       "type": "number",
+       "default": 0.35,
+       "range": [
+        0,
+        1
+       ],
+       "description": "edge darkness"
+      },
+      "inner": {
+       "type": "number",
+       "default": 45,
+       "range": [
+        0,
+        100
+       ],
+       "description": "clear radius (%)"
+      }
+     },
+     "example": "vk.video({ texture: { vignette: .3 } })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "backgrounds": {
+   "common": {
+    "type": {
+     "type": "string",
+     "description": "background name"
+    }
+   },
+   "count": 6,
+   "entries": [
+    {
+     "name": "dots",
+     "description": "dot grid (drift)",
+     "params": {
+      "size": {
+       "type": "number",
+       "default": 28
+      },
+      "color": {
+       "type": "color"
+      },
+      "r": {
+       "type": "number",
+       "default": 2,
+       "description": "dot radius"
+      },
+      "fade": {
+       "type": "boolean"
+      },
+      "opacity": {
+       "type": "number"
+      },
+      "drift": {
+       "type": "number",
+       "default": 8
+      }
+     },
+     "example": "vk.scene('A', 4, { bg: { type: 'dots' } }, [vk.title('A')])",
+     "source": "builtin"
+    },
+    {
+     "name": "dotwave",
+     "description": "radial sine dot field + beat rings + hue cycle (vk.mg, canvas)",
+     "params": {
+      "step": {
+       "type": "number",
+       "description": "px between dots"
+      },
+      "color": {
+       "type": "color"
+      },
+      "hole": {
+       "type": "object",
+       "description": "{w, h, soft} keep text area clear"
+      },
+      "every": {
+       "type": "number"
+      }
+     },
+     "lazy": true,
+     "example": "vk.scene('A', 4, { bg: { type: 'dotwave', hole: { w: 600, h: 200 } } }, [])",
+     "source": "builtin"
+    },
+    {
+     "name": "gradient",
+     "description": "linear gradient (optional spin)",
+     "params": {
+      "colors": {
+       "type": "array",
+       "description": "colours (default bg → surface)"
+      },
+      "angle": {
+       "type": "number",
+       "default": 135,
+       "description": "deg"
+      },
+      "spin": {
+       "type": "number",
+       "default": 0,
+       "description": "deg/s"
+      }
+     },
+     "example": "vk.scene('A', 4, { bg: { type: 'gradient', spin: 10 } }, [])",
+     "source": "builtin"
+    },
+    {
+     "name": "grid",
+     "description": "line grid (drift)",
+     "params": {
+      "size": {
+       "type": "number",
+       "default": 64,
+       "description": "cell px"
+      },
+      "color": {
+       "type": "color"
+      },
+      "width": {
+       "type": "number",
+       "default": 1
+      },
+      "fade": {
+       "type": "boolean",
+       "description": "radial fade"
+      },
+      "opacity": {
+       "type": "number"
+      },
+      "drift": {
+       "type": "number",
+       "default": 10,
+       "description": "px/s"
+      },
+      "dx": {
+       "type": "number",
+       "default": 0
+      },
+      "dy": {
+       "type": "number"
+      }
+     },
+     "example": "vk.scene('A', 4, { bg: { type: 'grid' } }, [vk.title('A')])",
+     "source": "builtin"
+    },
+    {
+     "name": "mesh",
+     "description": "flowing mesh gradient blobs",
+     "params": {
+      "colors": {
+       "type": "array"
+      },
+      "speed": {
+       "type": "number",
+       "default": 0.12
+      },
+      "base": {
+       "type": "color"
+      },
+      "size": {
+       "type": "number",
+       "default": 55,
+       "description": "blob size %"
+      },
+      "opacity": {
+       "type": "number",
+       "default": 1
+      },
+      "blur": {
+       "type": "number"
+      }
+     },
+     "example": "vk.scene('A', 4, { bg: { type: 'mesh' } }, [vk.title('A')])",
+     "source": "builtin"
+    },
+    {
+     "name": "noise",
+     "description": "animated value noise (canvas)",
+     "params": {
+      "res": {
+       "type": "number",
+       "default": 64
+      },
+      "from": {
+       "type": "color"
+      },
+      "to": {
+       "type": "color"
+      },
+      "scale": {
+       "type": "number",
+       "default": 3.2
+      },
+      "speed": {
+       "type": "number",
+       "default": 0.15
+      },
+      "contrast": {
+       "type": "number",
+       "default": 1.6
+      },
+      "opacity": {
+       "type": "number"
+      }
+     },
+     "example": "vk.scene('A', 4, { bg: { type: 'noise' } }, [vk.title('A')])",
+     "source": "builtin"
+    }
+   ]
+  },
+  "blocks": {
+   "common": null,
+   "count": 26,
+   "entries": [
+    {
+     "name": "badge",
+     "description": "pill label",
+     "params": {
+      "hl": {
+       "type": "boolean",
+       "default": false,
+       "description": "accent fill"
+      }
+     },
+     "example": "vk.badge('NEW', { hl: true })",
+     "source": "builtin"
+    },
+    {
+     "name": "bar",
+     "description": "bar chart from [[label, value], …]",
+     "params": {
+      "highlight": {
+       "type": "number",
+       "description": "index"
+      },
+      "unit": {
+       "type": "string"
+      },
+      "horizontal": {
+       "type": "boolean",
+       "default": false
+      },
+      "colors": {
+       "type": "boolean|array"
+      },
+      "source": {
+       "type": "string",
+       "description": "data source (write \"示例数据\"/\"sample data\" when not real)"
+      }
+     },
+     "example": "vk.bar([['Jan', 12], ['Feb', 19]], { highlight: 1, source: 'sample data' })",
+     "source": "builtin"
+    },
+    {
+     "name": "cards",
+     "description": "icon/title/text cards grid",
+     "params": {
+      "cols": {
+       "type": "number",
+       "default": 3
+      }
+     },
+     "example": "vk.cards([{ icon: '⚡', title: 'Fast', text: '…' }], { cols: 3 })",
+     "source": "builtin"
+    },
+    {
+     "name": "chapter",
+     "description": "corner vertical chapter title (ink)",
+     "params": {
+      "no": {
+       "type": "string"
+      }
+     },
+     "example": "vk.chapter(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "code",
+     "description": "code block with light syntax colouring, lines appear",
+     "params": {
+      "highlight": {
+       "type": "array",
+       "description": "1-based lines"
+      },
+      "w": {
+       "type": "number"
+      },
+      "lang": {
+       "type": "string"
+      }
+     },
+     "example": "vk.code(src, { highlight: [3] })",
+     "source": "builtin"
+    },
+    {
+     "name": "columns",
+     "description": "side-by-side columns {title, code, text}",
+     "params": {},
+     "example": "vk.columns(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "credits",
+     "description": "scrolling credits",
+     "params": {},
+     "example": "vk.credits(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "cta",
+     "description": "call-to-action card {title, sub, cmd, url, note}",
+     "params": {},
+     "example": "vk.cta(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "device",
+     "description": "browser / phone / laptop frame around an image or nodes",
+     "params": {
+      "type": {
+       "type": "enum",
+       "default": "browser",
+       "values": [
+        "browser",
+        "phone",
+        "laptop"
+       ]
+      },
+      "url": {
+       "type": "string"
+      }
+     },
+     "example": "vk.device(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "diagram",
+     "description": "node/edge diagram with auto arrows {w,h,nodes,edges}",
+     "params": {},
+     "example": "vk.diagram(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "donut",
+     "description": "donut chart",
+     "params": {
+      "r": {
+       "type": "number",
+       "default": 150
+      },
+      "center": {
+       "type": "string"
+      },
+      "centerLabel": {
+       "type": "string"
+      }
+     },
+     "example": "vk.donut(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "endcard",
+     "description": "ink end card",
+     "params": {},
+     "example": "vk.endcard(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "gantt",
+     "description": "gantt chart {rows:[{label,start,end,hl}], range, unit}",
+     "params": {},
+     "example": "vk.gantt(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "image",
+     "description": "image with Ken Burns",
+     "params": {
+      "w": {
+       "type": "number"
+      },
+      "h": {
+       "type": "number"
+      },
+      "from": {
+       "type": "object",
+       "description": "{s,x,y}"
+      },
+      "to": {
+       "type": "object",
+       "description": "{s,x,y}"
+      }
+     },
+     "example": "vk.image(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "kv",
+     "description": "key/value rows",
+     "params": {
+      "keyW": {
+       "type": "number",
+       "description": "key column px"
+      }
+     },
+     "example": "vk.kv(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "line",
+     "description": "line chart {series:[{name, values}], labels}",
+     "params": {
+      "area": {
+       "type": "boolean",
+       "default": false
+      },
+      "dots": {
+       "type": "boolean",
+       "default": false
+      },
+      "source": {
+       "type": "string"
+      }
+     },
+     "example": "vk.line(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "lyrics",
+     "description": "word-timed kinetic lyric line (vk.lyrics(cue, o))",
+     "params": {
+      "style": {
+       "type": "enum",
+       "default": "pop",
+       "values": [
+        "pop",
+        "rise",
+        "karaoke",
+        "slam"
+       ]
+      }
+     },
+     "example": "vk.lyrics(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "pie",
+     "description": "pie chart",
+     "params": {},
+     "example": "vk.pie(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "quote",
+     "description": "pull quote",
+     "params": {
+      "by": {
+       "type": "string",
+       "description": "attribution"
+      }
+     },
+     "example": "vk.quote(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "ring",
+     "description": "progress ring (percent)",
+     "params": {
+      "label": {
+       "type": "string"
+      },
+      "r": {
+       "type": "number",
+       "default": 120
+      }
+     },
+     "example": "vk.ring(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "seal",
+     "description": "red seal stamp (ink)",
+     "params": {},
+     "example": "vk.seal(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "spectrum",
+     "description": "spectrum bars driven by analysed mel bands",
+     "params": {
+      "bars": {
+       "type": "number",
+       "default": 32
+      },
+      "h": {
+       "type": "number",
+       "default": 120
+      },
+      "mirror": {
+       "type": "boolean",
+       "default": false
+      }
+     },
+     "example": "vk.spectrum(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "table",
+     "description": "table {header, rows, highlight}",
+     "params": {
+      "source": {
+       "type": "string"
+      }
+     },
+     "example": "vk.table(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "terminal",
+     "description": "terminal window; \"$ \" lines type, others fade in",
+     "params": {
+      "w": {
+       "type": "number",
+       "description": "width"
+      }
+     },
+     "example": "vk.terminal(['$ npm i -g x', '✓ done'], { w: 640 })",
+     "source": "builtin"
+    },
+    {
+     "name": "ticker",
+     "description": "animated number with unit/label",
+     "params": {
+      "decimals": {
+       "type": "number",
+       "default": 0
+      },
+      "unit": {
+       "type": "string"
+      },
+      "label": {
+       "type": "string"
+      },
+      "from": {
+       "type": "number",
+       "default": 0
+      }
+     },
+     "example": "vk.ticker(…)",
+     "source": "builtin"
+    },
+    {
+     "name": "vtitle",
+     "description": "vertical calligraphy title + seal (ink)",
+     "params": {
+      "sub": {
+       "type": "string"
+      },
+      "seal": {
+       "type": "string"
+      }
+     },
+     "example": "vk.vtitle(…)",
+     "source": "builtin"
+    }
+   ]
+  },
+  "eases": {
+   "common": null,
+   "count": 33,
+   "entries": [
+    {
+     "name": "house",
+     "description": "signature in-out curve cubic-bezier(.7,0,.2,1) — one curve for a whole film",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'house' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inBack",
+     "description": "pull back then go",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inBack' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inBounce",
+     "description": "bounce at the start",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inBounce' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inCirc",
+     "description": "accelerate (circ)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inCirc' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inCubic",
+     "description": "accelerate (cubic)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inCubic' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inExpo",
+     "description": "accelerate (expo)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inExpo' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inOutBack",
+     "description": "pull back, overshoot",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inOutBack' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inOutCubic",
+     "description": "accelerate then decelerate (cubic)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inOutCubic' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inOutExpo",
+     "description": "accelerate then decelerate (expo)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inOutExpo' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inOutQuad",
+     "description": "accelerate then decelerate (quad)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inOutQuad' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inOutQuart",
+     "description": "accelerate then decelerate (quart)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inOutQuart' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inOutQuint",
+     "description": "accelerate then decelerate (quint)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inOutQuint' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inOutSine",
+     "description": "accelerate then decelerate (sine)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inOutSine' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inQuad",
+     "description": "accelerate (quad)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inQuad' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inQuart",
+     "description": "accelerate (quart)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inQuart' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inQuint",
+     "description": "accelerate (quint)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inQuint' })",
+     "source": "builtin"
+    },
+    {
+     "name": "inSine",
+     "description": "accelerate (sine)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'inSine' })",
+     "source": "builtin"
+    },
+    {
+     "name": "linear",
+     "description": "constant speed",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'linear' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outBack",
+     "description": "decelerate with overshoot",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outBack' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outBounce",
+     "description": "bounce at the end",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outBounce' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outCirc",
+     "description": "decelerate (circ)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outCirc' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outCubic",
+     "description": "decelerate (cubic)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outCubic' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outElastic",
+     "description": "elastic wobble settle",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outElastic' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outExpo",
+     "description": "decelerate (expo)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outExpo' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outQuad",
+     "description": "decelerate (quad)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outQuad' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outQuart",
+     "description": "decelerate (quart)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outQuart' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outQuint",
+     "description": "decelerate (quint)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outQuint' })",
+     "source": "builtin"
+    },
+    {
+     "name": "outSine",
+     "description": "decelerate (sine)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'outSine' })",
+     "source": "builtin"
+    },
+    {
+     "name": "smooth",
+     "description": "Material standard cubic-bezier(.4,0,.2,1)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'smooth' })",
+     "source": "builtin"
+    },
+    {
+     "name": "snappy",
+     "description": "fast-out long settle (titles)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'snappy' })",
+     "source": "builtin"
+    },
+    {
+     "name": "spring",
+     "description": "damped spring (overshoots); spring(k,w) for custom",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'spring' })",
+     "source": "builtin"
+    },
+    {
+     "name": "step",
+     "description": "jump at the end",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'step' })",
+     "source": "builtin"
+    },
+    {
+     "name": "swift",
+     "description": "fast-out settle cubic-bezier(.2,.8,.2,1)",
+     "params": {},
+     "example": "sc.tween(el, { t: .2, d: .6, from: { opacity: 0 }, to: { opacity: 1 }, ease: 'swift' })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "themes": {
+   "common": {
+    "extends": {
+     "type": "string",
+     "default": "tech-blue",
+     "description": "base theme"
+    },
+    "modes": {
+     "type": "object",
+     "description": "{dark|light|accent: {bg, fg, muted, surface, line, accent, accent2, onAccent}}"
+    },
+    "mode": {
+     "type": "enum",
+     "default": "dark",
+     "description": "default palette mode",
+     "values": [
+      "dark",
+      "light",
+      "accent"
+     ]
+    },
+    "fonts": {
+     "type": "object",
+     "description": "{sans, display, mono, serif, condensed, brush}"
+    },
+    "scale": {
+     "type": "object",
+     "description": "type scale px at 720p {hero, h1, h2, h3, body, small, label, caption}"
+    },
+    "ease": {
+     "type": "ease",
+     "description": "default ease"
+    },
+    "cascade": {
+     "type": "number",
+     "description": "default gap between element entrances (s)"
+    },
+    "chart": {
+     "type": "array",
+     "description": "chart palette"
+    },
+    "caption": {
+     "type": "object",
+     "description": "{bg, fg, karaoke}"
+    },
+    "radius": {
+     "type": "number",
+     "description": "corner radius px"
+    }
+   },
+   "count": 14,
+   "entries": [
+    {
+     "name": "bold",
+     "description": "强对比短视频风（黑黄粉、超粗压缩字）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#0A0A0A",
+      "fg": "#FFFFFF",
+      "accent": "#FFE600",
+      "accent2": "#FF2E63"
+     },
+     "fonts": {
+      "display": "\"Archivo\",\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'bold' })",
+     "source": "builtin"
+    },
+    {
+     "name": "editorial",
+     "description": "暖色杂志风（纸张、衬线、赭红）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#F3ECE0",
+      "fg": "#1F1A17",
+      "accent": "#C8492B",
+      "accent2": "#2F5D50"
+     },
+     "fonts": {
+      "display": "\"Instrument Serif\",\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'editorial' })",
+     "source": "builtin"
+    },
+    {
+     "name": "ink",
+     "description": "水墨（宣纸、墨色、朱砂印；马善政毛笔字 + 思源宋体）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#e4e5d8",
+      "fg": "#1f2529",
+      "accent": "#b5342a",
+      "accent2": "#4d6659"
+     },
+     "fonts": {
+      "display": "\"Ma Shan Zheng\",\"STKaiti\",\"KaiTi\",\"Kaiti SC\",\"Noto Serif SC\",serif",
+      "sans": "\"Noto Serif SC\",\"Songti SC\",\"STSong\",\"Noto Sans SC\",serif"
+     },
+     "example": "vk.video({ theme: 'ink' })",
+     "source": "builtin"
+    },
+    {
+     "name": "noir",
+     "description": "黑白极简（单色 + 一点红）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#000000",
+      "fg": "#F5F5F5",
+      "accent": "#FF3B30",
+      "accent2": "#F5F5F5"
+     },
+     "fonts": {
+      "display": "\"Archivo\",\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'noir' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:crayon",
+     "description": "蜡笔绘本（暖白纸 · 粉彩 · 站酷快乐体）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#fbf3e4",
+      "fg": "#3b2a20",
+      "accent": "#ef6f5e",
+      "accent2": "#4fa3d9"
+     },
+     "fonts": {
+      "display": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif",
+      "sans": "\"ZCOOL KuaiLe\",\"Noto Sans SC\",sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:crayon' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:neon",
+     "description": "赛博霓虹（深紫 · 青 · 品红）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#07040f",
+      "fg": "#f2eaff",
+      "accent": "#ff2bd6",
+      "accent2": "#2bf0ff"
+     },
+     "fonts": {
+      "display": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:neon' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:opera",
+     "description": "重彩装饰（石青 · 朱红 · 金）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#1e5a7a",
+      "fg": "#fff4d6",
+      "accent": "#d8342a",
+      "accent2": "#e9b949"
+     },
+     "fonts": {
+      "display": "\"Ma Shan Zheng\",\"STKaiti\",\"KaiTi\",\"Kaiti SC\",\"Noto Serif SC\",serif",
+      "sans": "\"Noto Serif SC\",\"Songti SC\",\"STSong\",\"Noto Sans SC\",serif"
+     },
+     "example": "vk.video({ theme: 'style:opera' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:papercut",
+     "description": "剪纸（宣纸底 · 朱红 · 马善政毛笔字）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#e9dfc8",
+      "fg": "#2a1d17",
+      "accent": "#c0392b",
+      "accent2": "#2f5d50"
+     },
+     "fonts": {
+      "display": "\"Ma Shan Zheng\",\"STKaiti\",\"KaiTi\",\"Kaiti SC\",\"Noto Serif SC\",serif",
+      "sans": "\"Noto Serif SC\",\"Songti SC\",\"STSong\",\"Noto Sans SC\",serif"
+     },
+     "example": "vk.video({ theme: 'style:papercut' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:pixel",
+     "description": "像素（Sweetie-16 调色板）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#1a1c2c",
+      "fg": "#f4f4f4",
+      "accent": "#ffcd75",
+      "accent2": "#41a6f6"
+     },
+     "fonts": {
+      "display": "\"Archivo\",\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:pixel' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:reel",
+     "description": "动态海报（纸白 / 墨黑 + 四色）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#F4EFE6",
+      "fg": "#0A0A12",
+      "accent": "#FF3B8B",
+      "accent2": "#5B3BFF"
+     },
+     "fonts": {
+      "display": "\"Archivo Black\",\"Noto Sans SC\",sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:reel' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:shadow",
+     "description": "皮影（暖光幕布 · 赭红 · 毛笔字）",
+     "params": {},
+     "palette": {
+      "mode": "light",
+      "bg": "#2a1408",
+      "fg": "#f6dfb4",
+      "accent": "#d9482b",
+      "accent2": "#e9b04a"
+     },
+     "fonts": {
+      "display": "\"Ma Shan Zheng\",\"STKaiti\",\"KaiTi\",\"Kaiti SC\",\"Noto Serif SC\",serif",
+      "sans": "\"Noto Serif SC\",\"Songti SC\",\"STSong\",\"Noto Sans SC\",serif"
+     },
+     "example": "vk.video({ theme: 'style:shadow' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:tech",
+     "description": "科技宣传（深色）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#0B1020",
+      "fg": "#FFFFFF",
+      "accent": "#3355FF",
+      "accent2": "#7C93FF"
+     },
+     "fonts": {
+      "display": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:tech' })",
+     "source": "builtin"
+    },
+    {
+     "name": "style:three-tech",
+     "description": "3D 科技（近黑 · 电光青 · 紫）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#05070d",
+      "fg": "#eef3ff",
+      "accent": "#36d6ff",
+      "accent2": "#9b6bff"
+     },
+     "fonts": {
+      "display": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'style:three-tech' })",
+     "source": "builtin"
+    },
+    {
+     "name": "tech-blue",
+     "description": "科技蓝（Spark / One 宣传片风格）",
+     "params": {},
+     "palette": {
+      "mode": "dark",
+      "bg": "#0B1020",
+      "fg": "#FFFFFF",
+      "accent": "#3355FF",
+      "accent2": "#7C93FF"
+     },
+     "fonts": {
+      "display": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "sans": "\"Noto Sans SC\",\"Noto Sans CJK SC\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif"
+     },
+     "example": "vk.video({ theme: 'tech-blue' })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "formats": {
+   "common": {
+    "w": {
+     "type": "number",
+     "description": "width px"
+    },
+    "h": {
+     "type": "number",
+     "description": "height px"
+    },
+    "safe": {
+     "type": "object",
+     "description": "title-safe margins {top,right,bottom,left}"
+    },
+    "zones": {
+     "type": "array",
+     "description": "platform UI zones QA checks"
+    },
+    "captionBottom": {
+     "type": "number",
+     "description": "caption baseline px"
+    }
+   },
+   "count": 9,
+   "entries": [
+    {
+     "name": "1:1",
+     "description": "1080×1080",
+     "params": {},
+     "size": [
+      1080,
+      1080
+     ],
+     "safe": {
+      "top": 80,
+      "right": 80,
+      "bottom": 96,
+      "left": 80
+     },
+     "zones": [],
+     "aliases": [
+      "square"
+     ],
+     "example": "vk.video({ format: '1:1' })",
+     "source": "builtin"
+    },
+    {
+     "name": "1080p",
+     "description": "1920×1080",
+     "params": {},
+     "size": [
+      1920,
+      1080
+     ],
+     "safe": {
+      "top": 84,
+      "right": 120,
+      "bottom": 96,
+      "left": 120
+     },
+     "zones": [],
+     "example": "vk.video({ format: '1080p' })",
+     "source": "builtin"
+    },
+    {
+     "name": "16:9",
+     "description": "1280×720",
+     "params": {},
+     "size": [
+      1280,
+      720
+     ],
+     "safe": {
+      "top": 56,
+      "right": 80,
+      "bottom": 64,
+      "left": 80
+     },
+     "zones": [],
+     "aliases": [
+      "landscape"
+     ],
+     "example": "vk.video({ format: '16:9' })",
+     "source": "builtin"
+    },
+    {
+     "name": "4:5",
+     "description": "1080×1350",
+     "params": {},
+     "size": [
+      1080,
+      1350
+     ],
+     "safe": {
+      "top": 90,
+      "right": 80,
+      "bottom": 120,
+      "left": 80
+     },
+     "zones": [],
+     "aliases": [
+      "portrait"
+     ],
+     "example": "vk.video({ format: '4:5' })",
+     "source": "builtin"
+    },
+    {
+     "name": "9:16",
+     "description": "1080×1920",
+     "params": {},
+     "size": [
+      1080,
+      1920
+     ],
+     "safe": {
+      "top": 250,
+      "right": 160,
+      "bottom": 460,
+      "left": 72
+     },
+     "zones": [
+      "top-bar",
+      "right-rail",
+      "bottom-info"
+     ],
+     "aliases": [
+      "vertical"
+     ],
+     "example": "vk.video({ format: '9:16' })",
+     "source": "builtin"
+    },
+    {
+     "name": "landscape",
+     "description": "1280×720",
+     "params": {},
+     "size": [
+      1280,
+      720
+     ],
+     "safe": {
+      "top": 56,
+      "right": 80,
+      "bottom": 64,
+      "left": 80
+     },
+     "zones": [],
+     "aliasOf": "16:9",
+     "example": "vk.video({ format: 'landscape' })",
+     "source": "builtin"
+    },
+    {
+     "name": "portrait",
+     "description": "1080×1350",
+     "params": {},
+     "size": [
+      1080,
+      1350
+     ],
+     "safe": {
+      "top": 90,
+      "right": 80,
+      "bottom": 120,
+      "left": 80
+     },
+     "zones": [],
+     "aliasOf": "4:5",
+     "example": "vk.video({ format: 'portrait' })",
+     "source": "builtin"
+    },
+    {
+     "name": "square",
+     "description": "1080×1080",
+     "params": {},
+     "size": [
+      1080,
+      1080
+     ],
+     "safe": {
+      "top": 80,
+      "right": 80,
+      "bottom": 96,
+      "left": 80
+     },
+     "zones": [],
+     "aliasOf": "1:1",
+     "example": "vk.video({ format: 'square' })",
+     "source": "builtin"
+    },
+    {
+     "name": "vertical",
+     "description": "1080×1920",
+     "params": {},
+     "size": [
+      1080,
+      1920
+     ],
+     "safe": {
+      "top": 250,
+      "right": 160,
+      "bottom": 460,
+      "left": 72
+     },
+     "zones": [
+      "top-bar",
+      "right-rail",
+      "bottom-info"
+     ],
+     "aliasOf": "9:16",
+     "example": "vk.video({ format: 'vertical' })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "sounds": {
+   "common": null,
+   "count": 39,
+   "entries": [
+    {
+     "name": "bangzi",
+     "description": "bangzi clapper",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'bangzi', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "bass",
+     "description": "bass hit",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'bass', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "bubbles",
+     "description": "bubbles",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'bubbles', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "chime",
+     "description": "chime (freq)",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'chime', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "chip",
+     "description": "chiptune blip",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'chip', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "chipHit",
+     "description": "chiptune hit",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'chipHit', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "chipJump",
+     "description": "chiptune jump",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'chipJump', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "chipNoise",
+     "description": "chiptune noise",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'chipNoise', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "croak",
+     "description": "frog croak",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'croak', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "drop",
+     "description": "water drop",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'drop', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "flute",
+     "description": "bamboo flute (freq)",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'flute', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "gong",
+     "description": "gong",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'gong', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "hat",
+     "description": "hi-hat",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'hat', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "honk",
+     "description": "goose honk",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'honk', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "kalimba",
+     "description": "kalimba (freq)",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'kalimba', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "kick",
+     "description": "synth kick",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'kick', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "marimba",
+     "description": "marimba (freq)",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'marimba', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "op-bangu",
+     "description": "bangu drum",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'op-bangu', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "op-daluo",
+     "description": "opera big gong",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'op-daluo', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "op-nao",
+     "description": "opera cymbals",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'op-nao', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "op-naoMute",
+     "description": "muted cymbals",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'op-naoMute', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "op-tanggu",
+     "description": "tanggu drum",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'op-tanggu', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "op-xiaoluo",
+     "description": "opera small gong",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'op-xiaoluo', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "pluck",
+     "description": "Karplus–Strong guqin/pipa pluck (freq)",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'pluck', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "pop",
+     "description": "pop",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'pop', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "quack",
+     "description": "duck quack",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'quack', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "ripple",
+     "description": "ripple",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'ripple', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "riser",
+     "description": "riser",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'riser', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "rustle",
+     "description": "paper rustle",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'rustle', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "saw",
+     "description": "saw stab",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'saw', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "shaker",
+     "description": "shaker",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'shaker', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "snap",
+     "description": "finger snap",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'snap', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "splash",
+     "description": "splash",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'splash', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "step",
+     "description": "soft footstep thud",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'step', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "thump",
+     "description": "thump",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'thump', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "tick",
+     "description": "clock tick",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'tick', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "whoosh",
+     "description": "whoosh (transitions)",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'whoosh', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "woodfish",
+     "description": "wooden fish",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'woodfish', .8)",
+     "source": "builtin"
+    },
+    {
+     "name": "zap",
+     "description": "zap",
+     "params": {
+      "t": {
+       "type": "time",
+       "description": "when (absolute s or \"m:4\")"
+      },
+      "gain": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        0,
+        4
+       ]
+      },
+      "freq": {
+       "type": "number",
+       "description": "pitch for tonal voices"
+      }
+     },
+     "example": "sc.sfx(1.2, 'zap', .8)",
+     "source": "builtin"
+    }
+   ]
+  },
+  "materials": {
+   "common": {
+    "P": {
+     "type": "object",
+     "description": "pack parameters (line, ornament, rough, …)"
+    }
+   },
+   "count": 8,
+   "entries": [
+    {
+     "name": "crayon",
+     "description": "蜡笔（蜡质颗粒 · 纸纹透出 · 抖动描边）",
+     "params": {},
+     "example": "{ \"material\": \"crayon\" }  // style.json; or vk.style.material('crayon')",
+     "source": "builtin"
+    },
+    {
+     "name": "cut",
+     "description": "剪纸（剪刀毛边 · 平涂 · 镂空 · 投影）",
+     "params": {},
+     "example": "{ \"material\": \"cut\" }  // style.json; or vk.style.material('cut')",
+     "source": "builtin"
+    },
+    {
+     "name": "decor",
+     "description": "重彩装饰（饱和平涂 · 粗墨线 · 描金纹样）",
+     "params": {},
+     "example": "{ \"material\": \"decor\" }  // style.json; or vk.style.material('decor')",
+     "source": "builtin"
+    },
+    {
+     "name": "flat",
+     "description": "扁平矢量（平滑形 · 无描边 · 侧光）",
+     "params": {},
+     "example": "{ \"material\": \"flat\" }  // style.json; or vk.style.material('flat')",
+     "source": "builtin"
+    },
+    {
+     "name": "ink",
+     "description": "水墨（淡彩晕染 + 毛笔勾线）",
+     "params": {},
+     "example": "{ \"material\": \"ink\" }  // style.json; or vk.style.material('ink')",
+     "source": "builtin"
+    },
+    {
+     "name": "leather",
+     "description": "皮影（半透明染色皮 · 镂刻花纹 · 背光）",
+     "params": {},
+     "example": "{ \"material\": \"leather\" }  // style.json; or vk.style.material('leather')",
+     "source": "builtin"
+    },
+    {
+     "name": "neon",
+     "description": "霓虹线描（暗底 · 发光轮廓）",
+     "params": {},
+     "example": "{ \"material\": \"neon\" }  // style.json; or vk.style.material('neon')",
+     "source": "builtin"
+    },
+    {
+     "name": "pixel",
+     "description": "像素（平涂 + 粗描边，整帧像素化）",
+     "params": {},
+     "example": "{ \"material\": \"pixel\" }  // style.json; or vk.style.material('pixel')",
+     "source": "builtin"
+    }
+   ]
+  },
+  "styles": {
+   "common": {
+    "roles": {
+     "type": "string",
+     "description": "compose roles: 'ink' (all) · ['ink','papercut.chars'] · {base, world, chars, type, motion, sound, fx}"
+    }
+   },
+   "count": 10,
+   "entries": [
+    {
+     "name": "crayon",
+     "description": "蜡笔绘本 · Crayon picture book — 蜡笔绘本：暖白画纸纹理、蜡质颗粒与透出的纸纹、抖动描边（每秒 8 次线条沸腾）、粉彩山丘与大太阳，站酷快乐体手写标题，卡林巴与马林巴。",
+     "params": {},
+     "tags": [
+      "kids",
+      "handmade",
+      "warm",
+      "storybook"
+     ],
+     "material": "crayon",
+     "theme": "style:crayon",
+     "transitions": {
+      "default": "scribble:0.8",
+      "soft": "fade:0.5",
+      "strong": "scribble:0.5"
+     },
+     "effects": [
+      "doodles",
+      "sun rays",
+      "scribble"
+     ],
+     "qa": [
+      "paper tooth visible inside every fill (wax texture)",
+      "outlines boil but shapes stay recognisable (≤ 4 px wobble)",
+      "pastel palette, no pure black",
+      "hand-lettered font for all on-screen text",
+      "faces big enough to read expressions"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'crayon' })",
+     "source": "builtin"
+    },
+    {
+     "name": "ink",
+     "description": "水墨 · Ink wash — 宣纸水墨：远山淡墨晕染、近景浓墨勾勒、留白与雾带，朱砂印章、竖排毛笔题字，古琴与竹笛。",
+     "params": {},
+     "tags": [
+      "chinese",
+      "ink",
+      "painterly",
+      "calm"
+     ],
+     "material": "ink",
+     "theme": "ink",
+     "transitions": {
+      "default": "ink:1.0",
+      "soft": "wash:1.2",
+      "strong": "ink:0.7"
+     },
+     "effects": [
+      "inkBleed",
+      "mist",
+      "inkDrops"
+     ],
+     "qa": [
+      "generous empty paper (留白): at least a third of the frame is plain paper",
+      "far layers lighter and softer than near layers (aerial perspective)",
+      "only one saturated accent (seal red)",
+      "brush outlines wobble; nothing looks vector-perfect",
+      "titles vertical, top-right or top-left, never centred over the subject"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'ink' })",
+     "source": "builtin"
+    },
+    {
+     "name": "neon",
+     "description": "赛博霓虹 · Cyber neon — 赛博霓虹：雨夜都市剪影、发光线描人物、霓虹招牌标题（vk.gl 辉光 bloom）、CRT 扫描线与色散，合成器琶音。",
+     "params": {},
+     "tags": [
+      "cyberpunk",
+      "night",
+      "glow",
+      "synth"
+     ],
+     "material": "neon",
+     "theme": "style:neon",
+     "transitions": {
+      "default": "glitch:0.45",
+      "soft": "scan:0.5",
+      "strong": "glitch:0.3"
+     },
+     "effects": [
+      "bloom",
+      "sparks",
+      "scanlines"
+     ],
+     "qa": [
+      "glows are coloured, never pure white blobs (bloom knee)",
+      "scanlines subtle (< 10 % darkening)",
+      "two neon hues + one accent max",
+      "contours continuous (no broken neon tubes on characters)",
+      "text legible through the glitch transition"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'neon' })",
+     "source": "builtin"
+    },
+    {
+     "name": "opera",
+     "description": "重彩装饰 · Decorative opera colour (Havoc in Heaven) — 《大闹天宫》式重彩装饰：石青石绿与朱红金黄的饱和平涂、粗墨线、描金纹样、层叠祥云与天宫殿宇，匾额题字，京剧锣鼓。",
+     "params": {},
+     "tags": [
+      "chinese",
+      "decorative",
+      "bold",
+      "opera"
+     ],
+     "material": "decor",
+     "theme": "style:opera",
+     "transitions": {
+      "default": "cloud:0.8",
+      "soft": "fade:0.5",
+      "strong": "flash:0.4"
+     },
+     "effects": [
+      "rays",
+      "sparks",
+      "clouds"
+     ],
+     "qa": [
+      "every shape has the dark contour",
+      "palette limited to 石青 / 石绿 / 朱红 / 金 / cream",
+      "clouds are scrolled 祥云 with curls, not fluffy blobs",
+      "symmetric, frontal staging for titles",
+      "gold ornaments do not cover faces"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'opera' })",
+     "source": "builtin"
+    },
+    {
+     "name": "papercut",
+     "description": "剪纸 · Paper-cut (Shanghai Animation Film Studio) — 上美厂剪纸片：彩纸层层叠贴，剪刀毛边、镂空纹样、纸片投影，宣纸底色，锣鼓点配乐。",
+     "params": {},
+     "tags": [
+      "chinese",
+      "paper",
+      "flat",
+      "folk"
+     ],
+     "material": "cut",
+     "theme": "style:papercut",
+     "transitions": {
+      "default": "tear:0.8",
+      "soft": "wash:0.9",
+      "strong": "tear:0.6"
+     },
+     "effects": [
+      "burst",
+      "petals",
+      "stamp"
+     ],
+     "qa": [
+      "edges show scissor wobble (no perfectly smooth vectors)",
+      "every character piece has the lifted paper shadow",
+      "no gradients on character pieces (flat paper colour only)",
+      "joints overlap (no gaps between cut pieces when limbs bend)",
+      "rice-paper grain visible on the background",
+      "red seal/banner contrast readable over the background"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'papercut' })",
+     "source": "builtin"
+    },
+    {
+     "name": "pixel",
+     "description": "像素 · Pixel art (16-colour) — 16 色像素风：整帧 4px 像素化（SVG 像素滤镜，确定性），粗描边平涂、阶梯地形与方块云，像素擦除转场，方波芯片音乐。",
+     "params": {},
+     "tags": [
+      "retro",
+      "game",
+      "8-bit",
+      "playful"
+     ],
+     "material": "pixel",
+     "theme": "style:pixel",
+     "transitions": {
+      "default": "pixel:0.6",
+      "soft": "dip:0.4",
+      "strong": "pixel:0.4"
+     },
+     "effects": [
+      "coins",
+      "shake",
+      "blink"
+     ],
+     "qa": [
+      "every frame uses only the 16 palette colours (plus pixel-filter mixes)",
+      "pixel grid fixed to the screen (filter on the whole scene, not per object)",
+      "text ≥ 3 'pixels' thick after pixelation",
+      "no smooth zooms (punch = shake)",
+      "outline on every character piece"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'pixel' })",
+     "source": "builtin"
+    },
+    {
+     "name": "reel",
+     "description": "动态海报 · Motion reel (poster) — 128 BPM 动态海报 / motion reel：纸白与墨黑底、粉 / 黄 / 青 / 紫四色平涂，Archivo Black 超粗大字 + 硬投影，彩条覆盖转场卡在小节线上，冲击波环 + 放射线 + 白闪做鼓点重音，合成鼓组（kick / hat / clap / whoosh / riser / 结尾和弦）。",
+     "params": {},
+     "tags": [
+      "motion",
+      "poster",
+      "kinetic",
+      "beat",
+      "flat",
+      "bold"
+     ],
+     "material": "flat",
+     "theme": "style:reel",
+     "transitions": {
+      "default": "stripes:0.44",
+      "soft": "fade:0.3",
+      "strong": "bars:0.5"
+     },
+     "effects": [
+      "rings",
+      "burst",
+      "flash",
+      "streaks",
+      "orbit",
+      "plus",
+      "dotwave",
+      "morphSeq"
+     ],
+     "qa": [
+      "max four accent colours + ink / paper, flat fills only",
+      "display type ≥ 100 px at 1080p with a hard ink shadow or outline",
+      "every cut lands on a bar line under the stripe cover",
+      "a visible accent on every beat (ring, burst, flash or morph)",
+      "no text inside the 5 % safe margin except HUD marks"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'reel' })",
+     "source": "builtin"
+    },
+    {
+     "name": "shadow",
+     "description": "皮影 · Shadow puppet — 皮影戏：油灯照亮的幕布，半透明染色驴皮人物、镂刻花纹、操纵签子，灯火微颤；梆子与锣鼓。",
+     "params": {},
+     "tags": [
+      "chinese",
+      "folk",
+      "theatre",
+      "backlit"
+     ],
+     "material": "leather",
+     "theme": "style:shadow",
+     "transitions": {
+      "default": "lamp:0.9",
+      "soft": "fade:0.6",
+      "strong": "lamp:0.6"
+     },
+     "effects": [
+      "flare",
+      "rosette",
+      "smoke"
+     ],
+     "qa": [
+      "screen glows warm in the centre and falls off to the edges (lamp)",
+      "puppet colours are translucent (background light shows through)",
+      "carved holes visible on costume pieces",
+      "control rods visible, never crossing the face",
+      "no camera moves that reveal the screen edge"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'shadow' })",
+     "source": "builtin"
+    },
+    {
+     "name": "tech",
+     "description": "科技宣传 · Tech promo (dark) — 深色产品宣传片：深蓝底、发光网格地面、电光蓝强调色、Archivo 粗体大标题 + 等宽小字，扁平矢量人物，鼓点 + 合成器铺底。",
+     "params": {},
+     "tags": [
+      "promo",
+      "product",
+      "flat",
+      "modern"
+     ],
+     "material": "flat",
+     "theme": "style:tech",
+     "transitions": {
+      "default": "push-left:0.6",
+      "soft": "fade:0.4",
+      "strong": "zoom-through:0.7"
+     },
+     "effects": [
+      "pulse",
+      "sparks",
+      "grid"
+     ],
+     "qa": [
+      "one accent colour per frame (electric blue), everything else navy / white",
+      "headline readable in < 1 s (≥ 64 px, high contrast)",
+      "grid floor converges to a single vanishing point",
+      "no text inside 5 % safe margin",
+      "cuts land on beats"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'tech' })",
+     "source": "builtin"
+    },
+    {
+     "name": "three-tech",
+     "description": "3D 科技 · 3D tech (WebGL product film) — three.js 实时 3D 产品片：近黑影棚、旋转台产品 + 灯条扫光、粒子聚合成 logo、电光青/紫强调色、HDR 泛光 + ACES 调色、细颗粒；Archivo 粗体标题 + 等宽小字，合成器脉冲铺底。需要同时加载 dist/vidkit-three.js。",
+     "params": {},
+     "tags": [
+      "promo",
+      "product",
+      "3d",
+      "webgl",
+      "three"
+     ],
+     "material": "neon",
+     "theme": "style:three-tech",
+     "transitions": {
+      "default": "fade:0.5",
+      "soft": "fade:0.4",
+      "strong": "zoom-through:0.7"
+     },
+     "effects": [
+      "particles",
+      "sweep",
+      "bloom",
+      "flythrough"
+     ],
+     "qa": [
+      "near-black backgrounds; one cyan + one violet accent, never more",
+      "bloom halos stay soft: no clipped white blobs larger than the highlight itself",
+      "headline readable in < 1 s over the 3D layer (≥ 64 px, darkened backdrop behind text)",
+      "every 3D shot has a reflection or contact shadow grounding the product",
+      "particles resolve into a crisp logo before the cut",
+      "pixel hash identical across render workers (vk qa [three] line)"
+     ],
+     "requires": [
+      "dist/vidkit-three.js"
+     ],
+     "api": "const S = v.style; S.world(sc, \"mountain dusk pine\") · S.character(W.actors, {look}) · S.title(sc, text, {sub}) · S.effect(sc, \"signature\", {at,x,y}) · S.transition(\"default\"|\"soft\"|\"strong\") · S.sfx(sc, kind, t) · S.music(v) · S.qa (checklist)",
+     "example": "vk.video({ style: 'three-tech' })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "three": {
+   "common": null,
+   "count": 7,
+   "entries": [
+    {
+     "name": "layer",
+     "description": "sc.three(setup, update, opts) / sc.three(modules, opts): a three.js scene composited into the layer stack (scene layers sit behind text unless z:\"front\")",
+     "params": {
+      "res": {
+       "type": "number",
+       "default": 0.75,
+       "range": [
+        0.1,
+        1
+       ],
+       "description": "internal resolution scale (draft: 0.35)"
+      },
+      "aa": {
+       "type": "number",
+       "default": 1,
+       "range": [
+        1,
+        16
+       ],
+       "description": "jittered AA sub-samples (draft: 1)"
+      },
+      "motionBlur": {
+       "type": "object|boolean",
+       "description": "{shutter, samples}; default inherits vk.video({motionBlur})"
+      },
+      "camera": {
+       "type": "function|object",
+       "description": "rig t → {pos, target, fov, roll} or a fixed state"
+      },
+      "fov": {
+       "type": "number",
+       "default": 35,
+       "range": [
+        10,
+        120
+       ]
+      },
+      "background": {
+       "type": "color",
+       "description": "clear colour (default transparent)"
+      },
+      "assets": {
+       "type": "object",
+       "description": "{name: url} preloaded before capture (gltf/glb/hdr/png/json)"
+      },
+      "seed": {
+       "type": "number",
+       "default": 1,
+       "description": "seed of ctx.rand (setup only)"
+      },
+      "z": {
+       "type": "enum",
+       "default": "back",
+       "description": "scene layers: behind content",
+       "values": [
+        "back",
+        "front"
+       ]
+      },
+      "rect": {
+       "type": "array",
+       "description": "[x, y, w, h] sub-rectangle"
+      },
+      "post": {
+       "type": "object",
+       "description": "post stack, see three/post"
+      },
+      "key": {
+       "type": "function",
+       "description": "lt => string: skip re-render while unchanged"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(({ THREE, scene }) => { const m = new THREE.Mesh(new THREE.TorusKnotGeometry(.6, .2, 128, 16), vk.three.materials.chrome()); scene.add(m); return t => { m.rotation.y = t * .8; }; }, { camera: { pos: [0, 0, 4], target: [0, 0, 0] } })",
+     "source": "builtin"
+    },
+    {
+     "name": "mixer",
+     "description": "time-driven AnimationMixer: const m = vk.three.mixer(root, clips) in setup; m.at(t) in update (never mixer.update(dt))",
+     "params": {
+      "once": {
+       "type": "boolean",
+       "default": false,
+       "description": "LoopOnce + clamp"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "const m = vk.three.mixer(gltf.scene, gltf.animations); return t => m.at(t);",
+     "source": "builtin"
+    },
+    {
+     "name": "particles",
+     "description": "50k–200k GPU particles morphing between targets (vertex-shader, pure function of t)",
+     "params": {
+      "n": {
+       "type": "number",
+       "default": 60000,
+       "range": [
+        1000,
+        300000
+       ],
+       "description": "particle count"
+      },
+      "targets": {
+       "type": "object",
+       "description": "{name: 'galaxy'|'sphere'|'torus'|'cloud'|{type,…}|{text, font}|{draw(g,w,h), w, h}|{image|asset}}"
+      },
+      "morph": {
+       "type": "array",
+       "description": "[{t, to, d, style:'converge'|'burst'|'swirl'|'direct'}]"
+      },
+      "beat": {
+       "type": "object|function",
+       "description": "{amp, k, every} pulse on the video beat grid"
+      },
+      "intensity": {
+       "type": "number",
+       "default": 0.35,
+       "range": [
+        0,
+        2
+       ],
+       "description": "additive energy per point"
+      },
+      "size": {
+       "type": "number",
+       "description": "point size"
+      },
+      "drift": {
+       "type": "number"
+      },
+      "twinkle": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "flare": {
+       "type": "number"
+      },
+      "position": {
+       "type": "array",
+       "description": "[x,y,z]"
+      },
+      "scale": {
+       "type": "number"
+      },
+      "seed": {
+       "type": "number"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.particles({ n: 80000, targets: { g: 'galaxy', logo: { text: 'vidkit', font: '900 220px Archivo' } }, morph: [{ t: 0, to: 'g' }, { t: 2, to: 'logo', d: 2, style: 'converge' }] }), { camera: { pos: [0, 0, 8], target: [0, 0, 0] } })",
+     "source": "builtin"
+    },
+    {
+     "name": "post",
+     "description": "post stack (every value may be t => value)",
+     "params": {
+      "exposure": {
+       "type": "number",
+       "default": 1
+      },
+      "tone": {
+       "type": "enum",
+       "default": "aces",
+       "values": [
+        "aces",
+        "none"
+       ]
+      },
+      "bloom": {
+       "type": "object|boolean",
+       "description": "{strength:.55, threshold:1, knee:.6, radius:1, clamp:40}; false = off (draft: off)"
+      },
+      "grade": {
+       "type": "string|object",
+       "default": "neutral",
+       "description": "'teal-orange' 'cool' 'warm' 'bleach' 'mono' 'cyber' or {temperature, tint, lift, gamma, gain, contrast, saturation}"
+      },
+      "vignette": {
+       "type": "number",
+       "default": 0.18,
+       "range": [
+        0,
+        1
+       ]
+      },
+      "grain": {
+       "type": "number",
+       "default": 0.02,
+       "range": [
+        0,
+        0.2
+       ]
+      },
+      "ca": {
+       "type": "number",
+       "default": 0,
+       "range": [
+        0,
+        2
+       ],
+       "description": "chromatic aberration"
+      },
+      "dof": {
+       "type": "object|boolean",
+       "default": false,
+       "description": "{focus, aperture:6, maxBlur:14} (draft: off)"
+      },
+      "fade": {
+       "type": "number",
+       "default": 0,
+       "range": [
+        0,
+        1
+       ],
+       "description": "fade to fadeColor"
+      },
+      "fadeColor": {
+       "type": "color",
+       "default": "#000"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "{ post: { bloom: { strength: .4 }, grade: 'cool', dof: { aperture: 4 } } }",
+     "source": "builtin"
+    },
+    {
+     "name": "product",
+     "description": "vk.three.product(name, o) → THREE.Group with userData.parts",
+     "params": {
+      "color": {
+       "type": "color",
+       "description": "body colour"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.product('phone')",
+     "source": "builtin"
+    },
+    {
+     "name": "studioScene",
+     "description": "procedural studio light scene (for PMREM or as a backdrop)",
+     "params": {
+      "intensity": {
+       "type": "number",
+       "default": 1
+      },
+      "accent": {
+       "type": "color"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": null,
+     "source": "builtin"
+    },
+    {
+     "name": "turntable",
+     "description": "product turntable: studio env (PMREM), cyclorama, glossy floor + reflection, contact shadow, strip-light sweeps, DOF autofocus",
+     "params": {
+      "product": {
+       "type": "enum",
+       "default": "earbuds",
+       "description": "procedural product",
+       "values": [
+        "earbuds",
+        "earbud",
+        "phone",
+        "bottle"
+       ]
+      },
+      "model": {
+       "type": "string|object",
+       "description": "GLB url or loaded gltf (auto-scaled to height)"
+      },
+      "height": {
+       "type": "number",
+       "description": "model height (units)"
+      },
+      "spin": {
+       "type": "number",
+       "description": "deg/s"
+      },
+      "angle": {
+       "type": "number",
+       "description": "start yaw (deg)"
+      },
+      "tilt": {
+       "type": "number",
+       "description": "deg"
+      },
+      "float": {
+       "type": "number",
+       "description": "bob amplitude"
+      },
+      "lid": {
+       "type": "function",
+       "description": "t => lid angle (earbuds)"
+      },
+      "sweeps": {
+       "type": "array",
+       "description": "[{t, d, from, to, color, radius}] strip-light sweeps"
+      },
+      "sweep": {
+       "type": "object|null",
+       "description": "periodic sweep {every, t, d, color}; null = off"
+      },
+      "env": {
+       "type": "string",
+       "default": "studio",
+       "description": "'studio' | 'room' | 'loft' | .hdr url"
+      },
+      "backdrop": {
+       "type": "object|boolean",
+       "description": "cyclorama colours {top, horizon, glow}"
+      },
+      "floor": {
+       "type": "string|object",
+       "description": "'reflect' | {color, reflect}"
+      },
+      "shadow": {
+       "type": "object|boolean",
+       "description": "contact shadow {opacity, darkness, size, res}"
+      },
+      "material": {
+       "type": "string|object",
+       "description": "three material name (see three.materials) or a THREE.Material"
+      },
+      "animate": {
+       "type": "function",
+       "description": "(t, {product, …}) => void per frame"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.turntable({ product: 'earbuds', spin: 18, sweeps: [{ t: 1, d: 1.4 }] }), { camera: vk.three.rig.orbit({ radius: 5, dur: 5 }) })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "threeMaterials": {
+   "common": {
+    "color": {
+     "type": "color"
+    },
+    "roughness": {
+     "type": "number",
+     "description": "0..1"
+    },
+    "env": {
+     "type": "number",
+     "description": "env-map intensity"
+    },
+    "clearcoat": {
+     "type": "number",
+     "description": "0..1"
+    }
+   },
+   "count": 12,
+   "entries": [
+    {
+     "name": "anodized",
+     "description": "anodized blue metal + clearcoat",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.anodized({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "ceramic",
+     "description": "glossy ceramic (clearcoat)",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.ceramic({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "chrome",
+     "description": "mirror chrome",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.chrome({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "glass",
+     "description": "transmission glass (ior, thickness, tint)",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.glass({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "glassLite",
+     "description": "cheap transparent glass",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.glassLite({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "gold",
+     "description": "gold metal",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.gold({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "matte",
+     "description": "matte",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.matte({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "metal",
+     "description": "brushed metal (roughness .32)",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.metal({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "plastic",
+     "description": "plastic (roughness .45)",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.plastic({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "rubber",
+     "description": "rubber with sheen",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.rubber({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "screen",
+     "description": "emissive phone screen",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.screen({ color: 0xffffff })",
+     "source": "builtin"
+    },
+    {
+     "name": "titanium",
+     "description": "titanium metal",
+     "params": {
+      "color": {
+       "type": "color"
+      },
+      "roughness": {
+       "type": "number",
+       "description": "0..1"
+      },
+      "env": {
+       "type": "number",
+       "description": "env-map intensity"
+      },
+      "clearcoat": {
+       "type": "number",
+       "description": "0..1"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.materials.titanium({ color: 0xffffff })",
+     "source": "builtin"
+    }
+   ]
+  },
+  "threeRigs": {
+   "common": null,
+   "count": 11,
+   "entries": [
+    {
+     "name": "add",
+     "description": "compose: add(base, ...modifiers)",
+     "params": {},
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.add({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "crane",
+     "description": "crane up/back",
+     "params": {
+      "target": {
+       "type": "array"
+      },
+      "radius": {
+       "type": "number"
+      },
+      "radius2": {
+       "type": "number"
+      },
+      "y0": {
+       "type": "number"
+      },
+      "y1": {
+       "type": "number"
+      },
+      "angle": {
+       "type": "number"
+      },
+      "angle2": {
+       "type": "number"
+      },
+      "dur": {
+       "type": "number"
+      },
+      "ease": {
+       "type": "ease"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.crane({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "dolly",
+     "description": "dolly between two positions",
+     "params": {
+      "from": {
+       "type": "array",
+       "description": "[x,y,z]"
+      },
+      "to": {
+       "type": "array"
+      },
+      "target": {
+       "type": "array"
+      },
+      "target2": {
+       "type": "array"
+      },
+      "dur": {
+       "type": "number"
+      },
+      "fov": {
+       "type": "number"
+      },
+      "ease": {
+       "type": "ease"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.dolly({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "fly",
+     "description": "centripetal Catmull-Rom flythrough at constant speed",
+     "params": {
+      "points": {
+       "type": "array",
+       "description": "[[x,y,z],…]"
+      },
+      "look": {
+       "type": "array",
+       "description": "look-at point"
+      },
+      "bank": {
+       "type": "number"
+      },
+      "dur": {
+       "type": "number"
+      },
+      "ease": {
+       "type": "ease"
+      },
+      "fov": {
+       "type": "number"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.fly({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "keys",
+     "description": "keyframes [{t, pos, target, fov, ease}]",
+     "params": {},
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.keys({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "orbit",
+     "description": "orbit around a target",
+     "params": {
+      "target": {
+       "type": "array",
+       "default": "[0,0,0]"
+      },
+      "radius": {
+       "type": "number"
+      },
+      "radius2": {
+       "type": "number",
+       "description": "end radius"
+      },
+      "height": {
+       "type": "number"
+      },
+      "height2": {
+       "type": "number"
+      },
+      "from": {
+       "type": "number",
+       "description": "deg"
+      },
+      "to": {
+       "type": "number",
+       "description": "deg"
+      },
+      "dur": {
+       "type": "number"
+      },
+      "fov": {
+       "type": "number"
+      },
+      "ease": {
+       "type": "ease"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.orbit({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "punch",
+     "description": "punch-in envelope modifier (same as vk.cam)",
+     "params": {},
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.punch({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "push",
+     "description": "push along a direction",
+     "params": {
+      "t": {
+       "type": "number"
+      },
+      "dur": {
+       "type": "number"
+      },
+      "target": {
+       "type": "array"
+      },
+      "dir": {
+       "type": "array"
+      },
+      "from": {
+       "type": "number",
+       "description": "distance"
+      },
+      "to": {
+       "type": "number"
+      },
+      "ease": {
+       "type": "ease"
+      },
+      "fov": {
+       "type": "number"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.push({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "seq",
+     "description": "sequence of rigs [{t, rig, blend}]",
+     "params": {},
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.seq({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "shake",
+     "description": "camera shake modifier",
+     "params": {
+      "at": {
+       "type": "array",
+       "description": "[t0, t1]"
+      },
+      "amp": {
+       "type": "number"
+      },
+      "rot": {
+       "type": "number"
+      },
+      "freq": {
+       "type": "number"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.shake({ … })",
+     "source": "builtin"
+    },
+    {
+     "name": "zoomScale",
+     "description": "log-distance zoom (\"powers of ten\")",
+     "params": {
+      "from": {
+       "type": "number"
+      },
+      "to": {
+       "type": "number"
+      },
+      "dur": {
+       "type": "number"
+      },
+      "dir": {
+       "type": "array"
+      },
+      "fov": {
+       "type": "number"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "camera: vk.three.rig.zoomScale({ … })",
+     "source": "builtin"
+    }
+   ]
+  }
+ }
+}
