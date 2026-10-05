@@ -19,6 +19,7 @@ import { material, MATERIALS } from './materials.js';
 import * as color from './color.js';
 import * as geom from './geom.js';
 import { installStyleTransitions } from './transitions.js';
+import { unknownName } from '../core/strict.js';
 
 export const STYLES = {};
 export const ROLES = ['world', 'chars', 'type', 'motion', 'sound', 'fx'];
@@ -38,7 +39,8 @@ export function parseToken(tok) {
   if (STYLES[tok]) return { id: tok, role: null };
   const m = /^(.+?)[.:/-](bg|background|world|scene|scenes|chars?|characters?|type|typography|text|titles?|motion|camera|pacing|transitions|sound|audio|music|fx|effects)$/.exec(String(tok));
   if (m && STYLES[m[1]]) return { id: m[1], role: ROLE_ALIAS[m[2]] };
-  throw new Error('[vk.style] unknown style "' + tok + '" (have: ' + Object.keys(STYLES).join(', ') + ')');
+  const id = String(tok).split(/[.:/]/)[0];
+  unknownName('styles', STYLES[id] ? tok : id, STYLES[id] ? Object.keys(STYLES).flatMap(s => [s, ...ROLES.map(r => s + '.' + r)]) : Object.keys(STYLES), { fatal: true });
 }
 // spec → {role: pack}. Arrays: the first entry is the base for every role; later entries override their role (or
 // every role when they name no role). Objects: {base, world|bg, chars, type, motion, sound, fx}.

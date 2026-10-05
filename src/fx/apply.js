@@ -2,6 +2,8 @@
 // a function preset (letters, type, count, …) takes over the element on its own.
 import { registry, ensureLazy } from '../core/plugin.js';
 import { defaultEase } from '../core/ease.js';
+import { unknownName } from '../core/strict.js';
+import { names as allNames } from '../meta/index.js';
 
 export function fxApi(scene, isExit) {
   const v = scene.video;
@@ -18,12 +20,13 @@ export function applyFx(el, fxStr, o, scene, isExit) {
   const names = String(fxStr || 'fade').trim().split(/\s+/);
   names.forEach(n => ensureLazy('fx', n));                       // opt-in fx packs (echo, slam, drop …)
   const api = fxApi(scene, isExit);
+  names.forEach(n => { if (!registry.fx[n]) unknownName('fx', n, allNames('fx')); });   // strict: throws with did-you-mean
   const first = registry.fx[names[0]];
   if (typeof first === 'function') { first(el, o, api); return; }
   let from = {}, to = {}, instant = {}, ease = null, origin = null;
   names.forEach(nm => {
     const f = registry.fx[nm];
-    if (!f) { console.warn('[vk] unknown fx', nm); return; }
+    if (!f) return;
     if (typeof f === 'function') { f(el, o, api); return; }
     const r = typeof f.make === 'function' ? f.make(o, el) : f;
     Object.assign(from, r.from); Object.assign(to, r.to); if (r.instant) Object.assign(instant, r.instant);

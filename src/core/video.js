@@ -10,7 +10,7 @@ import { resolveFormat } from '../authoring/formats.js';
 import { resolveTheme, modeVars } from '../authoring/themes.js';
 import { fontFaces, stageCSS } from '../runtime/css.js';
 import { buildPreviewUI } from '../runtime/preview.js';
-import { runQA, visibleText } from '../runtime/qa.js';
+import { runQA, visibleText, textBoxes } from '../runtime/qa.js';
 import { makeScore } from '../audio/score.js';
 import { MusicInfo } from '../audio/music.js';
 import { modulator } from '../fx/rhythm.js';
@@ -21,6 +21,8 @@ import { parseDeclarative } from '../authoring/declarative.js';
 import { bake as bakeEl, bakeStats } from '../runtime/bake.js';
 import { motionBlurCfg } from '../fx/mg/math.js';
 import { ensureLazy } from './plugin.js';
+import { STRICT, setStrict, unknownName, guardedRandom } from './strict.js';
+import { names as allNames } from '../meta/index.js';
 
 const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
 export const RENDER = Q.get('render') === '1';
@@ -29,6 +31,10 @@ export class Video {
   static registry = registry;
   constructor(cfg = {}, env = {}) {
     this.cfg = cfg = Object.assign({ fps: 30, transition: 'fade:0.4', localFonts: true, holdLast: true }, cfg);
+    // strict mode: page config wins; otherwise ?strict=1 (vk peek / qa / render default) turns it on
+    this.strict = setStrict(cfg.strict != null ? !!cfg.strict : Q.get('strict') === '1');
+    // draft preview quality (vk peek/render --draft → ?draft=1): layers may render cheaper (vk.three: res .35, aa 1, no DOF/bloom)
+    this.draft = cfg.draft != null ? !!cfg.draft : Q.get('draft') === '1';
     this.base = env.base || '';
     const fmtName = Q.get('format') || cfg.format || (cfg.w && cfg.h ? null : '16:9');
     const fmt = resolveFormat(fmtName, Q.get('format') ? 0 : (cfg.w || cfg.width), Q.get('format') ? 0 : (cfg.h || cfg.height));
@@ -75,8 +81,9 @@ export class Video {
     this.bakeOn = cfg.bake !== false && Q.get('cache') !== '0'; this.bakeJobs = [];
     if (RENDER) document.documentElement.classList.add('vk-render');
     // seeded Math.random (setup code only; inside render use vk.hash(i + frame))
-    const r = mulberry32(+(Q.get('seed') || cfg.seed || 1)); Math.random = () => r();
-    this.stage = document.getElementById('stage') || mk('div', null, document.body);
+    // (strict: calling it while render(t) runs throws; otherwise a one-time warning — the sequence itself is unchanged)
+    const r = mulberry32(+(Q.get('seed') || cfg.seed || 1)); Math.random = guardedRandom(r);
+    this.stage = document.getElementById('stage') || mk('div', null, document.body || document.documentElement);
     this.stage.id = 'stage'; this.stage.classList.add('vk-stage');
     this.injectCSS();
     this.applyThemeVars(this.stage, this.theme.mode);
@@ -142,6 +149,8 @@ export class Video {
     const prev = this.scenes[this.scenes.length - 1];
     sc.transition = prev ? parseTransition(o.transition != null ? o.transition : this.cfg.transition) : { type: 'none', d: 0 };
     ensureLazy('transitions', sc.transition.type);                 // opt-in packs (stripes, bars …) register on first use
+    if (sc.transition.d && !registry.transitions[sc.transition.type]) unknownName('transitions', sc.transition.type, allNames('transitions'));   // (renders as fade)
+    if (sc.transition.ease) getEase(sc.transition.ease);
     if (o.start != null) sc.start = parseTime(o.start, this.beats);
     else sc.start = prev ? prev.start + prev.dur - sc.transition.d : 0;
     const auto = (o.dur === 'auto' || o.dur == null) && o.end == null;
@@ -180,7 +189,7 @@ export class Video {
   }
   addBackground(sc, spec) {
     const name = typeof spec === 'string' ? spec : spec.type; ensureLazy('backgrounds', name); const f = registry.backgrounds[name];
-    if (!f) { console.warn('[vk] unknown background', name); return; }
+    if (!f) { unknownName('backgrounds', name, allNames('backgrounds')); return; }
     const r = f(sc, typeof spec === 'string' ? {} : spec, this);
     if (r && r.el) { r.el.classList.add('vk-bg'); (sc.cam || sc.el).insertBefore(r.el, (sc.cam || sc.el).firstChild); }
     if (r && r.update) sc.bgs.push(r.update);
@@ -245,7 +254,7 @@ export class Video {
     }
   }
   caption(start, end, text, words) { this.caps.push(words ? [start, end, text, words] : [start, end, text]); return this; }
-  texture(name, opts) { const f = registry.textures[name]; if (!f) { console.warn('[vk] unknown texture', name); return this; } const r = f(this, opts === true ? {} : typeof opts === 'number' ? { amount: opts } : (opts || {})); if (r) this.overlays.push(r); return this; }
+  texture(name, opts) { const f = registry.textures[name]; if (!f) { unknownName('textures', name, allNames('textures')); return this; } const r = f(this, opts === true ? {} : typeof opts === 'number' ? { amount: opts } : (opts || {})); if (r) this.overlays.push(r); return this; }
 
   // local time when the scene's entrance animations are done (latest tween end before the scene hands over);
   // used by QA / stills / contact sheets to pick a representative frame
@@ -273,6 +282,7 @@ export class Video {
       });
     });
     this.caps.sort((a, b) => a[0] - b[0]);
+    for (const e of this.events) if (typeof e[1] === 'string' && !registry.sounds[e[1]]) unknownName('sounds', e[1], allNames('sounds'));
     // overlays & textures
     // cover transitions (stripes, bars …: drawn above both scenes) share one canvas over the scene stack; only pages that use one get it
     if (S.some(sc => sc.transition.d && (registry.transitions[sc.transition.type] || {}).cover)) {
@@ -288,10 +298,12 @@ export class Video {
     const fontsCheck = this.cfg.fontsCheck || ['400 20px "Noto Sans SC"', '700 20px "Noto Sans SC"', '900 20px "Noto Sans SC"', '400 20px "JetBrains Mono"', '700 20px "JetBrains Mono"',
       '900 20px "Archivo"', '400 20px "Anton"', '400 20px "Instrument Serif"'].concat(this.theme.fontsCheck || []);   // themes may add fonts (ink: Ma Shan Zheng, Noto Serif SC)
     this.fontsCheck = fontsCheck;
+    // start-up profile (ms since navigation) — vk peek / cold-start measurements read it
+    const RP = window.__vkReadyProf = { init: performance.now() };
     window.__ready = Promise.all([
       Promise.all(fontsCheck.map(f => document.fonts.load(f, '中文Aa0'))).catch(() => { }),
       Promise.all([...this.stage.querySelectorAll('img')].map(im => im.decode ? im.decode().catch(() => { }) : null)),
-    ]).then(() => document.fonts.ready).then(() => { this.afterFonts.forEach(f => f()); return this.runBakes(); }).then(() => this.runWaits()).then(() => { this.render(this.curT); return true; });
+    ]).then(() => document.fonts.ready).then(() => { RP.fonts = performance.now(); this.afterFonts.forEach(f => f()); return this.runBakes(); }).then(() => { RP.bakes = performance.now(); return this.runWaits(); }).then(() => { RP.waits = performance.now(); this.booting = true; try { this.render(this.curT); } finally { this.booting = false; } RP.first = performance.now(); return true; });
     Object.assign(window, {
       __duration: this.duration, __fps: this.fps, __size: { width: this.W, height: this.H }, __captions: this.caps,
       __audio: this.cfg.audio ? new URL(this.cfg.audio, location.href).href : null,
@@ -305,8 +317,9 @@ export class Video {
       __text: t => { if (t != null) this.render(t); return visibleText(this.stage); },
       // frameT: the nominal frame time when `vk render` samples sub-frames for motion blur (HUDs/timecodes stay sharp on it)
       __seek: (t, frameT) => { this.render(t, frameT); return Promise.all(this.pendingMedia).then(() => t); },
-      __motionBlur: this.motionBlur,
+      __motionBlur: this.motionBlur, __strict: this.strict, __draft: this.draft,
       __qa: t => { if (t != null) this.render(t); return runQA(this); },
+      __textBoxes: t => { if (t != null) this.render(t); return textBoxes(this); },
     });
     if (this.events.length || this.cfg.scoreFn) window.SCORE = this.cfg.scoreFn || makeScore(this.events, this.cfg.scoreOptions || {}, this);
     if (this.cfg.audio && !RENDER) { this.audioEl = new Audio(this.cfg.audio); this.audioEl.preload = 'auto'; }
@@ -318,6 +331,10 @@ export class Video {
 
   /* ---------------- render(t): pure ---------------- */
   render(t, frameT) {
+    STRICT.frame++; STRICT.t = t;
+    try { this.renderFrame(t, frameT); } finally { STRICT.frame--; }
+  }
+  renderFrame(t, frameT) {
     t = Math.max(0, Math.min(t, this.duration - 1e-6)); this.curT = t;
     this.frameT = frameT != null ? Math.max(0, Math.min(+frameT, this.duration - 1e-6)) : t;
     const S = this.scenes, active = [], W = this.W, H = this.H;

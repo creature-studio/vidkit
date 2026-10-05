@@ -1,5 +1,6 @@
 // Scene: a time slot in the video with its own DOM subtree, camera, layers and per-frame hooks.
 // All times given to scene methods are scene-local seconds (or "b:N" beats on the global grid).
+import { unknownName } from './strict.js';
 import { parseTime, parseDur } from './time.js';
 import { normKeys, shotCamera, camAt } from './camera.js';
 import { applyFx } from '../fx/apply.js';
@@ -86,7 +87,7 @@ export class Scene {
   html(str, o = {}) { const w = document.createElement('div'); w.innerHTML = str.trim(); const els = [...w.children]; const parent = o.flow ? this.content : (o.fixed ? this.fixed : (this.cam || this.el)); els.forEach(e => parent.appendChild(e)); return els.length === 1 ? els[0] : els; }
   // per-scene texture overlay (same presets as video-level textures)
   texture(name, o = {}) {
-    const f = this.video.constructor.registry.textures[name]; if (!f) { console.warn('[vk] unknown texture', name); return this; }
+    const f = this.video.constructor.registry.textures[name]; if (!f) { unknownName('textures', name, Object.keys(this.video.constructor.registry.textures)); return this; }
     const r = f(this.video, o === true ? {} : typeof o === 'number' ? { amount: o } : o, this);
     if (r && r.el) { r.el.style.zIndex = 20; this.el.appendChild(r.el); }
     if (r && r.update) this.bgs.push((local, p, t) => r.update(t, { local, scene: this }));

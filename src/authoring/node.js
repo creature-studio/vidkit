@@ -1,11 +1,13 @@
 // Authoring node plumbing shared by text, layout, block and chart factories.
 import { applyFx } from '../fx/apply.js';
 import { modulator } from '../fx/rhythm.js';
+import { SRC } from '../core/strict.js';
 
 // A Node is {o, build(ctx) → Element}. ctx: {video, scene, theme, W, H, px, at(o), advance(t), extend(t), build(nodes, parent)}
 export function node(o, build, defFx) {
   o = o || {};
-  return { o, kind: build.name, build: ctx => { const el = build(ctx, o); return el ? finish(el, o, ctx, defFx) : el; } };
+  const src = new Error();   // call site (stack formatted only if a strict-mode error needs it)
+  return { o, kind: build.name, build: ctx => { const prev = SRC.err; SRC.err = src; try { const el = build(ctx, o); return el ? finish(el, o, ctx, defFx) : el; } finally { SRC.err = prev; } } };
 }
 
 // **accent**  ==marker==  __underline__  `code`  \n → <br>

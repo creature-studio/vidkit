@@ -1,5 +1,6 @@
 // Easing library. All functions map p∈[0,1] → eased value (may overshoot for back/elastic/spring).
 // Pure, DOM-free (unit tested in Node).
+import { unknownName } from './strict.js';
 
 export function bezier(x1, y1, x2, y2) {
   const A = (a, b) => 1 - 3 * b + 3 * a, B = (a, b) => 3 * b - 6 * a, C = a => 3 * a;
@@ -77,6 +78,6 @@ export function getEase(e) {
   if (m) { const b = m[1].split(',').map(Number); return (EASE[e] = spring(b[0], b[1])); }
   m = /^steps\((\d+)\)$/.exec(e);
   if (m) return (EASE[e] = steps(+m[1]));
-  if (typeof console !== 'undefined') console.warn('[vk] unknown ease', e);
+  unknownName('eases', e, Object.keys(EASE).filter(n => !/[(]/.test(n)).concat(['cubic-bezier(x1,y1,x2,y2)', 'spring(k,w)', 'steps(n)']));
   return EASE.outCubic;
 }

@@ -15,6 +15,7 @@ V.chime = (k, t, v, f) => { f = f || 880; k.tone(t, 'sine', f, 0, 1.4, .18 * v);
 V.whoosh = (k, t, v) => { const st = Math.max(0, t - .35); const fl = k.noise(st, .5, 'bandpass', 500, .8, .25 * v, .3); fl.frequency.setValueAtTime(400, st); fl.frequency.exponentialRampToValueAtTime(3500, st + .45); };
 V.riser = (k, t, v) => { const st = Math.max(0, t - 1.2); const fl = k.noise(st, 1.2, 'bandpass', 300, 1.2, .2 * v, 1.0); fl.frequency.setValueAtTime(300, st); fl.frequency.exponentialRampToValueAtTime(6000, st + 1.2); };
 V.snap = (k, t, v) => { k.noise(t, .06, 'bandpass', 1800, 3, .5 * v); k.tone(t, 'square', 1200, 600, .03, .08 * v); };
+V.step = (k, t, v) => { k.noise(t, .07, 'lowpass', 420, .7, .55 * v); k.tone(t, 'sine', 95, 55, .09, .35 * v); };   // soft footstep thud
 // ink-wash / nature kit (sample-accurate models from synth.js, cached per parameter set). freq = Hz for pitched voices.
 V.pluck = (k, t, v, f) => k.buf(t, 'pluck' + (f || 293.66), () => SY.pluck(k.sr, f || 293.66, 3, { body: true, decay: 2.6, bright: .4 }), .5 * v);       // guqin-like string
 V.flute = (k, t, v, f) => k.buf(t, 'flute' + (f || 587.33), () => SY.flute(k.sr, f || 587.33, 1.6), .32 * v);

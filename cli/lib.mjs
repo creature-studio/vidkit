@@ -10,7 +10,7 @@ export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
 export const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json')));
 
 export function parseArgs(argv, flags = []) {
-  const opt = { _: [] }, F = new Set(['srt', 'png', 'jpeg', 'keep', 'no-score', 'no-video', 'json', 'open', 'dev', 'help', 'no-grain-check', 'settle', 'no-voice', 'no-cache', 'timing', 'no-motion-blur', ...flags]);
+  const opt = { _: [] }, F = new Set(['srt', 'png', 'jpeg', 'keep', 'no-score', 'no-video', 'json', 'open', 'dev', 'help', 'no-grain-check', 'settle', 'no-voice', 'no-cache', 'timing', 'no-motion-blur', 'strict', 'no-strict', 'draft', ...flags]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-o') { opt.out = argv[++i]; continue; }
@@ -41,6 +41,14 @@ export function startServer({ inject = null, extra = null, port = 0, host = '127
     });
   });
   return new Promise(r => server.listen(port, host, () => r({ server, port: server.address().port })));
+}
+// agent-facing commands load pages strict (unknown names / Math.random in render(t) throw) unless --no-strict or the
+// page says vk.video({strict:false}); --draft asks the page for its cheap preview path (vk.three: res .35, aa 1, no DOF)
+export function modeParams(opt, params = {}, { strict = true } = {}) {
+  const off = opt.noStrict || opt.strict === 'false' || opt.strict === '0';
+  if (off) params.strict = '0'; else if (strict || opt.strict) params.strict = '1';
+  if (opt.draft) params.draft = '1';
+  return params;
 }
 export function pageUrl(port, abs, params = {}) {
   const q = new URLSearchParams(params);

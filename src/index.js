@@ -40,6 +40,9 @@ import { STYLE_TRANSITIONS, installStyleTransitions } from './styles/transitions
 import { film } from './styles/film.js';
 import { parseStory } from './styles/story.js';
 import { mg, accents, ui, montage, lockup, hudLayer } from './fx/mg/index.js';
+import { listDetail, describe, names as allNames, common as commonParams, KINDS as META_KINDS, normKind, schemas } from './meta/index.js';
+import { STRICT, setStrict, unknownMessage, unknownName } from './core/strict.js';
+import { suggest, lev } from './core/names.js';
 
 export const version = '0.2.0';
 let current = null;
@@ -66,7 +69,12 @@ export const vk = {
   },
   // ---- plugins ----
   use(plugin, opts) { usePlugin(vk, plugin, opts); return vk; },
-  register, registry, list,
+  register, registry,
+  // vk.list(kind) → names · vk.list(kind, {detail:true}) → [{name, description, params:{p:{type, default, range, description}}, example, aliases, …}]
+  // vk.list() → kinds · kinds: fx transitions textures backgrounds blocks eases themes formats sounds materials styles three threeMaterials threeRigs
+  list(kind, o) { if (kind == null) return META_KINDS.slice(); const k = normKind(kind); return o || !registry[k] || k === 'meta' ? listDetail(k, o || {}) : list(k); },
+  describe: (kind, name) => describe(kind, name), commonParams, names: allNames, schemas,
+  suggest, lev, get strict() { return STRICT.on; }, setStrict, unknownMessage, unknownName,
   get fx() { return registry.fx; }, get transitions() { return registry.transitions; }, get textures() { return registry.textures; },
   get backgrounds() { return registry.backgrounds; }, get themes() { return registry.themes; }, get formats() { return registry.formats; }, get sounds() { return registry.sounds; },
   resolveFormat, resolveTheme,

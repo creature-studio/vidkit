@@ -73,3 +73,27 @@ export function runQA(v) {
   return rep;
 }
 function hasCamMotion(el) { const cam = el.closest('.vk-cam'); if (!cam) return false; if (el.closest('[data-cam-keys]')) return true; if (cam.style.scale || cam.style.rotate) return true; /* rhythm zoom (beat/energy) */ const tf = getComputedStyle(cam).transform; return !!tf && tf !== 'none' && tf !== 'matrix(1, 0, 0, 1, 0, 0)'; }
+
+// visible text boxes at the current frame (stage px): vk peek measures their contrast against the rendered pixels
+export function textBoxes(v) {
+  const { stage, W } = v, sr = stage.getBoundingClientRect(), sx = sr.width / W, out = [];
+  const opac = el => { let o = 1; for (let e = el; e && e !== stage; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
+  const tw = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), seen = new Map();
+  while (tw.nextNode()) {
+    const n = tw.currentNode; if (!n.textContent.trim()) continue;
+    const el = n.parentElement; if (!el || el.closest('[data-qa="ignore"]') || (el.closest('svg') && !el.closest('foreignObject'))) continue;
+    if (!el.closest('.vk-scene.on') && !el.closest('.vk-cap')) continue;
+    const o = opac(el); if (o < .05) continue;
+    const rg = document.createRange(); rg.selectNodeContents(n);
+    for (const r of rg.getClientRects()) {
+      if (r.width < 2 || r.height < 2) continue;
+      // group by the block-level ancestor (a word split into letter spans is one box)
+      let host = el; while (host.parentElement && host.parentElement !== stage && (getComputedStyle(host).display === 'inline' || /\bvk-(c|ch|chi|word|w|wordwrap|line)\b/.test(typeof host.className === 'string' ? host.className : ''))) host = host.parentElement;
+      const cs = getComputedStyle(el), b = { l: (r.left - sr.left) / sx, t: (r.top - sr.top) / sx, r: (r.right - sr.left) / sx, b: (r.bottom - sr.top) / sx };
+      let e = seen.get(host);
+      if (!e) { e = { text: (host.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60), l: b.l, t: b.t, r: b.r, b: b.b, color: cs.color, fill: cs.webkitTextFillColor, stroke: parseFloat(cs.webkitTextStrokeWidth) || 0, shadow: cs.textShadow !== 'none', size: parseFloat(cs.fontSize) || 16, opacity: o, label: host.tagName.toLowerCase() + (typeof host.className === 'string' && host.className.trim() ? '.' + host.className.trim().split(/\s+/).slice(0, 2).join('.') : '') }; seen.set(host, e); }
+      e.l = Math.min(e.l, b.l); e.t = Math.min(e.t, b.t); e.r = Math.max(e.r, b.r); e.b = Math.max(e.b, b.b); e.opacity = Math.min(e.opacity, o);
+    }
+  }
+  return [...seen.values()];
+}

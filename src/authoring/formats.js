@@ -3,6 +3,7 @@
 // zones = platform UI overlays (vertical short-video apps: right action rail, bottom description/caption bar,
 //         top status/search bar). QA flags text that lands in a zone.
 import { registry } from '../core/plugin.js';
+import { unknownName } from '../core/strict.js';
 
 const F = registry.formats;
 F['16:9'] = { w: 1280, h: 720, safe: { top: 56, right: 80, bottom: 64, left: 80 }, captionBottom: 28, zones: [] };
@@ -22,6 +23,7 @@ F['4:5'] = { w: 1080, h: 1350, safe: { top: 90, right: 80, bottom: 120, left: 80
 F.landscape = F['16:9']; F.vertical = F['9:16']; F.square = F['1:1']; F.portrait = F['4:5'];
 
 export function resolveFormat(name, w, h) {
+  if (name && !F[name]) unknownName('formats', name, Object.keys(F));
   const f = F[name] || null;
   if (f && !w && !h) return JSON.parse(JSON.stringify(f));
   w = w || (f ? f.w : 1280); h = h || (f ? f.h : 720);

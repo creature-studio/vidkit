@@ -6,6 +6,7 @@
 //   defs(v, P) installs SVG filters / patterns once per video; group(P, kind) → attributes for a character / layer <g>
 //   dyn(P, col) → attributes for a dynamic path (ribbons) whose d is rewritten per frame
 // P = the resolved style options (palette + material params). DOM-free except defs().
+import { unknownName } from '../core/strict.js';
 import { polyD, smoothD, wobble, strokeOutline, ellipse } from './geom.js';
 import { shade, mix, rgba } from './color.js';
 
@@ -137,5 +138,5 @@ export const MATERIALS = {
     dyn: (P, col) => `fill="${col}" stroke="${shade(col, -.4)}" stroke-width="2"`,
   },
 };
-export const material = id => MATERIALS[id] || MATERIALS.flat;
+export const material = id => { if (id && typeof id === 'string' && !MATERIALS[id]) unknownName('materials', id, Object.keys(MATERIALS)); return MATERIALS[id] || MATERIALS.flat; };
 export { esc, rgba };

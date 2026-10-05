@@ -11,12 +11,15 @@ export const registry = {
   fx: {}, transitions: {}, textures: {}, backgrounds: {}, blocks: {}, themes: {}, formats: {}, sounds: {}, layers: {},
   hooks: { init: [], frame: [], qa: [] },
   plugins: [],
+  meta: {},        // kind → name → schema {description, params, example} (src/meta); vk.list(kind, {detail:true})
 };
 const KINDS = ['fx', 'transitions', 'textures', 'backgrounds', 'blocks', 'themes', 'formats', 'sounds', 'layers'];
 
-export function register(kind, name, impl) {
-  if (!registry[kind]) throw new Error('[vk] unknown registry kind ' + kind);
-  registry[kind][name] = impl; return impl;
+export function register(kind, name, impl, meta) {
+  if (!registry[kind] || kind === 'meta' || kind === 'hooks' || kind === 'plugins') throw new Error('[vk] unknown registry kind ' + kind + ' (have: ' + KINDS.join(', ') + ')');
+  registry[kind][name] = impl;
+  if (meta) (registry.meta[kind] || (registry.meta[kind] = {}))[name] = meta;
+  return impl;
 }
 
 // plugin forms: function(vk, opts) | {name, install(vk, opts)} | {name, fx:{…}, transitions:{…}, …, hooks:{…}}
@@ -27,6 +30,7 @@ export function use(vk, plugin, opts) {
   registry.plugins.push({ name, plugin });
   if (typeof plugin === 'function') { plugin(vk, opts || {}); return vk; }
   KINDS.forEach(k => { if (plugin[k]) Object.entries(plugin[k]).forEach(([n, impl]) => register(k, n, impl)); });
+  if (plugin.meta) Object.entries(plugin.meta).forEach(([k, m]) => Object.entries(m || {}).forEach(([n, x]) => { (registry.meta[k] || (registry.meta[k] = {}))[n] = x; }));
   if (plugin.hooks) Object.entries(plugin.hooks).forEach(([h, fn]) => registry.hooks[h] && registry.hooks[h].push(fn));
   if (plugin.install) plugin.install(vk, opts || {});
   if (plugin.blocks) Object.entries(plugin.blocks).forEach(([n, f]) => { if (!(n in vk)) vk[n] = f; });

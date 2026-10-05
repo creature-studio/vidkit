@@ -1,5 +1,6 @@
 // Themes = palette + fonts + type scale. The scale is in px at a 720px short side and multiplied by
 // (short side / 720), so a 9:16 1080×1920 video gets ×1.5 automatically.
+import { unknownName } from '../core/strict.js';
 import { registry } from '../core/plugin.js';
 
 const SANS = '"Noto Sans SC","Noto Sans CJK SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif';
@@ -80,8 +81,9 @@ T.noir = {
 
 export function resolveTheme(t) {
   if (!t) return T['tech-blue'];
-  if (typeof t === 'string') { if (!T[t]) console.warn('[vk] unknown theme', t); return T[t] || T['tech-blue']; }
-  const base = T[t.extends || 'tech-blue'];
+  if (typeof t === 'string') { if (!T[t]) unknownName('themes', t, Object.keys(T)); return T[t] || T['tech-blue']; }
+  if (t.extends && !T[t.extends]) unknownName('themes', t.extends, Object.keys(T));
+  const base = T[t.extends || 'tech-blue'] || T['tech-blue'];
   return deepMerge(JSON.parse(JSON.stringify(base)), t);
 }
 function deepMerge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') deepMerge(a[k], b[k]); else a[k] = b[k]; } return a; }
