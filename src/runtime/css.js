@@ -8,7 +8,9 @@ export function fontFaces(base) {
     f('Instrument Serif', 'InstrumentSerif-Regular.ttf', 'font-weight:400;font-style:normal;') +
     f('Instrument Serif', 'InstrumentSerif-Italic.ttf', 'font-weight:400;font-style:italic;') +
     f('Ma Shan Zheng', 'MaShanZheng-Regular.ttf', 'font-weight:400;') +          // brush calligraphy (ink theme)
-    f('Noto Serif SC', 'NotoSerifSC-VF.ttf', 'font-weight:200 900;');            // serif body/captions (ink theme); fetched only when used
+    f('Noto Serif SC', 'NotoSerifSC-VF.ttf', 'font-weight:200 900;') +          // serif body/captions (ink theme); fetched only when used
+    f('ZCOOL KuaiLe', 'ZCOOLKuaiLe-Regular.ttf', 'font-weight:400;') +           // rounded hand-lettering (crayon picture-book style pack)
+    f('Archivo Black', 'ArchivoBlack-Regular.ttf', 'font-weight:100 900;');          // heavy poster display (reel style pack); fetched only when used
 }
 
 export function stageCSS(v) {
@@ -49,6 +51,7 @@ export function stageCSS(v) {
 .vk-wordwrap{display:inline-block;white-space:nowrap}.vk-ch{display:inline-block;overflow:hidden;vertical-align:top;padding:0 .02em .14em;margin:0 -.02em -.14em}
 .vk-chi,.vk-word,.vk-c{display:inline-block;white-space:pre}
 .vk-flash{position:absolute;inset:0;background:#fff;opacity:0;z-index:40;pointer-events:none}
+.vk-cover{position:absolute;left:0;top:0;width:100%;height:100%;z-index:20;pointer-events:none}
 .vk-ov{position:absolute;left:0;top:0;width:100%;height:100%;z-index:41;pointer-events:none}
 .vk-caret::after{content:"\\258D";color:var(--vk-caret);margin-left:2px}
 .vk-cap{position:absolute;left:50%;transform:translateX(-50%);text-align:center;opacity:0;z-index:50;pointer-events:none;

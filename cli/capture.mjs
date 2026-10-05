@@ -44,7 +44,7 @@ export async function openWorker(mode, url, info, { scale = 1, type = 'jpeg', qu
     await page.goto(url); await page.waitForFunction(() => window.__ready); await page.evaluate(() => window.__ready);
     return {
       mode, page,
-      seek: t => page.evaluate(t => window.__seek(t), t),
+      seek: (t, frameT) => page.evaluate(([t, f]) => window.__seek(t, f), [t, frameT == null ? null : frameT]),
       evaluate: (fn, arg) => page.evaluate(fn, arg),
       frame: (fmt = type) => page.screenshot({ type: fmt, quality: fmt === 'jpeg' ? quality : undefined, clip: { x: 0, y: 0, width: W, height: H } }),
       close: () => browser.close(),
@@ -63,7 +63,7 @@ export async function openWorker(mode, url, info, { scale = 1, type = 'jpeg', qu
   const shot = fmt => ({ format: fmt, ...(fmt === 'jpeg' ? { quality } : {}) });
   return {
     mode, page, browser,
-    seek: async t => { const r = await page.evaluate(`window.__seek(${JSON.stringify(t)})`, { pumpAfter: 1000 }); flush(); return r; },
+    seek: async (t, frameT) => { const r = await page.evaluate(`window.__seek(${JSON.stringify(t)}${frameT != null ? ',' + JSON.stringify(frameT) : ''})`, { pumpAfter: 1000 }); flush(); return r; },
     evaluate: (fn, arg) => page.evaluate(`(${fn})(${arg === undefined ? '' : JSON.stringify(arg)})`),
     frame: async (fmt = type) => {
       const dirty = page.dirty; page.dirty = false;

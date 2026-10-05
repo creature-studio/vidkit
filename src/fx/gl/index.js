@@ -9,7 +9,7 @@
 //   vk.gl.layer(sc, { z: 'back' }).add(effect)   same thing, imperative
 import { registry } from '../../core/plugin.js';
 import { getCore } from './core.js';
-import { PAPER, BLEED, WASH, MIST, PVERT, PFRAG, CUSTOM_HEAD } from './shaders.js';
+import { PAPER, BLEED, WASH, MIST, PVERT, PFRAG, CUSTOM_HEAD, BLOOM } from './shaders.js';
 import { rgb, bleedCurve, levelFor, haloSigma, stepT, boilFrame, jitterPath, jitterPoints } from './math.js';
 import { particles as particleSystem, SHAPES, PRESETS } from './particles.js';
 import { COPY } from './glsl.js';
@@ -329,6 +329,26 @@ export function shader(o = {}) {
   };
 }
 
+// bloom (霓虹辉光): a soft additive halo around a source (vk.gl.svg(el) / text / path …). Put it on a layer with
+// {blend: 'screen'} (CSS) over the scene. o {src, strength 1.1, core 0 (re-add the sharp source), tint (hex: halo
+// colour; default = the source's own colours), tintMix 0, knee .35, flicker: (local) → 0..1 multiplier (pure fn of t)}
+export function bloom(o = {}) {
+  let st;
+  return {
+    name: 'bloom', o,
+    init() { st = maskState(o.src, 5); },
+    key(local) { const sk = srcKey(o.src, local); if (sk == null || o.flicker) return null; return 'bloom' + sk; },
+    render(core, L, local, info) {
+      st.update(core, L, local, info);
+      core.pass(BLOOM, {
+        ...L.common(0), uS: st.level(0), uL1: st.level(1), uL2: st.level(2), uL3: st.level(3), uL4: st.level(4), uL5: st.level(5), uL3Size: st.size(3), uL4Size: st.size(4), uL5Size: st.size(5),
+        uStr: o.strength != null ? o.strength : 1.1, uCore: o.core || 0, uTint: rgb(o.tint || '#ffffff'), uTintMix: o.tint ? (o.tintMix != null ? o.tintMix : .5) : 0, uKnee: o.knee != null ? o.knee : .35,
+        uFlick: o.flicker ? o.flicker(local) : 1,
+      }, null, { blend: 'add' });
+    },
+  };
+}
+
 /* ================================================================ line boil (SVG filter, stepped) */
 // vk.gl.boil(sc, targets, {fps 12, amp 2.2 (px), freq .035, octaves 2, frames 0 (0 = new drawing every step; n = cycle n)})
 // → {id, filter}. A turbulence displacement whose seed changes `fps` times a second of scene time: hand-drawn line boil
@@ -371,7 +391,7 @@ export function paperCut(v, o = {}) {
 }
 
 export const gl = {
-  layer, paper, inkBleed, inkWash, particles, mist, shader,
+  layer, paper, inkBleed, inkWash, particles, mist, shader, bloom,
   text, path, svg, image, draw,
   boil, paperCut, jitter: jitterPath, jitterPoints, stepT, boilFrame, bleedCurve,
   presets: PRESETS, system: particleSystem, core: getCore, COPY,

@@ -33,3 +33,11 @@ export function use(vk, plugin, opts) {
   return vk;
 }
 export function list(kind) { return Object.keys(registry[kind] || {}); }
+// opt-in effect packs: names that register themselves the first time a page uses them, so pages that never do see
+// exactly the same registry as before (e.g. the FX gallery's preset counts). lazy[kind][name] = installer()
+export const lazy = { fx: {}, transitions: {}, backgrounds: {}, textures: {}, sounds: {} };
+export function lazyRegister(kind, names, install) { [].concat(names).forEach(n => { lazy[kind][n] = install; }); }
+export function ensureLazy(kind, name) {
+  if (!name || registry[kind][name] || !lazy[kind] || !lazy[kind][name]) return !!(name && registry[kind] && registry[kind][name]);
+  lazy[kind][name](); return !!registry[kind][name];
+}

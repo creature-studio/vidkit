@@ -1,6 +1,6 @@
 // Element-effect dispatcher. fx names can be combined with spaces ("up blur") when they are object presets;
 // a function preset (letters, type, count, …) takes over the element on its own.
-import { registry } from '../core/plugin.js';
+import { registry, ensureLazy } from '../core/plugin.js';
 import { defaultEase } from '../core/ease.js';
 
 export function fxApi(scene, isExit) {
@@ -16,6 +16,7 @@ export function fxApi(scene, isExit) {
 
 export function applyFx(el, fxStr, o, scene, isExit) {
   const names = String(fxStr || 'fade').trim().split(/\s+/);
+  names.forEach(n => ensureLazy('fx', n));                       // opt-in fx packs (echo, slam, drop …)
   const api = fxApi(scene, isExit);
   const first = registry.fx[names[0]];
   if (typeof first === 'function') { first(el, o, api); return; }

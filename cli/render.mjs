@@ -2,10 +2,13 @@
 //   [--workers cores] [--from 0 --to 10] [--crf 18] [--preset medium] [--png | --quality 95] [--srt] [--no-score] [--score-gain-max 2] [--keep]
 //   [--lufs -14|off] [--duck -10] [--no-voice]   audio: page music (vk.video({music, musicStart})) + vo: clips + SFX score, ducked + loudnorm
 //   [--capture beginframe|screenshot] [--gpu soft|swiftshader|off] [--no-cache] [--timing] [--chunk frames] [--x264-threads n]
+//   [--shutter 1/40 --samples 4]  sub-frame motion blur: every output frame = mean of N captures at sub-times inside the
+//                                  shutter window (trailing, ending at the frame time); --shutter 0 turns a page's vk.video({motionBlur}) off
 //   capture: beginframe (default) = chrome-headless-shell, one BeginFrame + screenshot per video frame (cli/capture.mjs);
 //            screenshot = the original Playwright page.screenshot() path. --no-cache disables vk.bake() static-layer caching.
 import { mixAudio } from './mix.mjs';
 import { openWorker, resolveMode } from './capture.mjs';
+import { motionBlurCfg, subTimes } from '../src/fx/mg/math.js';
 import { parseArgs, startServer, pageUrl, launch, probeInfo, run, ffprobeLine, tmpdir, fs, path, os, spawn } from './lib.mjs';
 
 // default worker count: beginframe workers are CPU-bound (one frame in flight each) → one per core;
@@ -24,15 +27,20 @@ export default async function render(argv) {
   const { server, port } = await startServer();
   const mode = resolveMode(opt.capture);
   const params = { render: '1', fps: String(fps) }; if (opt.format) params.format = opt.format; if (opt.cache === false || opt.noCache) params.cache = '0';
-  const url = pageUrl(port, abs, params);
   const probeBrowser = await launch();
   const info = await probeInfo(probeBrowser, pageUrl(port, abs, { ...params, cache: '0' }));   // timeline/audio only: skip the static-layer bakes
   await probeBrowser.close();
+  // motion blur: CLI flags win over the page's vk.video({motionBlur}); off by default
+  const mb = resolveMotionBlur(opt, info.motionBlur, fps), N = mb ? mb.samples : 1;
+  if (mb) params.mb = '1';                                       // tells the page the pipeline averages (no in-page double blur)
+  if (mb) { params.mbs = String(+mb.shutter.toFixed(6)); params.mbn = String(N); }   // …and with which shutter (vk.three layers blur in-layer with it)
+  else if (info.motionBlur) params.mb = '0';                     // --no-motion-blur / --shutter 0: in-layer (three) blur off too
+  const url = pageUrl(port, abs, params);
   const W = info.size.width, H = info.size.height;
   const t0 = +(opt.from || 0), t1 = Math.min(info.dur, opt.to != null ? +opt.to : info.dur);
   const total = Math.round((t1 - t0) * fps);
   const workers = Math.max(1, Math.min(+(opt.workers || defaultWorkers(mode)), Math.ceil(total / 30)));
-  console.log(`[vk render] ${path.basename(abs)}  ${W}x${H}  ${info.dur.toFixed(2)}s  ${info.scenes.length} scenes  fps=${fps} scale=${scale} workers=${workers} frames=${total} capture=${mode}${params.cache === '0' ? ' cache=off' : ''}`);
+  console.log(`[vk render] ${path.basename(abs)}  ${W}x${H}  ${info.dur.toFixed(2)}s  ${info.scenes.length} scenes  fps=${fps} scale=${scale} workers=${workers} frames=${total} capture=${mode}${params.cache === '0' ? ' cache=off' : ''}${mb ? ` motion-blur=${N}×${(mb.shutter * 1000).toFixed(1)}ms` : ''}`);
   const tmp = tmpdir('vkr-'), outW = Math.round(W * scale / 2) * 2, outH = Math.round(H * scale / 2) * 2;
   // audio does not depend on the pictures: synthesise the score + mix (loudnorm two-pass) while the frames render
   const audioJob = (async () => {
@@ -72,14 +80,17 @@ export default async function render(argv) {
     if (w === 0) wk.evaluate(() => window.__bake || null).then(b => { if (b && (b.baked || b.skipped)) bakeInfo = `  static layer cache: ${b.baked} layer(s) baked once per worker (${(b.px / 1e6).toFixed(1)} MP in ${Math.round(b.ms)} ms)${b.skipped ? `, ${b.skipped} skipped` : ''}`; }).catch(() => { });
     for (let job; (job = sched.take(w));) {
       const [a, b] = job, seg = path.join(tmp, `seg${String(a).padStart(6, '0')}.mp4`); segs.push({ a, seg });
-      const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-c:v', type === 'png' ? 'png' : 'mjpeg', '-framerate', String(fps), '-i', '-',
-        '-vf', vf, ...x264, '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', seg], { stdio: ['pipe', 'inherit', 'inherit'] });
+      const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-c:v', type === 'png' ? 'png' : 'mjpeg', '-framerate', String(fps * N), '-i', '-',
+        '-vf', mb ? blurFilter(N, fps) + ',' + vf : vf, ...x264, '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', seg], { stdio: ['pipe', 'inherit', 'inherit'] });
       const closed = new Promise((res, rej) => ff.on('close', c => (c ? rej(new Error('ffmpeg exit ' + c)) : res())));
       for (let i = a; i < b; i++) {
-        x = now(); await wk.seek(t0 + i / fps); const y = now(); T.seek += y - x;
-        const buf = await wk.frame(); const z = now(); T.frame += z - y;
-        if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
-        T.pipe += now() - z;
+        const tf = t0 + i / fps;
+        for (const ts of mb ? subTimes(tf, mb.shutter, N, mb.phase) : [tf]) {   // N sub-frame captures, averaged by ffmpeg (tmix)
+          x = now(); await wk.seek(ts, tf); const y = now(); T.seek += y - x;
+          const buf = await wk.frame(); const z = now(); T.frame += z - y;
+          if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
+          T.pipe += now() - z;
+        }
         done++;
         if (done % Math.max(1, fps * 2) === 0) process.stdout.write(`\r  frames ${done}/${total}  ${(done / ((Date.now() - started) / 1000)).toFixed(1)} fps   `);
       }
@@ -122,6 +133,15 @@ export default async function render(argv) {
   server.close();
   return out;
 }
+// --shutter/--samples (CLI) over the page config; '--shutter 0' / '--samples 1' / '--no-motion-blur' = off
+export function resolveMotionBlur(opt, page, fps) {
+  if (opt.motionBlur === false || opt.noMotionBlur) return null;
+  if (opt.shutter != null || opt.samples != null) return motionBlurCfg({ shutter: opt.shutter != null ? opt.shutter : (page && page.shutter) || '1/40', samples: opt.samples != null ? +opt.samples : (page && page.samples) || 4, phase: page && page.phase }, fps);
+  return page ? motionBlurCfg(page, fps) : null;
+}
+// ffmpeg: the input runs at fps·N (N sub-frames per frame, in order); tmix averages each group of N with equal weights,
+// select keeps the frame that closes a group, setpts restores the output frame rate
+export function blurFilter(N, fps) { return `tmix=frames=${N}:weights=${Array(N).fill(1).join(' ')},select='eq(mod(n\\,${N})\\,${N - 1})',setpts=N/(${fps}*TB)`; }
 // lanes + work stealing over frame indices [0, total): take(w) → [a, b) or null when everything is handed out
 export function makeScheduler(total, workers, chunk) {
   const per = Math.ceil(total / workers);
@@ -148,7 +168,8 @@ export function toSRT(caps, t0 = 0, t1 = Infinity) {
 
 // window.SCORE → WAV via OfflineAudioContext inside the page (deterministic, faster than realtime)
 async function renderScore(url, t0, t1, maxGain, normalize, tmp) {
-  const browser = await launch(); const page = await browser.newPage(); await page.goto(url); await page.waitForFunction(() => window.__ready);
+  // generous timeout: this page initialises while every render worker is busy (heavy pages, e.g. vk.three, can take > 30 s)
+  const browser = await launch(); const page = await browser.newPage(); await page.goto(url); await page.waitForFunction(() => window.__ready, null, { timeout: 600000 });
   const b64 = await page.evaluate(async ([secs, off, maxGain, normalize]) => {
     const sr = 48000, ac = new OfflineAudioContext(2, Math.ceil(sr * (secs + .05)), sr); window.SCORE(ac);
     const buf = await ac.startRendering(), ch = [buf.getChannelData(0), buf.getChannelData(1)], start = Math.floor(off * sr), n = Math.max(0, Math.floor(secs * sr) - start);

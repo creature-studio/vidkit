@@ -168,3 +168,15 @@ void main(){
 }`;
 // ---- custom shader prelude: uTime (scene-local s), uStep (time on twos), uRes, noise lookups
 export const CUSTOM_HEAD = NOISE_LOOKUP + 'uniform float uTime, uStep, uProgress;\n';
+
+// ---- bloom / glow (neon): mask pyramid levels summed into a soft additive halo (+ optional core boost and tint)
+export const BLOOM = NOISE_LOOKUP + CUBIC + `uniform sampler2D uS, uL1, uL2, uL3, uL4, uL5; uniform vec2 uL3Size, uL4Size, uL5Size;
+uniform float uStr, uCore, uTintMix, uFlick, uKnee; uniform vec3 uTint;
+void main(){
+  vec4 a = texture2D(uL1, vUv) * .16 + texture2D(uL2, vUv) * .22 + cubicTex(uL3, vUv, uL3Size) * .24 + cubicTex(uL4, vUv, uL4Size) * .22 + cubicTex(uL5, vUv, uL5Size) * .2;
+  vec3 h = mix(a.rgb, uTint * a.a, uTintMix);
+  h = h / (1. + uKnee * h);                       // soft knee: big glows do not clip to white
+  vec4 c = texture2D(uS, vUv);
+  vec3 col = (h * uStr + c.rgb * uCore) * uFlick;
+  gl_FragColor = vec4(col, clamp(max(max(col.r, col.g), col.b), 0., 1.));
+}`;

@@ -19,6 +19,8 @@ import { CanvasLayer } from '../layers/canvas.js';
 import { WebGLLayer } from '../layers/webgl.js';
 import { parseDeclarative } from '../authoring/declarative.js';
 import { bake as bakeEl, bakeStats } from '../runtime/bake.js';
+import { motionBlurCfg } from '../fx/mg/math.js';
+import { ensureLazy } from './plugin.js';
 
 const Q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
 export const RENDER = Q.get('render') === '1';
@@ -33,6 +35,9 @@ export class Video {
     this.format = fmtName; this.W = fmt.w; this.H = fmt.h;
     this.safe = Object.assign({}, fmt.safe, cfg.safe || {}); this.zones = cfg.zones || fmt.zones; this.captionBottom = cfg.captionBottom != null ? cfg.captionBottom : fmt.captionBottom;
     this.fps = +(Q.get('fps') || cfg.fps);
+    // sub-frame motion blur (opt-in): cfg.motionBlur {shutter:'1/40', samples:4} is read by `vk render` (window.__motionBlur);
+    // ?mb=1 = the capture pipeline is averaging sub-frames, so in-page (canvas layer) blur must not blur twice
+    this.motionBlur = motionBlurCfg(cfg.motionBlur, this.fps); this.mbPipeline = Q.get('mb') === '1'; this.frameT = null;
     this.theme = resolveTheme(cfg.theme);
     this.k = Math.min(this.W, this.H) / 720;           // type scale factor
     setDefaultEase(cfg.ease || this.theme.ease || 'outCubic');
@@ -108,6 +113,10 @@ export class Video {
     if (this.bakesStarted) this.bakesStarted = this.bakesStarted.then(() => this.bakeJobs.splice(0).reduce((q, j) => q.then(j), Promise.resolve()));
     return p;
   }
+  // preload work that must finish before capture (vk.three assets, shader compiles …): a promise, or fn() → promise
+  // called once web fonts have loaded. Unlike bakeLater it always runs (also with --no-cache).
+  waitFor(job) { (this.waits || (this.waits = [])).push(job); return this; }
+  runWaits() { const W = (this.waits || []).splice(0); return W.length ? Promise.all(W.map(j => (typeof j === 'function' ? j() : j))) : null; }
   // arbitrary async static-cache work (textures): fn() → promise, awaited before __ready
   bakeLater(fn) { if (this.bakeOn) this.bakeJobs.push(() => Promise.resolve().then(fn).catch(e => console.warn('[vk] bake skipped:', e && e.message || e))); return this.bakeOn; }
   runBakes() {
@@ -132,6 +141,7 @@ export class Video {
     const sc = new Scene(this, o);
     const prev = this.scenes[this.scenes.length - 1];
     sc.transition = prev ? parseTransition(o.transition != null ? o.transition : this.cfg.transition) : { type: 'none', d: 0 };
+    ensureLazy('transitions', sc.transition.type);                 // opt-in packs (stripes, bars …) register on first use
     if (o.start != null) sc.start = parseTime(o.start, this.beats);
     else sc.start = prev ? prev.start + prev.dur - sc.transition.d : 0;
     const auto = (o.dur === 'auto' || o.dur == null) && o.end == null;
@@ -149,7 +159,8 @@ export class Video {
     this.scenes.push(sc); this.scenesEl.appendChild(sc.el); sc.el.style.zIndex = String(sc.index + 1);
     if (bg) [].concat(bg).forEach(b => this.addBackground(sc, b));
     if (o.texture) Object.entries(o.texture).forEach(([n, x]) => x && sc.texture(n, x));
-    if (o.camera) sc.camera(o.camera);
+    if (o.camera) sc.camera(o.camera, { hold: o.cameraHold });
+    if (o.shots) sc.shots(o.shots, o.shotOptions || {});
     if (o.shake) [].concat(o.shake).forEach(s => typeof s === 'object' ? sc.shake(s.t, s.amp, s.d) : sc.shake(s));
     if (o.beat || o.energy) { sc.ensureCam(); const f = modulator(this, sc.cam, o.beat, o.energy); sc.on((l, p, t) => f(t)); }   // whole-frame rhythm
     if (o.vo) this.planSceneVoice(sc, o);                         // voice timing is known before the nodes → sc.voSegs usable while building
@@ -168,7 +179,7 @@ export class Video {
     return sc;
   }
   addBackground(sc, spec) {
-    const name = typeof spec === 'string' ? spec : spec.type, f = registry.backgrounds[name];
+    const name = typeof spec === 'string' ? spec : spec.type; ensureLazy('backgrounds', name); const f = registry.backgrounds[name];
     if (!f) { console.warn('[vk] unknown background', name); return; }
     const r = f(sc, typeof spec === 'string' ? {} : spec, this);
     if (r && r.el) { r.el.classList.add('vk-bg'); (sc.cam || sc.el).insertBefore(r.el, (sc.cam || sc.el).firstChild); }
@@ -263,6 +274,11 @@ export class Video {
     });
     this.caps.sort((a, b) => a[0] - b[0]);
     // overlays & textures
+    // cover transitions (stripes, bars …: drawn above both scenes) share one canvas over the scene stack; only pages that use one get it
+    if (S.some(sc => sc.transition.d && (registry.transitions[sc.transition.type] || {}).cover)) {
+      const dpr = this.coverDpr = Math.max(1, Math.min(4, window.devicePixelRatio || 1));
+      this.coverEl = mk('canvas', 'vk-cover', this.stage); this.coverEl.width = Math.round(this.W * dpr); this.coverEl.height = Math.round(this.H * dpr); this.coverG = this.coverEl.getContext('2d');
+    }
     this.flashEl = mk('div', 'vk-flash', this.stage);
     const tex = this.cfg.texture || {};
     Object.entries(tex).forEach(([n, o]) => o && this.texture(n, o));
@@ -275,7 +291,7 @@ export class Video {
     window.__ready = Promise.all([
       Promise.all(fontsCheck.map(f => document.fonts.load(f, '中文Aa0'))).catch(() => { }),
       Promise.all([...this.stage.querySelectorAll('img')].map(im => im.decode ? im.decode().catch(() => { }) : null)),
-    ]).then(() => document.fonts.ready).then(() => { this.afterFonts.forEach(f => f()); return this.runBakes(); }).then(() => { this.render(this.curT); return true; });
+    ]).then(() => document.fonts.ready).then(() => { this.afterFonts.forEach(f => f()); return this.runBakes(); }).then(() => this.runWaits()).then(() => { this.render(this.curT); return true; });
     Object.assign(window, {
       __duration: this.duration, __fps: this.fps, __size: { width: this.W, height: this.H }, __captions: this.caps,
       __audio: this.cfg.audio ? new URL(this.cfg.audio, location.href).href : null,
@@ -287,7 +303,9 @@ export class Video {
       __cues: this.events.map(e => e[0]),
       __vk: { theme: this.cfg.theme || 'tech-blue', format: this.format, safe: this.safe, zones: this.zones, title: this.cfg.title || document.title },
       __text: t => { if (t != null) this.render(t); return visibleText(this.stage); },
-      __seek: t => { this.render(t); return Promise.all(this.pendingMedia).then(() => t); },
+      // frameT: the nominal frame time when `vk render` samples sub-frames for motion blur (HUDs/timecodes stay sharp on it)
+      __seek: (t, frameT) => { this.render(t, frameT); return Promise.all(this.pendingMedia).then(() => t); },
+      __motionBlur: this.motionBlur,
       __qa: t => { if (t != null) this.render(t); return runQA(this); },
     });
     if (this.events.length || this.cfg.scoreFn) window.SCORE = this.cfg.scoreFn || makeScore(this.events, this.cfg.scoreOptions || {}, this);
@@ -299,10 +317,11 @@ export class Video {
   }
 
   /* ---------------- render(t): pure ---------------- */
-  render(t) {
+  render(t, frameT) {
     t = Math.max(0, Math.min(t, this.duration - 1e-6)); this.curT = t;
+    this.frameT = frameT != null ? Math.max(0, Math.min(+frameT, this.duration - 1e-6)) : t;
     const S = this.scenes, active = [], W = this.W, H = this.H;
-    let flash = 0, flashColor = '#fff';
+    let flash = 0, flashColor = '#fff', covers = null;
     for (const sc of S) {
       const local = t - sc.start, on = local >= 0 && local < sc.dur;
       if (sc.el.classList.contains('on') !== on) sc.el.classList.toggle('on', on);
@@ -321,6 +340,11 @@ export class Video {
       if (r.out && prev && prev.__st) Object.assign(prev.__st, r.out);
       if (r.under && prev && prev.__st) { sc.__st.zIndex = String(prev.index); prev.__st.zIndex = String(prev.index + 2); }
       if (r.flash != null && r.flash > flash) { flash = r.flash; flashColor = r.flashColor || '#fff'; }
+      if (r.cover) (covers || (covers = [])).push(r.cover);   // cover transitions draw above every scene
+    }
+    if (this.coverG) {                                            // cover transitions: one canvas above every scene
+      const g = this.coverG; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, this.coverEl.width, this.coverEl.height);
+      if (covers) for (const f of covers) { g.setTransform(this.coverDpr, 0, 0, this.coverDpr, 0, 0); g.save(); f(g); g.restore(); }
     }
     // end fade to black (cfg.fadeOut seconds)
     const fo = this.cfg.fadeOut; if (fo && t > this.duration - fo) { const last = active[active.length - 1]; if (last) last.__st.opacity = String(Math.max(0, (this.duration - t) / fo)); }
@@ -328,7 +352,7 @@ export class Video {
       const st = sc.__st, es = sc.el.style;
       for (const k in st) if (es[k] !== String(st[k])) es[k] = st[k];
       const c = sc.camCfg;
-      if (sc.cam && (c.keys || c.push || c.shakes.length || c.extra.length)) {
+      if (sc.cam && (c.keys || c.fn || c.push || c.shakes.length || c.extra.length)) {
         c.extraZoom = c.extra.length ? lt => c.extra.reduce((m, f) => m + f(lt), 0) : null;
         sc.cam.style.transform = cameraTransform(c, W, H, t - sc.start, sc.dur);
       }
@@ -337,7 +361,7 @@ export class Video {
       if (!St.owner) { this.tl.apply(el, St, t); return; }
       if (active.includes(St.owner)) this.tl.apply(el, St, t - St.owner.start);
     });
-    const info = { t, W, H, fps: this.fps, frame: Math.floor(t * this.fps), beats: this.beats, video: this };
+    const info = { t, W, H, fps: this.fps, frame: Math.floor(t * this.fps), frameT: this.frameT, beats: this.beats, video: this };
     for (const sc of active) {
       const local = t - sc.start, p = local / sc.dur;
       for (const b of sc.bgs) b(local, p, t);

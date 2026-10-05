@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>vidkit · motion reel (15 s, 128 BPM)</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script>
+// A 15 s, 8-bar motion reel at 128 BPM built from the vk.mg pack + the 'reel' style pack:
+// stripe cover cuts on every bar line, beat accents, kinetic type (drop / slam / echo / letters-pop / mask-rise),
+// a beat-locked shape morph, a dot-wave background, a data bar, UI micro-interactions in vk.device, a half-beat
+// keyword montage, a converge-to-lockup end card and a HUD — with sub-frame motion blur and a synthesized drum bed.
+const BPM = 128, BEAT = 60 / BPM, BAR = 4 * BEAT, D = .44;          // one scene per bar; cover cut lands on the bar line
+const C = { ink: '#0A0A12', paper: '#F4EFE6', pink: '#FF3B8B', yellow: '#FFD23F', cyan: '#25E1E8', violet: '#5B3BFF' };
+const A = vk.accents, M = vk.mg;
+const v = vk.video({ style: 'reel', format: '1080p', fps: 30, bpm: BPM, title: 'vidkit motion reel', transition: `stripes:${D}`,
+  motionBlur: { shutter: '1/40', samples: 4 } });
+const S = n => n / 1.5;                                             // 1080p px → node units (px at 720p)
+const at = (x, y) => ({ x: x / 1920, y: y / 1080, anchor: 'center' });
+const T = (text, o = {}) => vk.title(text, { fx: 'none', ...o, style: `margin:0;line-height:1;white-space:nowrap;letter-spacing:0;max-width:none;${o.css || ''}` });
+// scene k covers bar k; it starts half a transition before the bar line so the stripes cut exactly on it.
+// L(lt) converts bar-local seconds to scene-local seconds.
+function bar(k, name, o, build) {
+  const off = k ? D / 2 : 0, L = lt => lt + off;
+  return vk.scene(name, { start: k ? k * BAR - off : 0, end: k < 7 ? (k + 1) * BAR + D / 2 : 8 * BAR, ...o }, sc => build(sc, L));
+}
+
+/* 1 — title slam: shockwave rings on every beat, speed lines, pink disc, MOTION drops in with squash & stretch */
+bar(0, 'title', { bg: C.ink }, (sc, L) => {
+  sc.paint([A.streaks({ at: L(.04) }), A.rings({ every: 1, delay: .12 }), A.disc({ at: L(.1), r: 410, color: C.pink })], { z: 'back', motionBlur: 'video' });
+  sc.add(T('MOTION', { fx: 'drop', at: L(.16), each: .055, from: 808, d: .5, shadow: [10, 10, 'rgba(10,10,18,.4)'], font: 'display', size: S(280), color: C.paper, pos: at(960, 548), css: 'letter-spacing:.03em' }));
+  sc.add(T('动态设计&nbsp;&nbsp;MOTION REEL', { html: true, fx: 'up', at: L(.95), d: .4, dist: S(30), ease: 'outCubic', font: 'sans', weight: 900, size: S(50), color: C.paper, pos: at(960, 800) }));
+});
+
+/* 2 — kinetic Chinese type: outlined marquee, characters slam in with echo ghosts, yellow bar, idle wobble */
+bar(1, 'kinetic', { bg: C.pink }, (sc, L) => {
+  sc.paint([(g, local) => {                                          // outlined MOTION marquee behind everything
+    g.font = '400 620px "Archivo Black"'; g.textBaseline = 'middle'; g.lineWidth = 5; g.strokeStyle = C.ink; g.globalAlpha = .28; g.lineJoin = 'round';
+    const w = g.measureText('MOTION  ').width, sh = (local * 560) % w;
+    for (let i = -1; i < 4; i++) g.strokeText('MOTION  ', i * w - sh, 540);
+  }, A.plus({ at: L(.25), color: C.ink })], { z: 'back' });
+  const yb = sc.html(`<div data-qa="ignore" style="position:absolute;left:320px;top:540px;width:1280px;height:380px;background:${C.yellow};transform-origin:0 50%"></div>`);
+  sc.fx(yb, 'grow', { t: L(.5), d: .45, ease: 'outExpo' });
+  ['让', '设', '计', '动', '起', '来'].forEach((ch, j) => {
+    const line = j < 3 ? 0 : 1, idx = j % 3;
+    sc.add(T(ch, { fx: 'slam', at: L(.12 + j * .19), d: .4, scale: 2.8, rot: (j % 2 ? 1 : -1) * 20, echo: 3, font: 'sans', weight: 900, size: S(330),
+      color: line ? C.ink : C.paper, shadow: line ? null : [12, 12, 'rgba(10,10,18,.32)'], wobble: { at: L(1.25), amp: 16, speed: 9, phase: idx * .9, rot: 2.9 },
+      pos: at(960 + (idx - 1) * 370, line ? 730 : 330) }));
+  });
+  sc.add(T('MAKE DESIGN MOVE', { fx: 'fade', at: L(1.2), d: .3, font: 'mono', weight: 700, size: S(34), color: C.ink, pos: at(960, 955) }));
+});
+
+/* 3 — beat-locked shape morph: circle → square → triangle → star, one per beat, bg colour per beat */
+bar(2, 'morph', { bg: C.violet }, (sc, L) => {
+  sc.paint(M.morphSeq({ at: L(0) }), { z: 'back', motionBlur: 'video' });
+  sc.add(T('形变', { id: 'rl-morph-label', font: 'sans', weight: 900, size: S(80), color: C.paper, pos: at(300, 880) }));
+  const lab = document.getElementById('rl-morph-label');
+  const B = v.beats, fg = [C.paper, C.paper, C.ink, C.ink];
+  sc.on((local, p, t) => { const k = Math.max(0, Math.min(3, Math.floor(B.index(t + B.leadT) - B.index(sc.start + L(0)) + 1e-9))); lab.style.color = fg[k]; });
+});
+
+/* 4 — dot-grid wave background (radial sine + beat ring, HSL cycling, text hole) + WAVE letters pop */
+bar(3, 'wave', { bg: { type: 'dotwave', bg: C.ink, at: .05 + D / 2, hole: { w: 860, h: 420, soft: 90 } } }, (sc, L) => {
+  sc.add(T('WAVE', { fx: 'letters-pop', at: L(.15), each: .07, d: .5, bob: { amp: 10, speed: 6, phase: .8 }, origin: '50% 50%', font: 'display', size: S(230), color: C.paper, pos: at(960, 490), css: 'letter-spacing:.06em' }));
+  sc.add(T('波动&nbsp;&nbsp;律动', { html: true, fx: 'fade', at: L(.6), d: .3, font: 'sans', weight: 900, size: S(66), color: C.yellow, pos: at(960, 655) }));
+});
+
+/* 5 — data motion: elastic bars, line draw-on with dots, counting +128 %, progress ring */
+bar(4, 'data', { bg: C.violet }, (sc, L) => {
+  const E = vk.ease, Pp = M.P, vals = [.35, .55, .42, .75, .62, .9, 1], bx0 = 170, base = 860, mh = 560;
+  sc.paint([(g, local) => {
+    const lt = local - L(0);
+    for (let k = 0; k < 6; k++) { const p = E.outExpo(Pp(lt, .02 + k * .03, .35)); g.globalAlpha = .2; g.fillStyle = C.paper; g.fillRect(bx0 - 30, base - k * 112, 880 * p, 3); }
+    g.globalAlpha = 1;
+    vals.forEach((val, i) => { const h = val * mh * E.outElastic(Pp(lt, .12 + i * .07, .8)); if (h <= 1) return; g.fillStyle = i === 6 ? C.yellow : C.paper; g.beginPath(); g.roundRect(bx0 + i * 110, base - h, 76, h, 14); g.fill(); });
+    const pts = vals.map((val, i) => [bx0 + i * 110 + 38, base - val * mh - 46]), prog = E.inOutCubic(Pp(lt, .55, .7)) * 6;
+    g.beginPath(); g.lineWidth = 10; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = C.cyan; g.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) { const f = vk.clamp01(prog - (i - 1)); if (f <= 0) break; g.lineTo(vk.lerp(pts[i - 1][0], pts[i][0], f), vk.lerp(pts[i - 1][1], pts[i][1], f)); }
+    g.stroke();
+    pts.forEach((p, i) => { const d = vk.clamp01((prog - i) / .6); if (d > 0) M.circle(g, p[0], p[1], 16 * E.outBack(d), C.paper, C.cyan, 6); });
+    const ox = vk.lerp(500, 0, E.outExpo(Pp(lt, .1, .55))), rx = 1370 + ox, ry = 790;
+    M.circle(g, rx, ry, 92, null, 'rgba(244,239,230,.22)', 22);
+    g.beginPath(); g.arc(rx, ry, 92, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * .87 * E.outExpo(Pp(lt, .5, .9))); g.lineWidth = 22; g.lineCap = 'round'; g.strokeStyle = C.paper; g.stroke();
+  }], { z: 'back', motionBlur: 'video' });
+  sc.add(T('数据表现', { fx: 'fade', at: L(.05), d: .3, font: 'sans', weight: 900, size: S(70), color: C.paper, pos: { x: 140 / 1920, y: 200 / 1080 }, css: 'translate:0 -50%' }));
+  const right = [
+    T('+0%', { id: 'rl-d0', fx: 'count', at: L(.25), d: 1.2, to: 128, ease: 'outCubic', prefix: '+', suffix: '%', font: 'display', size: S(226), color: C.yellow, pos: at(1370, 440) }),
+    T('增长率', { id: 'rl-d1', font: 'sans', weight: 900, size: S(60), color: C.paper, pos: at(1370, 610) }),
+    T('87', { id: 'rl-d2', font: 'display', size: S(58), color: C.paper, pos: at(1370, 790) }),
+  ];
+  sc.add(...right);
+  const els = ['rl-d0', 'rl-d1', 'rl-d2'].map(id => document.getElementById(id)), B = v.beats;
+  sc.on((local, p, t) => {
+    const ox = vk.lerp(500, 0, vk.ease.outExpo(M.P(local - L(0), .1, .55)));
+    els.forEach((e, i) => { const pul = i ? 1 : 1 + .06 * Math.exp(-((t + B.leadT - (sc.start + L(0))) % BEAT) * 8); e.style.transform = `translateX(${ox.toFixed(1)}px) scale(${pul.toFixed(4)})`; });
+  });
+});
+
+/* 6 — UI micro-interactions: phone with ring card, toggle, equalizer and like button; chips; cursor with clicks */
+bar(5, 'ui', { bg: C.paper }, (sc, L) => {
+  sc.paint([A.disc({ at: L(0), d: .5, ease: 'outCubic', r: 270, x: 1500, y: 250, dx: 24, dy: 24, color: C.cyan }), A.disc({ at: L(.05), d: .5, ease: 'outCubic', r: 210, x: 1660, y: 930, dx: 24, dy: 24, color: C.pink })], { z: 'back' });
+  [['MICRO', 420, .05], ['MOTION', 540, .13]].forEach(([s, y, t]) => sc.add(T(s, { fx: 'left', at: L(t), d: .5, dist: S(710), ease: 'outExpo', font: 'display', size: S(110), color: C.ink, pos: { x: 130 / 1920, y: y / 1080 }, css: 'translate:0 -50%' })));
+  sc.add(T('微交互', { fx: 'left', at: L(.22), d: .5, dist: S(710), ease: 'outExpo', font: 'sans', weight: 900, size: S(150), color: C.pink, pos: { x: 130 / 1920, y: 690 / 1080 }, css: 'translate:0 -50%' }));
+  const screen = vk.col([
+    T('早安，设计师', { font: 'sans', weight: 900, size: S(40), color: C.paper }),
+    T('今天也要让画面动起来', { font: 'sans', weight: 500, size: S(25), color: '#9a9ab5', css: 'margin-top:-6px' }),
+    vk.ui.ringCard({ label: '动画进度', value: 78, at: L(.3), fillAt: L(.55), color: C.pink }),
+    vk.ui.toggle({ label: '缓动曲线', sub: 'EASE OUT', at: L(.42), click: L(.95) }),
+    vk.ui.equalizer({ at: L(.54) }),
+    vk.ui.like({ at: L(.5), click: L(1.2) }),
+  ], { gap: S(26), style: `width:100%;height:100%;box-sizing:border-box;padding:96px 26px 26px;background:#1A1A2E;align-items:stretch;text-align:left;justify-content:flex-start` });
+  sc.add(vk.device(screen, { type: 'phone', w: S(420), fx: 'up', at: L(.05), d: .55, dist: S(900), ease: 'outExpo', pos: at(960, 540) }));
+  sc.add(vk.ui.chips(['EASE-OUT-EXPO', '0.4 S', '60 FPS'], { at: L(.3), size: S(34), pos: { x: 1290 / 1920, y: 338 / 1080 }, gap: S(36) }));
+  sc.add(vk.ui.cursor({ keys: [[L(.4), 1560 / 1920, 950 / 1080], [L(.95), 1100 / 1920, 590 / 1080], [L(1.2), 975 / 1920, 905 / 1080], [L(1.6), 1180 / 1920, 980 / 1080]], clicks: [L(.95), L(1.2)], size: S(66) }));
+});
+
+/* 7 — keyword montage: a new word every half beat, palette per cut, counter, progress dots, flash */
+bar(6, 'montage', {}, (sc, L) => {
+  sc.add(vk.montage([['缓动', 'EASING'], ['节奏', 'RHYTHM'], ['时机', 'TIMING'], ['张力', 'TENSION'], ['冲击', 'IMPACT'], ['流动', 'FLOW'], ['质感', 'TEXTURE'], ['细节', 'DETAIL']], { at: L(0), every: 'b:0.5' }));
+});
+
+/* 8 — converge + lockup: shapes spiral in, paper iris, star mark, mask-rise wordmark, highlight bar, fade to ink */
+bar(7, 'lockup', {}, (sc, L) => {
+  sc.add(vk.lockup({ title: 'VIDKIT', sub: '动态设计框架&nbsp;&nbsp;MOTION TOOLKIT', tagline: '每一帧都算数', at: L(0), fadeOut: L(1.775), motionBlur: 'video' }));
+});
+
+/* HUD on top of everything (difference blend) */
+vk.hud({ title: 'VIDKIT / MOTION REEL', meta: '128 BPM  1920×1080  30 FPS', bars: 8, duration: 8 * BAR });
+
+/* sound: 128 BPM drum bed from the style pack + per-scene accents */
+v.style.music(v, { end: 7 * BAR + .5 });
+for (let j = 0; j < 6; j++) v.sfx(BAR + .12 + j * .19, 'reel-blip', 1, 300 + j * 60);
+v.sfx(5 * BAR + .95 + D / 2, 'reel-click', 1); v.sfx(5 * BAR + 1.2 + D / 2, 'reel-pop', 1);
+[0, 2, 4, 7, 9, 11, 12, 14].forEach((s, i) => v.sfx(6 * BAR + i * BEAT / 2, 'reel-ping', 1, 440 * Math.pow(2, s / 12)));
+v.sfx(6 * BAR + 2.375, 'reel-riser', 1, 2.375);
+</script>
+</body>
+</html>

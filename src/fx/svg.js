@@ -1,6 +1,7 @@
 // SVG effects: stroke draw-on, draw-then-fill, and path morphing.
 import { registry } from '../core/plugin.js';
 import { compatible } from '../core/interp.js';
+import { shapeOutline } from './mg/math.js';
 
 const FX = registry.fx;
 export function shapesOf(el) {
@@ -33,8 +34,13 @@ export function resample(d, n = 120) {
 }
 // morph: o.to = path d (or o.paths = [d0, d1, d2…] with o.each seconds per step). Compatible paths
 // (same commands/number count) interpolate exactly; otherwise both are resampled to n points.
+const outlineD = (pts, x, y, r) => 'M' + pts.map(p => (x + p[0] * r).toFixed(2) + ' ' + (y + p[1] * r).toFixed(2)).join(' L') + ' Z';
 FX.morph = (el, o, api) => {
   const path = el.tagName.toLowerCase() === 'path' ? el : el.querySelector('path');
+  // opt-in: o.shapes = ['circle','square','triangle','star'] (fx/mg outlines, centred at o.cx/o.cy, radius o.r) and
+  // o.beats = beats per step → one beat-locked step per o.beats beats (outBack over .75 of the step, hit 1 frame early)
+  if (o.shapes) o = { ...o, paths: o.shapes.map(k => outlineD(shapeOutline(k, o.n || 120), o.cx || 0, o.cy || 0, o.r || 100)) };
+  if (o.beats && api.beats && api.beats.active) { const st = o.beats * api.beats.beat; o = { ...o, t: o.t + st - api.beats.leadT, each: st, d: o.d || st * .75, ease: o.ease || 'outBack' }; }
   const seq = o.paths ? o.paths.slice() : [path.getAttribute('d'), o.to];
   const allCompat = seq.every(d => compatible(d, seq[0]));
   const norm = allCompat ? seq : seq.map(d => resample(d, o.n || 120));
