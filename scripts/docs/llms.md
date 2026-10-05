@@ -77,6 +77,25 @@ Without `background` the 3D layer is transparent and composites over the scene b
 threeMaterials` / `vk list threeRigs` for options. Use `vk peek --draft` while iterating on 3D (res .35, aa 1, no
 bloom/DOF/motion blur); final `vk render` without --draft.
 
+### 3D primitives (compose them; there is no per-style 3D code)
+```js
+// look = NPR post chain on ANY 3D layer: preset | [passes] | { preset, <pass>: {…} | false }
+sc.three(vk.three.terrain({ type: 'mountains', colors: 'ink', scatter: [{ shape: 'pine', n: 400, maxH: .55 }] }),
+  { camera: vk.three.rig.orbit({ radius: 12, height: 4, dur: 8 }), post: { look: { preset: 'ink', mist: { density: .7 } } } });
+sc.three(vk.three.diorama({ kind: 'papercut', layers: 6, sun: true, rise: { t: 0, stagger: .12 } }), { post: { look: 'papercut' } });
+sc.three(vk.three.diorama({ kind: 'popup', open: { t: .3, d: 1.6 } }), {});                // pop-up book (hinged flats)
+sc.three(vk.three.diorama({ kind: 'isometric', seed: 5 }), { camera: vk.three.diorama.isoRig({ from: 30, to: 60, dur: 6 }) });
+sc.three(vk.three.shaderPlate({ preset: 'metaballs' }), { post: { bloom: { strength: .6 } } }); // or sdf: 'float map(vec3 p){…}'
+sc.three(vk.three.text3d({ text: '你好', font: 'fonts/typeface/my-cjk.json', in: { preset: 'rise', stagger: .08 } }), {});
+sc.three(vk.three.globe({ arcs: [{ from: [31.2, 121.5], to: [51.5, -.1], t: 1 }] }), {});
+sc.three(vk.three.model('assets/models/robot.glb', { size: 2, timeline: [{ t: 0, clip: 'Idle' }, { t: 2, clip: 'Walking', fade: .4 }] }), { env: 'studio' });
+const s = vk.three.sim({ init: rand => state, step: (s, dt, t, i) => {…}, dt: 1 / 120, every: 1, duration: 10 }); // seekable state: await s.ready(ctx) · s.at(t)
+```
+Looks: @LOOKS@. Passes: @LOOK_PASSES@ (`vk list three look`, params in docs/api.json → three.lookPasses).
+Assets: `vk asset add model.glb --licence CC0-1.0` (meshopt + assets.lock.json + thumbnail) · CJK 3D text:
+`vk font3d font.ttf --chars "只用到的字" -o fonts/typeface/x.json` · existing realtime three.js demo:
+`vk adopt demo.html -o out.mp4 --duration 10` (virtual clock; SEQUENTIAL ONLY — not seekable, no parallel workers).
+
 ## Styles (starting points)
 `vk.video({ style: 'reel' })` applies a style pack's theme, textures, default transition, camera push and sound; you
 still write the scenes. Packs: `vk list styles`; each has a `qa[]` checklist (`vk list styles <id>`) — review your

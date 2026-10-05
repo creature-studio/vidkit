@@ -23,6 +23,9 @@ export async function collect() {
       const three = vk.three ? {
         products: Object.keys(vk.three.products).filter(n => n !== 'screenTexture'), materials: Object.keys(vk.three.materials), rigs: Object.keys(vk.three.rig).filter(n => typeof vk.three.rig[n] === 'function'),
         grades: Object.keys(vk.three.grades || {}), envs: ['studio', 'room', 'loft', '<url>.hdr'], particleTargets: ['galaxy', 'sphere', 'torus', 'cloud', '{text, font}', '{draw(g,w,h)}', '{image|asset}'],
+        looks: Object.keys(vk.three.look.presets || {}), lookPasses: Object.fromEntries(Object.entries(vk.three.look.passes || {}).map(([k, v]) => [k, { doc: v.doc, defaults: v.d }])),
+        dioramas: vk.three.diorama ? vk.three.diorama.kinds : [], palettes: vk.three.diorama ? Object.keys(vk.three.diorama.palettes) : [], plates: Object.keys(vk.three.plates || {}),
+        fonts3d: Object.keys(vk.three.fonts3d || {}), letterPresets: vk.three.letterPresets || [], shapes: vk.three.shapes ? vk.three.shapes.names : [], ramps: Object.keys(vk.three.ramps || {}),
       } : null;
       return { version: vk.version, options: { video: P(S.COMMON.video), scene: P(S.COMMON.scene), node: P(S.COMMON.node) }, easeForms: S.EASE_FORMS, three, kinds };
     });
@@ -40,11 +43,18 @@ export function render(api) {
     .replace('/*@VERSION@*/', api.version)
     .replace(/\/\*@NAMES:(\w+)@\*\/ *string/g, (_, k) => union(N(k), true))
     .replace('/*@THREE_PRODUCTS@*/ string', union(api.three ? api.three.products : [], false))
-    .replace('/*@THREE_GRADES@*/ string', union(api.three ? api.three.grades : [], true));
+    .replace('/*@THREE_GRADES@*/ string', union(api.three ? api.three.grades : [], true))
+    .replace('/*@THREE_LOOKS@*/ string', union(api.three ? api.three.looks || [] : [], true))
+    .replace('/*@THREE_LOOK_PASSES@*/ string', union(api.three ? Object.keys(api.three.lookPasses || {}) : [], false))
+    .replace('/*@THREE_DIORAMAS@*/ string', union(api.three ? api.three.dioramas || [] : [], false))
+    .replace('/*@THREE_PLATES@*/ string', union(api.three ? api.three.plates || [] : [], false))
+    .replace('/*@THREE_FONTS3D@*/ string', union(api.three ? api.three.fonts3d || [] : [], true))
+    .replace('/*@THREE_LETTERS@*/ string', union(api.three ? api.three.letterPresets || [] : [], false));
   // llms.txt: template + a compact name index (one line per kind) — details live in docs/api.json
   const line = (k, label) => { const e = api.kinds[k]; if (!e) return ''; const names = e.entries.filter(x => bare(x) && !x.aliasOf).map(x => x.name + (x.lazy ? '' : '')); return `- ${label || k} (${names.length}): ${names.join(' ')}`; };
   const index = [line('elements', 'elements (vk.<name>(…) text / layout / raw-code nodes)'), line('fx', 'fx (entrance/exit effects)'), line('transitions'), line('textures'), line('backgrounds', 'backgrounds (bg.type)'), line('blocks', 'blocks (vk.<name>(…) element factories)'), line('themes'), line('formats'), line('styles', 'styles (style packs)'), line('eases'), line('sounds', 'sounds (sfx)'), line('materials', 'materials (style material)'), line('three', 'three (vk.three.* modules/options)'), line('threeMaterials', 'threeMaterials (vk.three.materials.*)'), line('threeRigs', 'threeRigs (vk.three.rig.*)')].filter(Boolean).join('\n');
-  const llms = fs.readFileSync(path.join(ROOT, 'scripts/docs/llms.md'), 'utf8').replace('@VERSION@', api.version).replace('@INDEX@', index);
+  const llms = fs.readFileSync(path.join(ROOT, 'scripts/docs/llms.md'), 'utf8').replace('@VERSION@', api.version).replace('@INDEX@', index)
+    .replace('@LOOKS@', api.three ? (api.three.looks || []).join(' ') : '').replace('@LOOK_PASSES@', api.three ? Object.keys(api.three.lookPasses || {}).join(' ') : '');
   return { 'docs/api.json': JSON.stringify(api, null, 1) + '\n', 'docs/vk.d.ts': dts, 'llms.txt': llms };
 }
 

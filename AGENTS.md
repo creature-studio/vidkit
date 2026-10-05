@@ -86,10 +86,23 @@ theme, textures, default transition, push, mix and caption look; `v.style` gives
   (default transparent → 3D floats over the 2D scene), `z: 'back' | 'front'`, `rect`, `assets`, `seed`.
 - Physically based materials need an environment: `scene.environment = await load.env('studio')` (or use
   turntable, which sets it). `vk.three.materials.chrome()/glass()/plastic({color})…`. Animations:
-  `const m = vk.three.mixer(root, clips)` in setup, `m.at(t)` in update.
+  `const m = vk.three.mixer(root, clips, { timeline: [{ t, clip, fade }] })` in setup, `m.at(t)` in update.
 - Iterate with `vk peek --draft` (res .35, aa 1, no bloom/DOF/motion blur; PMREM + particle targets are cached on
   disk in `~/.cache/vidkit`); render final without `--draft`. 3D is the slow part of a render (≈ 0.5–4 s per
   frame per worker on CPU); keep layers small (`rect`) and `res` modest.
+- **Compose primitives instead of writing a style.** Any 3D layer takes an NPR `look` (`post: { look }` or layer
+  opt `look`): presets `ink watercolor papercut pixel neon comic blueprint sketch miniature`, or a pass list
+  (`toon posterize palette ink outline edges kuwahara paper halftone pixel glow tiltshift mist hatch`), or
+  `{ preset, <pass>: {…} | false }`. Ink-wash 3D = `vk.three.terrain({ colors: 'ink' })` + `look: 'ink'`;
+  paper-cut = `vk.three.diorama({ kind: 'papercut' | 'popup' })` + `look: 'papercut'`; pixel / neon = same scene,
+  other look. Modules: `diorama` (papercut · popup book with page turns · isometric · tiltshift), `shaderPlate`
+  (raymarch/SDF into the HDR buffer), `text3d` (CJK: `vk font3d font.ttf --chars "…"`), `terrain` / `globe`,
+  `model(url, { timeline })` (GLB + clip cross-fades), `sim` (stateful physics made seekable: fixed dt + snapshots,
+  `S.module({ setup, render(state, t) })`), `shapes.of({ shape })` silhouettes. Examples:
+  `examples/ink-landscape/`, `examples/popup-book/`, `examples/three-character.html`. `vk list three <name>`.
+- Assets: `vk asset add x.glb --licence CC0-1.0 --author …` (meshopt + `assets.lock.json` + thumbnail; check the
+  licence). Existing realtime three.js demo you must not rewrite: `vk adopt demo.html -o out.mp4 --duration 10`
+  (virtual clock; sequential only — slow, not seekable, no parallel workers; prefer porting to vk.video).
 
 ## Motion blur
 

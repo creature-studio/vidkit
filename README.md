@@ -93,6 +93,9 @@ vk.scene('数据', 6, { bg: 'light', transition: 'iris:0.7' }, [
 | `three-basics.html` | **`vk.three` 入门**（11 s）：粒子星系 → 文字、耳机转台 + 灯条扫光、手机 orbit + 景深（需 `dist/vidkit-three.js`） | — |
 | `agent-test/agent-test.html` | **agent 自测片**（10 s）：只按 `llms.txt` + `AGENTS.md` 写成——`tech` 风格 + 原生 canvas 星空 + 小的 `vk.three` 环面结，lint → peek 循环（见[面向 agent](#面向-agent严格模式注册表lintpeek草稿)） | `out/agent-test.mp4` · `out/agent-test-sheet.png` |
 | `three-promo/three-promo.html` | **3D 产品宣传片**（24 s，1080p，虚构耳机 LUMEN Buds）：粒子 logo 组装、转台主镜头 + 扫光、CatmullRom 穿梭、三色并排、crane 片尾，`bars` 覆盖转场，合成器铺底 + edge-tts 中文旁白，运动模糊 | `out/three-promo.mp4` · `out/three-promo-sheet.png` |
+| `ink-landscape/ink-landscape.html` | **水墨 3D 山水**（15.5 s）：`vk.three.terrain` + `text3d`（中文子集）+ `look:'ink'`，不含任何水墨专用 3D 代码 | `out/ink-landscape.mp4` · `out/ink-landscape-sheet.png` |
+| `popup-book/popup-book.html` | **剪纸立体书**（19 s）：`diorama` popup（开书、纸片立起、翻页、昼夜）+ papercut 灯箱尾声 + `look:'papercut'` | `out/popup-book.mp4` · `out/popup-book-sheet.png` |
+| `three-character.html` | **GLB 角色**（10.6 s）：RobotExpressive（CC0）mixer 时间线混合片段 + `look:'comic'` | — |
 
 `npm run examples` 会依次对每个示例做 QA、渲染 MP4+SRT、生成联系表与静帧到 `out/`。
 
@@ -134,8 +137,9 @@ vidkit/
 │  ├─ audio/             score(离线音效合成) · music(节拍/包络/段落 MusicInfo) · words(对齐→字幕/卡拉 OK)
 │  ├─ runtime/           css · preview · qa · bake(静态层缓存)
 │  └─ three/             可选 3D 包入口 index · layer · post · math(纯函数) · loaders · env · materials · products · turntable · particles · cache(PMREM/粒子目标磁盘缓存)
+│                        · look(NPR 链) · diorama · shapes · plate(shaderPlate) · text3d · sim · terrain/terrainmath(地形·地球) · model · mixer
 ├─ dist/                 vidkit.js（IIFE，~200 KB）· vidkit.esm.js · vidkit-three.js（可选 3D 包，含 three r186）
-├─ vendor/               acorn 8（MIT，vk lint 用）· three r186 + addons（MIT）· Draco 解码器（Apache-2.0）· hdri/studio_loft_1k.hdr（Poly Haven CC0）；许可见 vendor/LICENSES.md
+├─ vendor/               acorn 8（MIT，vk lint 用）· three r186 + addons（MIT）· Draco 解码器（Apache-2.0）· hdri/studio_loft_1k.hdr（Poly Haven CC0）· meshopt 解码器（MIT）· Natural Earth 陆地（公有领域）；许可见 vendor/LICENSES.md
 ├─ fonts/                Noto Sans SC · JetBrains Mono · Archivo · Anton · Instrument Serif（OFL 1.1）
 ├─ examples/             promo · explainer · vertical · gallery · mv · explainer-vo · plugin-demo · data/ · assets/(music) · mv/ · plugins/
 ├─ scripts/              build · render-examples · list-presets · debug/probe 工具 · profile-render/profile-cpu · compare-capture/compare-video
@@ -619,6 +623,13 @@ vk make    --style ink[,papercut.chars] --story story.md -o examples/<slug>/ [--
 vk style   list | sample [id,…] | gallery [-o out/styles/index.html] | extract ref.png [--id x] [--k 6]
                                 [--lufs -14|off] [--duck -10] [--no-voice]   ← render 的混音参数
 
+# 3D / 资产
+vk adopt   page.html|URL -o out.mp4 --duration s [--fps 30] [--size 1280x720] [--warmup 3] [--timers] [--canvas]
+                                录制现成的实时（rAF）demo：虚拟时钟，只能顺序录制
+vk asset   add <url|x.glb> [--name id] [--dir examples/assets/models] [--draco] [--licence id] [--author …] [--no-thumb]
+           list | verify            压缩（meshopt/Draco）+ assets.lock.json + 转台缩略图；verify 校验哈希
+vk font3d  font.ttf [-o x.json] [--chars "…" | --chars-file f.txt | --latin]   字体 → three typeface JSON
+
 # 音频（Phase 2，需 tools/setup-audio.sh）
 vk analyze music.mp3 [-o music.beats.json] [--backend auto|beat_this|librosa] [--rate 50] [--bands 8]
 vk align   audio.wav [--text script.txt | --lyrics lyrics.txt] [--lang zh|en] [--model small] [--separate] [-o x.align.json]
@@ -977,6 +988,53 @@ v.three(...)                         // 全片层（默认 z:'front'）；场景
 ### 风格包 `three-tech`（3D 科技）
 
 `styles/three-tech/` 由 `dist/vidkit-three.js` 注册，核心包里没有它。它提供近黑影棚、电光青 + 紫两种强调色、`cyber` 调色、扫描线片名、粒子 + 光环特效、96 bpm 合成器脉冲铺底，以及 `v.style.base.stage3d.{layer, turntable, particles}` 预设。样片 `out/styles/three-tech.mp4`，已收进画廊。style.json 新增两个可选字段：`requires`（需要额外加载的脚本，画廊卡片会显示）和 `poster`（`vk style sample` 截取海报帧的时间）。
+
+### 3D 基元：look / diorama / shaderPlate / text3d / sim / terrain · globe / model（Phase B）
+
+这些基元按"可组合"设计：任何 3D 层都能接一条 NPR **look 链**，所以水墨、剪纸、像素、霓虹之类的画风不需要专门的 3D 风格代码，换一个 look 就行。所有模块都满足"每帧是 t 的纯函数"，可以 seek，也能多 worker 并行渲染。
+
+| API | 作用 |
+|---|---|
+| `post: { look }` / 层参数 `look` | 合成之后在显示空间里串一条 NPR 链。预设：`ink` `watercolor` `papercut` `pixel` `neon` `comic` `blueprint` `sketch` `miniature`；pass：`toon`（亮度分档、保留色相）`posterize` `palette` `ink` `outline`（深度 + 由深度重建的法线，或 `normals:true` 真法线 pass；`wobble`/`boil` 手绘抖动）`edges` `kuwahara`（水彩/油画平涂）`paper`（纤维、边缘晕染）`halftone` `pixel` `glow` `tiltshift` `mist`（深度雾）`hatch`。写法：`'ink'`、`[{type:'toon'},{type:'outline',width:2}]`，或 `{preset:'ink', mist:{density:.7}, paper:false}`；参数都可以写成 `t => 值` |
+| `vk.three.diorama({kind})` | `papercut`（分层剪纸灯箱：N 层剪影 + 层间软阴影 + 背光 + 画框，层可以 rise/sway/slide）· `popup`（立体书：沿书脊开合，纸片绕底边铰链立起；`spreads` + `turns` 翻页，翻页纸正反面印着前后两页；`printLeft/printRight` 用 canvas 印字；`lift` 让太阳/云立在纸条上）· `isometric`（低多边形小岛 + 底座 + 正交相机，`diorama.isoRig`）· `tiltshift`（微缩，自动接 `miniature` look）。剪影来自纯函数 `vk.three.shapes`（ridge hills mountains waves forest city pine tree house pagoda cloud circle crescent star bird boat grass rect，以及 SVG `path`） |
+| `vk.three.shaderPlate({preset \| sdf \| glsl})` | 全屏 raymarch / SDF / GLSL 画面，写进 HDR 场景缓冲，因此 AA 抖动、运动模糊子帧、泛光、调色、look 都会生效。相机射线来自 rig。预设 `metaballs` `tunnel` `nebula` `rings`；自写 `float map(vec3 p)` + 可选 `shade` / `bg`，库函数见 `vk.three.glsl`；`depth:true` 写入深度，网格可以和它穿插 |
+| `vk.three.text3d({text, font, in, out, wave})` | 挤出 + 倒角的 3D 字，逐字入场/出场（`rise drop flip scale spin swing type pop`，带 stagger/order）。自带字体 `archivo-black` `anton` `instrument-serif`（由 OFL 字体转换为 typeface JSON）；中文请用 `vk font3d 字体.ttf --chars "只用到的字"` 生成子集 |
+| `vk.three.sim({init, step, dt, every, duration})` | 固定步长模拟。每 `every` 秒存一份精确快照，`at(t)` 从最近的快照往前推，结果与从 0 跑一遍逐位相同。快照经 vk 磁盘缓存在 worker 之间共享，所以有状态的物理也能 seek、能并行。用法：`S.module({setup, render(state, t)})`，或 `await S.ready(ctx)` + `S.at(t)` |
+| `vk.three.terrain({type, colors, scatter, water, block, contours})` | 高度场地形：`fbm hills mountains ridged island mesa dunes`、函数 `(x,z)=>0..1` 或灰度图。支持色带（`alpine island desert ink paper lava mono`）、坡度岩石、雪线、地层侧壁、水面、等高线，以及实例化散布 pine/tree/rock/house（可 `grow` 逐个长出）。`heightAt(x,z)` 可以用来给相机贴地 |
+| `vk.three.globe({texture, markers, arcs})` | 地球：随包 Natural Earth 1:110m 陆地（公有领域，离线栅格化）或程序化纹理，经纬网、大气边缘光；标记点会弹出，大圆弧线随 drawRange 画出 |
+| `vk.three.model(url, {size, timeline, ground, spin})` | GLB/glTF 模块：Draco/meshopt 都能读，自动缩放并落地，`timeline` 让动画片段按 t 交叉淡化，缺灯时自动补光 |
+| `vk.three.mixer(root, clips, {timeline \| weights})` | `at(t)` 按时间线混合片段（纯函数 `mixerTimeline`）；不传 timeline 时行为与旧版相同 |
+
+**命令行**
+
+```
+vk asset add model.glb --licence CC0-1.0 --author "…" [--draco] [--name id] [--dir examples/assets/models]
+             # glTF-Transform: dedup/prune/resample/weld + meshopt（默认）或 Draco → <name>.glb
+             # 写 assets.lock.json（来源、许可、作者、源文件与产物的 sha256 + 字节数、片段名）+ 转台缩略图 <name>.thumb.png
+vk asset list | verify       # verify 重新计算哈希，有漂移则 exit 1
+vk font3d font.ttf --chars "千里江山" -o fonts/typeface/x.json   # 字体 → three typeface JSON（OFL 衍生物仍为 OFL）
+vk adopt demo.html -o out.mp4 --duration 10 [--fps 30] [--timers] [--canvas]
+```
+
+`vk adopt` 用于录制**现成的实时 demo**（基于 requestAnimationFrame 和 performance.now 的 three.js / canvas / CSS 动画），不用按 render(t) 改写。它在页面脚本之前注入时间垫片：冻结 `performance.now` / `Date`，接管 rAF，给 `Math.random` 设种子，`--timers` 时 setTimeout/setInterval 也走虚拟时钟，WAAPI/CSS 动画和 `<video>` 会对齐到虚拟时间。之后每帧把时钟推进 1000/fps ms 再截一帧。**只能顺序录制**：实时 demo 的状态是之前每一帧的累积，无法 seek，也无法拆给多个 worker 并行，所以比 `vk render` 慢。需要并行、可 seek 的话，把页面改写成 vk.video，或者把有状态的部分放进 `vk.three.sim`。
+
+可选依赖（`optionalDependencies`，缺失时只影响对应命令）：`@gltf-transform/*`、`meshoptimizer`、`draco3dgltf`（`vk asset`），`opentype.js`（`vk font3d`）。
+
+**示例**
+
+- `examples/ink-landscape/ink-landscape.html`（15.5 s）·《千里江山》：程序化群山 + 900 棵逐渐长出的松树（低空飞越）→ 自定义高度函数做出的江谷，纸片小舟漂流、飞鸟掠过 → 3D 书法字（马善政子集）从雾中升起。全片只用 `terrain` + `text3d` + `look:'ink'`。→ `out/ink-landscape.mp4` · `out/ink-landscape-sheet.png`
+- `examples/popup-book/popup-book.html`（19 s）·《纸上山海》：立体书打开，山村纸片依次立起（云、太阳立在纸条上）→ 翻页，光线由昼转夜，夜海和小舟立起 → 尾声换成分层剪纸灯箱。用到 `diorama` popup + papercut 和 `look:'papercut'`。→ `out/popup-book.mp4` · `out/popup-book-sheet.png`
+- `examples/three-character.html`（10.6 s）：RobotExpressive（CC0，`vk asset add` 压到 216 KB）按 Idle → Walk → Wave → Dance 的 mixer 时间线播放，第二段是同一个模型套 `look:'comic'`。
+- 测试：`test/three-b.test.mjs`，每个模块至少一个测试（look 展开、shapes、地形数学、plate 源码、逐字进度、sim 逐位一致、mixer 时间线、diorama、adopt 时间垫片、资产锁、font3d），另有一个浏览器冒烟测试：所有模块放在同一页，strict 模式 + 确定性复查。
+
+**渲染耗时**（8 核，SwiftShader，无 GPU，8 个 worker，1280×720，`res` .75，无运动模糊）：
+
+| 片子 | 帧数 | 帧阶段 | 总耗时 |
+|---|---|---|---|
+| `ink-landscape` | 465 | 478.7 s（1.0 fps；Kuwahara + 带抖动的描边 + 900 棵实例松树最贵） | 8 分 05 秒 |
+| `popup-book` | 570 | 169.2 s（3.4 fps） | 2 分 53 秒 |
+
+迭代时用 `vk peek --draft`：水墨片 11 帧约 11 s，立体书 8 帧约 7 s。
 
 ### 示例与性能
 

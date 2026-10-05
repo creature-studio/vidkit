@@ -454,6 +454,233 @@
    "{text, font}",
    "{draw(g,w,h)}",
    "{image|asset}"
+  ],
+  "looks": [
+   "ink",
+   "watercolor",
+   "papercut",
+   "pixel",
+   "neon",
+   "comic",
+   "blueprint",
+   "sketch",
+   "miniature"
+  ],
+  "lookPasses": {
+   "toon": {
+    "doc": "quantise luminance into flat bands (keeps hue); shadowTint colours the darkest band",
+    "defaults": {
+     "bands": 4,
+     "soft": 0.08,
+     "mix": 1,
+     "shadowTint": null,
+     "shadow": 0.35
+    }
+   },
+   "posterize": {
+    "doc": "per-channel levels",
+    "defaults": {
+     "levels": 6,
+     "mix": 1
+    }
+   },
+   "palette": {
+    "doc": "map to a colour set: mode 'ramp' (luminance through colours, dark → light) or 'nearest'",
+    "defaults": {
+     "colors": [
+      "#1d1d1f",
+      "#f4efe2"
+     ],
+     "mode": "ramp",
+     "mix": 1,
+     "dither": 0
+    }
+   },
+   "ink": {
+    "doc": "sumi ink: desaturate toward an ink ramp, lift whites to paper, keep some colour (sat), crush blacks",
+    "defaults": {
+     "ink": "#1b1c1e",
+     "paper": "#f2ecdd",
+     "sat": 0.12,
+     "contrast": 1.25,
+     "gamma": 1,
+     "mix": 1
+    }
+   },
+   "outline": {
+    "doc": "object outlines from depth + normal discontinuities (and colour if color edges on); boil = redraw rate (fps) of the wobble",
+    "defaults": {
+     "width": 1.5,
+     "color": "#111111",
+     "depth": 0.08,
+     "normal": 0.45,
+     "luma": 0,
+     "wobble": 0,
+     "boil": 0,
+     "fade": 0,
+     "opacity": 1,
+     "near": 0
+    }
+   },
+   "edges": {
+    "doc": "neon/blueprint edges: edge lines coloured by the image (or color) over a darkened background",
+    "defaults": {
+     "width": 1.2,
+     "color": null,
+     "bg": 0.85,
+     "bgColor": "#000000",
+     "depth": 0.06,
+     "normal": 0.4,
+     "luma": 0.25,
+     "gain": 2.2
+    }
+   },
+   "kuwahara": {
+    "doc": "painterly Kuwahara smoothing (flat strokes, kept edges); radius ≤ 8 px",
+    "defaults": {
+     "radius": 4,
+     "mix": 1
+    }
+   },
+   "paper": {
+    "doc": "paper / watercolour wash: fibre texture, granulation, edge darkening (pigment pooling), wet bleed; opaque composites over the paper colour",
+    "defaults": {
+     "color": "#f3eee2",
+     "amount": 0.55,
+     "fiber": 0.5,
+     "grain": 0.35,
+     "edge": 0.6,
+     "bleed": 1.5,
+     "scale": 1,
+     "opaque": true
+    }
+   },
+   "halftone": {
+    "doc": "print dots: mode 'mono' | 'cmyk' | 'color'; size = cell px",
+    "defaults": {
+     "size": 6,
+     "angle": 45,
+     "mode": "mono",
+     "ink": "#151515",
+     "paper": "#f7f3e8",
+     "mix": 1,
+     "soft": 1
+    }
+   },
+   "pixel": {
+    "doc": "pixel art: block size px, optional palette / level count with ordered (Bayer) dithering",
+    "defaults": {
+     "size": 6,
+     "levels": 6,
+     "colors": null,
+     "dither": 0.3,
+     "mix": 1
+    }
+   },
+   "glow": {
+    "doc": "soft glow of bright areas (display-space, after the look; the HDR bloom happens earlier)",
+    "defaults": {
+     "radius": 10,
+     "strength": 0.9,
+     "threshold": 0.55
+    }
+   },
+   "tiltshift": {
+    "doc": "miniature lens: blur outside a horizontal focus band (+ saturation boost)",
+    "defaults": {
+     "focus": 0.5,
+     "band": 0.12,
+     "blur": 8,
+     "saturate": 1.15,
+     "angle": 0
+    }
+   },
+   "mist": {
+    "doc": "depth mist toward a colour (ink-wash distance, aerial perspective); sky = fill empty pixels too",
+    "defaults": {
+     "color": "#f2ecdd",
+     "near": 4,
+     "far": 30,
+     "density": 1,
+     "power": 1.3,
+     "sky": true
+    }
+   },
+   "hatch": {
+    "doc": "pen hatching in the dark tones (1–3 directions by darkness)",
+    "defaults": {
+     "size": 6,
+     "color": "#1a1a1a",
+     "angle": 35,
+     "amount": 0.8,
+     "threshold": 0.7
+    }
+   }
+  },
+  "dioramas": [
+   "papercut",
+   "popup",
+   "isometric",
+   "tiltshift"
+  ],
+  "palettes": [
+   "dusk",
+   "forest",
+   "sea",
+   "autumn",
+   "ink",
+   "red"
+  ],
+  "plates": [
+   "metaballs",
+   "tunnel",
+   "nebula",
+   "rings"
+  ],
+  "fonts3d": [
+   "archivo-black",
+   "anton",
+   "instrument-serif"
+  ],
+  "letterPresets": [
+   "rise",
+   "drop",
+   "flip",
+   "scale",
+   "spin",
+   "swing",
+   "type",
+   "pop"
+  ],
+  "shapes": [
+   "ridge",
+   "hills",
+   "mountains",
+   "waves",
+   "forest",
+   "city",
+   "pine",
+   "tree",
+   "house",
+   "pagoda",
+   "cloud",
+   "circle",
+   "crescent",
+   "star",
+   "bird",
+   "boat",
+   "grass",
+   "rect",
+   "path"
+  ],
+  "ramps": [
+   "alpine",
+   "island",
+   "desert",
+   "ink",
+   "paper",
+   "lava",
+   "mono"
   ]
  },
  "kinds": {
@@ -5299,8 +5526,141 @@
   },
   "three": {
    "common": null,
-   "count": 7,
+   "count": 16,
    "entries": [
+    {
+     "name": "diorama",
+     "description": "stylised diorama module: kind 'papercut' (layered cut-paper shadow box) | 'popup' (pop-up book: hinged flats rise as the book opens, page turns) | 'isometric' (low-poly island on a plinth, ortho camera) | 'tiltshift' (miniature)",
+     "params": {
+      "kind": {
+       "type": "enum",
+       "default": "papercut",
+       "values": [
+        "papercut",
+        "popup",
+        "isometric",
+        "tiltshift"
+       ]
+      },
+      "palette": {
+       "type": "string|array",
+       "default": "dusk",
+       "description": "dusk dawn forest sea ink candy mono or [colours] (back = last)"
+      },
+      "layers": {
+       "type": "number|array",
+       "default": 5,
+       "description": "papercut: count or [{shape, height, color, z, props, rise}]"
+      },
+      "rise": {
+       "type": "object",
+       "description": "papercut layers rise in: {t, d, stagger, order}"
+      },
+      "sun": {
+       "type": "boolean|object",
+       "description": "glowing disc {x, y, r, color}"
+      },
+      "frame": {
+       "type": "object",
+       "default": false,
+       "description": "|shadow-box frame"
+      },
+      "open": {
+       "type": "object",
+       "description": "popup: {t, d, ease} opening progress"
+      },
+      "pieces": {
+       "type": "array",
+       "description": "popup: [{shape, x, z, height, color, at}] hinged flats"
+      },
+      "spreads": {
+       "type": "array",
+       "description": "popup: page turns [{t, d, pieces}]"
+      },
+      "seed": {
+       "type": "number",
+       "description": "isometric/tiltshift terrain seed"
+      },
+      "zoom": {
+       "type": "number",
+       "default": 1.4,
+       "description": "isometric ortho zoom"
+      },
+      "trees": {
+       "type": "number",
+       "default": 70,
+       "description": "isometric scatter"
+      },
+      "houses": {
+       "type": "number",
+       "default": 6
+      },
+      "water": {
+       "type": "object",
+       "default": false,
+       "description": "|{level, color, opacity}"
+      },
+      "toon": {
+       "type": "boolean",
+       "description": "toon-shaded paper"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.diorama({ kind: 'papercut', layers: 6, sun: true, rise: { t: 0, stagger: .12 } }), { camera: vk.three.rig.orbit({ target: [0, 0, -1], radius: 10, from: -6, to: 6, dur: 6 }), post: { look: 'papercut' } })",
+     "source": "builtin"
+    },
+    {
+     "name": "globe",
+     "description": "globe module: Natural Earth land (vendored, public domain) or procedural texture, graticule, atmosphere rim, markers that pop in, great-circle arcs that draw on",
+     "params": {
+      "texture": {
+       "type": "string",
+       "default": "earth",
+       "description": "'earth' | 'procedural' | image url"
+      },
+      "land": {
+       "type": "color"
+      },
+      "ocean": {
+       "type": "color"
+      },
+      "graticule": {
+       "type": "boolean|object"
+      },
+      "atmosphere": {
+       "type": "boolean|object",
+       "description": "{color, power}"
+      },
+      "markers": {
+       "type": "array",
+       "description": "[{lat, lon, color, at}]"
+      },
+      "arcs": {
+       "type": "array",
+       "description": "[{from:[lat,lon], to:[lat,lon], t, d, color, height}]"
+      },
+      "spin": {
+       "type": "number",
+       "description": "deg/s"
+      },
+      "lon0": {
+       "type": "number",
+       "default": 0,
+       "description": "initial longitude facing camera"
+      },
+      "tilt": {
+       "type": "number",
+       "description": "deg"
+      },
+      "radius": {
+       "type": "number",
+       "default": 1.5
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.globe({ markers: [{ lat: 31.2, lon: 121.5 }], arcs: [{ from: [31.2, 121.5], to: [51.5, -.1], t: 1 }] }), { camera: { pos: [0, 0, 5], target: [0, 0, 0] } })",
+     "source": "builtin"
+    },
     {
      "name": "layer",
      "description": "sc.three(setup, update, opts) / sc.three(modules, opts): a three.js scene composited into the layer stack (scene layers sit behind text unless z:\"front\")",
@@ -5369,6 +5729,10 @@
        "type": "object",
        "description": "post stack, see three/post"
       },
+      "look": {
+       "type": "string|array|object",
+       "description": "NPR look chain (see three/look); same as post.look"
+      },
       "key": {
        "type": "function",
        "description": "lt => string: skip re-render while unchanged"
@@ -5379,17 +5743,113 @@
      "source": "builtin"
     },
     {
+     "name": "look",
+     "description": "NPR look chain after the composite (post.look or layer opt look): preset name, pass list, or {preset, <pass>: {…}|false}. Presets: ink watercolor papercut pixel neon comic blueprint sketch miniature. Passes: toon posterize palette ink outline edges kuwahara paper halftone pixel glow tiltshift mist hatch (vk.three.look.passes for params)",
+     "params": {
+      "preset": {
+       "type": "string",
+       "description": "look preset to start from"
+      },
+      "passes": {
+       "type": "array",
+       "description": "[{type, …params}] in order (params may be t => value)"
+      },
+      "<pass>": {
+       "type": "object",
+       "default": false,
+       "description": "|override (or drop) one pass of the preset, e.g. outline: {width: 2}"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.terrain({ type: 'mountains' }), { post: { look: { preset: 'ink', mist: { density: .6 } } } })",
+     "source": "builtin"
+    },
+    {
      "name": "mixer",
-     "description": "time-driven AnimationMixer: const m = vk.three.mixer(root, clips) in setup; m.at(t) in update (never mixer.update(dt))",
+     "description": "time-driven AnimationMixer: const m = vk.three.mixer(root, clips[, {timeline}]) in setup; m.at(t) in update (never mixer.update(dt)); timeline cross-fades clips as a pure function of t",
      "params": {
       "once": {
        "type": "boolean",
        "default": false,
        "description": "LoopOnce + clamp"
+      },
+      "timeline": {
+       "type": "array",
+       "description": "[{t, clip, fade:.3, speed:1, loop:true, offset, weight}]"
+      },
+      "weights": {
+       "type": "object",
+       "description": "{clip: weight | t => weight} explicit blend"
       }
      },
      "requires": "dist/vidkit-three.js",
      "example": "const m = vk.three.mixer(gltf.scene, gltf.animations); return t => m.at(t);",
+     "source": "builtin"
+    },
+    {
+     "name": "model",
+     "description": "glTF/GLB as a scene module: loads (Draco/meshopt), normalises to size, feet on y=0, mixer timeline animation (pure in t), shadows, auto lights, ground disc, spin",
+     "params": {
+      "url": {
+       "type": "string",
+       "description": "glb/gltf url (first argument)"
+      },
+      "size": {
+       "type": "number",
+       "description": "height in world units"
+      },
+      "fit": {
+       "type": "enum",
+       "default": "height",
+       "values": [
+        "height",
+        "max"
+       ]
+      },
+      "center": {
+       "type": "boolean",
+       "default": false,
+       "description": "centre vertically instead of feet on ground"
+      },
+      "timeline": {
+       "type": "array",
+       "description": "[{t, clip, fade, speed, loop, offset, weight}] cross-faded clips"
+      },
+      "clip": {
+       "type": "string",
+       "description": "single looping clip"
+      },
+      "weights": {
+       "type": "object",
+       "description": "{clip: weight | t => weight}"
+      },
+      "ground": {
+       "type": "boolean|object",
+       "description": "{color, radius, shadowOnly}"
+      },
+      "spin": {
+       "type": "number",
+       "description": "deg/s"
+      },
+      "rotation": {
+       "type": "array",
+       "description": "deg"
+      },
+      "position": {
+       "type": "array"
+      },
+      "shadows": {
+       "type": "boolean",
+       "default": true
+      },
+      "lights": {
+       "type": "boolean",
+       "default": true,
+       "description": "auto lights when the scene has none"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.model('assets/models/robot.glb', { size: 2, timeline: [{ t: 0, clip: 'Idle' }, { t: 2, clip: 'Walking', fade: .4 }] }), { env: 'studio' })",
      "source": "builtin"
     },
     {
@@ -5522,6 +5982,10 @@
       "fadeColor": {
        "type": "color",
        "default": "#000"
+      },
+      "look": {
+       "type": "string|array|object",
+       "description": "NPR look chain after the composite (see three/look)"
       }
      },
      "requires": "dist/vidkit-three.js",
@@ -5542,6 +6006,125 @@
      "source": "builtin"
     },
     {
+     "name": "shaderPlate",
+     "description": "fullscreen raymarch / SDF / GLSL plate rendered into the HDR scene buffer (so AA jitter, motion-blur sub-frames, bloom, grade and looks apply); camera rays follow the vk.three camera rig",
+     "params": {
+      "preset": {
+       "type": "enum",
+       "values": [
+        "metaballs",
+        "tunnel",
+        "nebula",
+        "rings"
+       ]
+      },
+      "sdf": {
+       "type": "string",
+       "description": "GLSL defining float map(vec3 p) (helpers: sdSphere sdBox sdTorus opSU rot2 fbm pal calcAO …)"
+      },
+      "shade": {
+       "type": "string",
+       "description": "GLSL vec3 shade(vec3 p, vec3 n, vec3 rd, float t)"
+      },
+      "background": {
+       "type": "string",
+       "description": "GLSL vec3 bg(vec3 rd)"
+      },
+      "glsl": {
+       "type": "string",
+       "description": "raw mode: vec4 image(vec2 uv, vec3 ro, vec3 rd)"
+      },
+      "uniforms": {
+       "type": "object",
+       "description": "{uName: number|array|t => value}"
+      },
+      "steps": {
+       "type": "number",
+       "default": 96,
+       "description": "march steps"
+      },
+      "maxDist": {
+       "type": "number",
+       "default": 40
+      },
+      "depth": {
+       "type": "boolean",
+       "default": false,
+       "description": "write gl_FragDepth so meshes intersect the plate"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.shaderPlate({ preset: 'metaballs' }), { camera: vk.three.rig.orbit({ radius: 5, dur: 6 }), post: { bloom: { strength: .6 } } })",
+     "source": "builtin"
+    },
+    {
+     "name": "shapes",
+     "description": "pure 2D silhouette generators → THREE.Shape (ridge hills mountains waves forest city pine tree house pagoda cloud circle crescent star bird boat grass rect path): vk.three.shapes.of(spec) for dioramas, extrusions and paper cut-outs",
+     "params": {
+      "shape": {
+       "type": "string",
+       "description": "name"
+      },
+      "seed": {
+       "type": "number"
+      },
+      "width": {
+       "type": "number"
+      },
+      "height": {
+       "type": "number"
+      },
+      "d": {
+       "type": "string",
+       "description": "SVG path data for shape 'path'"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "vk.three.shapes.of({ shape: 'pagoda', height: 2 })",
+     "source": "builtin"
+    },
+    {
+     "name": "sim",
+     "description": "fixed-dt simulation with exact state snapshots every N steps → seekable at(t), so parallel render workers agree bit-for-bit (snapshots shared through the vk disk cache)",
+     "params": {
+      "init": {
+       "type": "function",
+       "description": "rand => state (numbers + typed arrays; rand is seeded, init only)"
+      },
+      "step": {
+       "type": "function",
+       "description": "(state, dt, t, i) => void — mutate state; pure in (state, i)"
+      },
+      "dt": {
+       "type": "number",
+       "default": 0.008333,
+       "description": "fixed step (s)"
+      },
+      "every": {
+       "type": "number",
+       "default": 1,
+       "description": "snapshot interval (s)"
+      },
+      "duration": {
+       "type": "number",
+       "default": 10,
+       "description": "simulated span (s)"
+      },
+      "key": {
+       "type": "string",
+       "description": "extra cache key (bump when captured constants change)"
+      },
+      "seed": {
+       "type": "number",
+       "default": 1,
+       "description": "rand seed"
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "const s = vk.three.sim({ duration: 8, init: () => ({ y: 2, v: 0 }), step: (S, dt) => { S.v -= 9.8 * dt; S.y += S.v * dt; if (S.y < 0) { S.y = 0; S.v *= -.8; } } }); // setup: await s.ready(ctx); update: t => s.at(t).y",
+     "source": "builtin"
+    },
+    {
      "name": "studioScene",
      "description": "procedural studio light scene (for PMREM or as a backdrop)",
      "params": {
@@ -5555,6 +6138,176 @@
      },
      "requires": "dist/vidkit-three.js",
      "example": null,
+     "source": "builtin"
+    },
+    {
+     "name": "terrain",
+     "description": "heightmap terrain module (procedural fbm/hills/mountains/ridged/island/mesa/dunes, a function, or an image heightmap) with colour ramps, slope rock, snow, strata block, water, contour lines and instanced scatter (pine/tree/rock/house) that can grow in",
+     "params": {
+      "type": {
+       "type": "string",
+       "default": "fbm",
+       "description": "fbm hills mountains ridged island mesa dunes flat | (x, z) => 0..1"
+      },
+      "heightmap": {
+       "type": "string",
+       "description": "image url (luminance → height)"
+      },
+      "size": {
+       "type": "number",
+       "default": 10
+      },
+      "height": {
+       "type": "number",
+       "default": 2
+      },
+      "segments": {
+       "type": "number",
+       "default": 128
+      },
+      "seed": {
+       "type": "number",
+       "default": 1
+      },
+      "colors": {
+       "type": "string|array",
+       "default": "alpine",
+       "description": "alpine island desert ink paper lava mono or [[h, colour], …]"
+      },
+      "flat": {
+       "type": "boolean",
+       "default": false,
+       "description": "faceted low-poly shading"
+      },
+      "rock": {
+       "type": "color",
+       "description": "slope colour"
+      },
+      "snow": {
+       "type": "number",
+       "description": "snow line 0..1"
+      },
+      "contours": {
+       "type": "object",
+       "description": "{every, color}"
+      },
+      "block": {
+       "type": "object",
+       "default": false,
+       "description": "|strata skirt {depth}"
+      },
+      "water": {
+       "type": "object",
+       "default": false,
+       "description": "|{level, color, opacity}"
+      },
+      "scatter": {
+       "type": "array",
+       "description": "[{shape, n, minH, maxH, maxSlope, scale, grow:{t, d}}]"
+      },
+      "falloff": {
+       "type": "array",
+       "description": "[r0, r1] radial falloff"
+      },
+      "lights": {
+       "type": "boolean",
+       "default": true
+      },
+      "shadows": {
+       "type": "boolean",
+       "default": true
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.terrain({ type: 'mountains', colors: 'ink', scatter: [{ shape: 'pine', n: 300, maxH: .5 }] }), { camera: vk.three.rig.orbit({ radius: 12, height: 5, dur: 8 }) })",
+     "source": "builtin"
+    },
+    {
+     "name": "text3d",
+     "description": "extruded, bevelled 3D text with per-letter in/out animation (pure in t); bundled fonts archivo-black anton instrument-serif, or any typeface JSON (vk font3d)",
+     "params": {
+      "text": {
+       "type": "string",
+       "default": "vidkit",
+       "description": "for lines"
+      },
+      "font": {
+       "type": "string",
+       "default": "archivo-black",
+       "description": "font id or typeface JSON url"
+      },
+      "size": {
+       "type": "number",
+       "default": 1
+      },
+      "depth": {
+       "type": "number",
+       "description": "default size·.25"
+      },
+      "bevel": {
+       "type": "object",
+       "default": false,
+       "description": "|{size, thickness, segments}"
+      },
+      "material": {
+       "type": "string|object",
+       "description": "three material name / THREE.Material / {color, roughness, metalness}"
+      },
+      "sideMaterial": {
+       "type": "string|object"
+      },
+      "color": {
+       "type": "color",
+       "default": "#f2ede2"
+      },
+      "align": {
+       "type": "enum",
+       "default": "center",
+       "values": [
+        "left",
+        "center",
+        "right"
+       ]
+      },
+      "letterSpacing": {
+       "type": "number",
+       "default": 0,
+       "description": "× size"
+      },
+      "lineHeight": {
+       "type": "number",
+       "default": 1.25
+      },
+      "in": {
+       "type": "string|object",
+       "description": "rise drop flip scale spin swing type pop, or {preset, t, d, stagger, order, ease}"
+      },
+      "out": {
+       "type": "string|object",
+       "description": "exit (same form)"
+      },
+      "wave": {
+       "type": "boolean|object",
+       "description": "{amp, speed, freq}"
+      },
+      "spin": {
+       "type": "number",
+       "description": "deg/s of the whole block"
+      },
+      "animate": {
+       "type": "function",
+       "description": "(letter, i, t, info) custom per-letter motion"
+      },
+      "position": {
+       "type": "array"
+      },
+      "shadows": {
+       "type": "boolean",
+       "default": false
+      }
+     },
+     "requires": "dist/vidkit-three.js",
+     "example": "sc.three(vk.three.text3d({ text: 'HELLO', material: 'gold', in: { preset: 'rise', stagger: .06 } }), { camera: { pos: [0, 0, 6], target: [0, 0, 0] }, env: 'studio' })",
      "source": "builtin"
     },
     {

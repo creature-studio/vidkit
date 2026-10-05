@@ -94,11 +94,17 @@ export interface Video { W: number; H: number; fps: number; duration: number; st
 
 export interface ThreeCtx { THREE: any; scene: any; camera: any; renderer: any; rand: () => number; load: Record<string, (url: string, o?: object) => Promise<any>>; assets: Record<string, any>; layer: unknown; draft: boolean }
 export interface ThreeModule { setup?: (ctx: ThreeCtx) => unknown; update?: (lt: number, info: object) => void }
+export type ThreeLookPreset = "ink" | "watercolor" | "papercut" | "pixel" | "neon" | "comic" | "blueprint" | "sketch" | "miniature" | (string & {});
+export type ThreeLookPass = { type: "toon" | "posterize" | "palette" | "ink" | "outline" | "edges" | "kuwahara" | "paper" | "halftone" | "pixel" | "glow" | "tiltshift" | "mist" | "hatch"; [param: string]: unknown };
+/** preset name | pass list | {preset, <pass>: {…} | false} */
+export type ThreeLook = ThreeLookPreset | ThreeLookPass[] | ({ preset?: ThreeLookPreset; passes?: ThreeLookPass[] } & Record<string, unknown>);
 export interface ThreeLayerOptions {
   res?: number; aa?: number; motionBlur?: boolean | { shutter: string | number; samples: number };
   camera?: ((t: number) => { pos: number[]; target?: number[]; fov?: number; roll?: number }) | { pos: number[]; target?: number[]; fov?: number };
   fov?: number; background?: string | number; assets?: Record<string, string>; seed?: number; z?: 'back' | 'front'; rect?: number[];
-  post?: { exposure?: number; tone?: 'aces' | 'none'; bloom?: false | { strength?: number; threshold?: number; knee?: number; radius?: number }; grade?: ThreeGrade | object; vignette?: number; grain?: number; ca?: number; dof?: boolean | { focus?: number; aperture?: number; maxBlur?: number }; fade?: number; fadeColor?: string };
+  post?: { exposure?: number; tone?: 'aces' | 'none'; bloom?: false | { strength?: number; threshold?: number; knee?: number; radius?: number }; grade?: ThreeGrade | object; vignette?: number; grain?: number; ca?: number; dof?: boolean | { focus?: number; aperture?: number; maxBlur?: number }; fade?: number; fadeColor?: string; look?: ThreeLook };
+  /** NPR look chain (same as post.look) */
+  look?: ThreeLook;
   key?: (lt: number) => string;
 }
 
@@ -130,7 +136,12 @@ export interface VK {
   getEase(e: Ease): (p: number) => number; ease: Record<EaseName, (p: number) => number>;
   beat(n: number): number; pulse(t: number, k?: number, every?: number): number; onBeat(t: number, o?: { unit?: 'beat' | 'bar' | 'onset'; k?: number; every?: number }): number;
   style: ((spec: StyleName | string | object) => unknown) & { list(): string[]; get(id: StyleName): unknown };
-  three: { turntable(o?: object): ThreeModule; particles(o?: object): ThreeModule; product(name: ThreeProduct, o?: object): any; materials: Record<ThreeMaterialName, (o?: object) => any>; rig: Record<ThreeRigName, (o?: object) => (t: number) => object>; mixer(root: any, clips: any[], o?: object): { at(t: number): void }; frameIdx(t: number, fps: number): number; [k: string]: any };
+  three: { turntable(o?: object): ThreeModule; particles(o?: object): ThreeModule; product(name: ThreeProduct, o?: object): any; materials: Record<ThreeMaterialName, (o?: object) => any>; rig: Record<ThreeRigName, (o?: object) => (t: number) => object>; mixer(root: any, clips: any[], o?: { once?: boolean; timeline?: { t: number; clip: string; fade?: number; speed?: number; loop?: boolean; offset?: number; weight?: number }[]; weights?: Record<string, number | ((t: number) => number)> }): { at(t: number, weights?: Record<string, number>): unknown };
+    look: ((spec: ThreeLook, post?: object) => object) & { passes: Record<string, { doc: string; d: object }>; presets: Record<ThreeLookPreset, ThreeLookPass[]>; expand(spec: ThreeLook): ThreeLookPass[] };
+    diorama(o?: { kind?: "papercut" | "popup" | "isometric" | "tiltshift"; [k: string]: unknown }): ThreeModule; shaderPlate(o?: { preset?: "metaballs" | "tunnel" | "nebula" | "rings"; sdf?: string; shade?: string; background?: string; glsl?: string; uniforms?: object; [k: string]: unknown }): ThreeModule;
+    text3d(o?: { text?: string; font?: "archivo-black" | "anton" | "instrument-serif" | (string & {}); in?: "rise" | "drop" | "flip" | "scale" | "spin" | "swing" | "type" | "pop" | object; out?: string | object; [k: string]: unknown }): ThreeModule;
+    sim<S = any>(o: { init(rand: () => number): S; step(state: S, dt: number, t: number, i: number): void; dt?: number; every?: number; duration?: number; key?: string; seed?: number }): { at(t: number): S; ready(ctx: object): Promise<unknown>; module(o: { setup?(ctx: object, sim: unknown): unknown; render(state: S, t: number, info: object): void }): ThreeModule };
+    terrain(o?: object): ThreeModule & { heightAt?(x: number, z: number): number }; globe(o?: object): ThreeModule; model(url: string, o?: object): ThreeModule; frameIdx(t: number, fps: number): number; [k: string]: any };
   gl: Record<string, any>; mg: Record<string, any>; accents: Record<string, (o?: object) => DrawFn>; ui: Record<string, (o?: object) => VNode>;
   [k: string]: any;
 }
