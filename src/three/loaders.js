@@ -4,6 +4,7 @@ import { GLTFLoader } from '../../vendor/three/examples/jsm/loaders/GLTFLoader.j
 import { DRACOLoader } from '../../vendor/three/examples/jsm/loaders/DRACOLoader.js';
 import { HDRLoader } from '../../vendor/three/examples/jsm/loaders/HDRLoader.js';
 import { FontLoader } from '../../vendor/three/examples/jsm/loaders/FontLoader.js';
+import { MeshoptDecoder } from '../../vendor/three/examples/jsm/libs/meshopt_decoder.module.js';
 import { cachedEnv } from './env.js';
 
 export const BUILTIN = { loft: 'vendor/hdri/studio_loft_1k.hdr' };
@@ -15,9 +16,10 @@ export function makeLoader(THREE, renderer, base) {
   let gltf, hdr, font;
   const L = {
     url: abs,
-    // glTF / GLB (Draco-compressed meshes decode with the bundled decoder in vendor/three/…/libs/draco/gltf/)
+    // glTF / GLB (Draco-compressed meshes decode with the bundled decoder in vendor/three/…/libs/draco/gltf/;
+    // EXT_meshopt_compression with the bundled meshoptimizer decoder — `vk asset add` writes either)
     gltf(u) {
-      if (!gltf) { gltf = new GLTFLoader(); const d = new DRACOLoader(); d.setDecoderPath(new URL('vendor/three/examples/jsm/libs/draco/gltf/', base || location.href).href); d.setDecoderConfig({ type: 'wasm' }); gltf.setDRACOLoader(d); }
+      if (!gltf) { gltf = new GLTFLoader(); const d = new DRACOLoader(); d.setDecoderPath(new URL('vendor/three/examples/jsm/libs/draco/gltf/', base || location.href).href); d.setDecoderConfig({ type: 'wasm' }); gltf.setDRACOLoader(d); gltf.setMeshoptDecoder(MeshoptDecoder); }
       return once('g:' + abs(u), () => new Promise((res, rej) => gltf.load(abs(u), res, undefined, e => rej(new Error('[vk.three] gltf ' + u + ': ' + (e && e.message || e))))));
     },
     // equirectangular HDR (RGBE) → DataTexture (linear, half float)
