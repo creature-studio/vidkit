@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>three-tech · vidkit style pack preview</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="../../dist/vidkit-three.js"></script>
+<script>
+// 3D 科技 sample (6 s): a particle field assembles into the wordmark under the pack title, then a studio turntable
+// hero shot with a strip-light sweep. Needs dist/vidkit-three.js (which also registers this pack).
+const v = vk.video({ style: 'three-tech', fps: 30, title: 'vidkit style · three-tech', motionBlur: { shutter: '1/48', samples: 4 } });
+const S = v.style, st = S.base.stage3d, R = vk.three.rig;
+vk.scene('assemble', 3.2, {}, sc => {
+  sc.three(vk.three.particles(st.particles({ n: 90000, intensity: .3,
+    targets: { cloud: { type: 'galaxy', arms: 3, radius: 5, spin: .35, colors: st.colors }, mark: { text: 'vk.three', font: '900 200px Archivo', width: 6.4, colors: st.colors, offset: [0, -.55, 0] } },
+    morph: [{ t: 0, to: 'cloud' }, { t: .15, to: 'mark', d: 1.35, style: 'swirl' }] })),
+    st.layer({ background: 0x05070d, camera: R.dolly({ from: [0, 2.2, 8.5], to: [0, .1, 7.2], target: [0, -.4, 0], dur: 3.2, ease: 'outCubic' }) }));
+  S.title(sc, '3D 科技', { sub: 'three.js 产品片 · vk.three', at: .8, out: 2.9, size: 96 });
+});
+vk.scene('product', 2.8, { transition: S.transition('default') }, sc => {
+  sc.three(vk.three.turntable(st.turntable({ product: 'earbuds', spin: 24, angle: -40, sweep: null, sweeps: [{ t: .3, d: 1.6, from: -75, to: 75 }] })),
+    st.layer({ camera: R.orbit({ target: [0, .45, 0], radius: 3.3, height: 1.0, from: -18, to: 12, dur: 2.8, fov: 32 }) }));
+  S.effect(sc, 'signature', { at: 1.9, x: 640, y: 330, sfx: false });
+});
+S.music(v);
+</script>
+</body>
+</html>

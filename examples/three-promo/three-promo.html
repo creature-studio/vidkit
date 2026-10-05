@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>LUMEN Buds · vk.three 3D 宣传片</title></head>
+<body>
+<script src="../../dist/vidkit.js"></script>
+<script src="../../dist/vidkit-three.js"></script>
+<script>
+// 3D promo for a fictional earbud, "LUMEN Buds" — every frame is a pure function of t (vk.three, three r186).
+// Uses: particle logo assemble (zoom-of-scale camera, beat-synced pulse, burst + shake), studio turntable hero with
+// strip-light sweeps + lid animation + DOF, CatmullRom flythrough with floating dust, a three-colour lineup, crane-up
+// end card where the particles re-form the logo; pack titles/captions over the 3D layers, a `bars` cover transition,
+// the three-tech pack's synth bed + edge-tts zh narration, in-layer HDR motion blur (sub-frames accumulated before bloom).
+// Render 1080p:  vk render examples/three-promo/three-promo.html -o out/three-promo.mp4 --scale 1.5
+const v = vk.video({ style: 'three-tech', fps: 30, bpm: 96, title: 'LUMEN Buds · vk.three',
+  motionBlur: { shutter: '1/48', samples: 4 }, cover: { colors: ['#36d6ff', '#9b6bff', '#0d1220'], n: 6, axis: 'y' },
+  texture: { grain: { amount: .025 } },
+  // zh narration (optional): `vk tts examples/three-promo/three-promo.html` → three-promo.vo.json (edge-tts); captions + karaoke from word timings
+  voice: { manifest: 'three-promo.vo.json', voice: 'zh-CN-YunxiNeural', rate: '+4%', lead: .5, tail: .6 }, karaoke: 'sweep', mix: { lufs: -14, duck: -9 } });
+const S = v.style, st = S.base.stage3d, R = vk.three.rig, C = st.colors;
+const beat = { amp: .1, k: 7, every: 1 };                 // particles pulse on every beat of the 96 bpm grid
+
+// the logo: a ring mark + wordmark drawn on a 2D canvas, sampled into particles
+const logo = { w: 1400, h: 420, draw(g, w, h) {
+  g.fillStyle = '#fff'; g.strokeStyle = '#fff';
+  g.lineWidth = 34; g.beginPath(); g.arc(210, h / 2, 120, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(210, h / 2, 46, 0, Math.PI * 2); g.fill();
+  g.font = '900 230px Archivo'; g.textBaseline = 'middle'; g.fillText('LUMEN', 380, h / 2 + 10);
+}, width: 7.2, colors: C, edge: .7 };
+
+/* 1 · particles → logo (zoom of scale in, burst out) */
+vk.scene('assemble', 5, { vo: '光，从十五万个粒子开始。' }, sc => {
+  sc.three(vk.three.particles(st.particles({ n: 150000, intensity: .15, beat,
+    targets: { galaxy: { type: 'galaxy', arms: 4, radius: 6, spin: .3, colors: C }, logo, burst: { type: 'sphere', radius: 9, colors: C } },
+    morph: [{ t: 0, to: 'galaxy' }, { t: .9, to: 'logo', d: 2.3, style: 'swirl', swirl: 5 }, { t: 4.1, to: 'burst', d: 1.1, style: 'burst', burst: 4 }] })),
+    st.layer({ background: 0x05070d,
+      camera: R.add(R.seq([{ t: 0, rig: R.zoomScale({ from: 26, to: 8.6, dur: 3.3, dir: [0, .32, 1], fov: 36 }) },
+                           { t: 3.3, rig: R.push({ t: 3.3, dur: 1.7, target: [0, 0, 0], dir: [0, .32, 1], from: 8.6, to: 4.2, ease: 'inCubic', fov: 36 }) }]),
+                    R.shake({ at: [4.0, 5.0], amp: .06, rot: .8, freq: 9 })),
+      post: { ...st.preset.post, bloom: { strength: .45, threshold: 1.1 }, fade: t => .45 * (1 - Math.min(1, t / .4)) } }));
+  sc.add(vk.label('vidkit 3D presents', { at: 3.0, out: 4.2, pos: { x: 640, y: 560, anchor: 'center' } }));
+});
+
+/* 2 · hero turntable: lid opens, two strip-light sweeps, slow orbit + push, shallow DOF */
+vk.scene('hero', 5.5, { transition: 'bars:0.8', vo: 'LUMEN Buds，陶瓷机身，一束光扫过。' }, sc => {
+  sc.three(vk.three.turntable(st.turntable({ product: 'earbuds', spin: 14, angle: -38, sweep: null,
+    lid: t => 78 * vk.smooth01(vk.clamp01((t - 1.1) / 1.2)),
+    sweeps: [{ t: .5, d: 1.6, from: -80, to: 70 }, { t: 3.1, d: 1.6, from: 75, to: -70, color: 0xbfe8ff }] })),
+    st.layer({ camera: R.orbit({ target: [0, .85, 0], radius: 5.0, radius2: 4.3, height: 1.35, height2: 1.1, from: -24, to: 12, dur: 5.5, fov: 30, ease: 'inOutSine' }),
+      post: { ...st.preset.post, dof: { aperture: 4, maxBlur: 6 } } }));
+  S.title(sc, 'LUMEN Buds', { kicker: 'NEW · 2026', sub: '陶瓷机身 · 一束光扫过', y: .17, at: 1.6, out: 5.1, size: 68 });
+});
+
+/* 3 · flythrough: CatmullRom path around a single bud, floating dust, call-outs */
+vk.scene('flythrough', 6, { transition: 'fade:0.5', vo: '十一毫米动圈单元，空间音频，环绕在你身边。' }, sc => {
+  sc.three([
+    vk.three.turntable(st.turntable({ product: 'earbud', height: 1.1, spin: 10, angle: 30, float: .025, sweep: null, sweeps: [{ t: 2.2, d: 1.8, from: -60, to: 80 }], floor: 'reflect' })),
+    vk.three.particles({ n: 9000, intensity: .4, size: .014, drift: .12, twinkle: .6, seed: 5, targets: { dust: { type: 'cloud', size: [12, 7, 8], offset: [0, .8, 0] } } }),
+  ], st.layer({ camera: R.fly({ points: [[-2.2, .2, 1.8], [-1.3, .4, 1.15], [-.1, .62, 1.1], [1.0, .8, 1.25], [1.7, .6, 2.1]], look: [0, .38, 0], dur: 6, ease: 'inOutSine', fov: 34 }),
+    post: { ...st.preset.post, dof: { aperture: 5, maxBlur: 7 } } }));
+  sc.add(vk.badge('11 mm 动圈单元', { at: .9, out: 5.4, pos: { x: 90, y: 455 } }));
+  sc.add(vk.badge('主动降噪 ANC', { at: 1.9, out: 5.4, pos: { x: 90, y: 510 } }));
+  sc.add(vk.badge('空间音频', { at: 2.9, out: 5.4, pos: { x: 90, y: 565 } }));
+});
+
+/* 4 · three colours: one sweep runs across the lineup while the camera trucks */
+const lineup = () => {
+  const g = new vk.three.THREE.Group();
+  [[-1.45, 0x2b2d33, 'graphite'], [0, null, 'white'], [1.45, 0x1c2a4a, 'blue']].forEach(([x, color], i) => {
+    const p = vk.three.product('earbuds', { color }); p.userData.parts.budL.visible = p.userData.parts.budR.visible = false;
+    p.position.x = x; p.name = 'case' + i; g.add(p);
+  });
+  return g;
+};
+vk.scene('colours', 4.5, { transition: 'fade:0.5', vo: '三种配色，四十小时续航。' }, sc => {
+  sc.three(vk.three.turntable(st.turntable({ model: lineup(), height: .8, spin: 0, sweep: null, sweeps: [{ t: .8, d: 2.2, from: -70, to: 70, radius: 5 }],
+    animate: (t, m) => m.product.children.forEach((c, i) => { c.rotation.y = (-25 + 18 * t + i * 12) * Math.PI / 180; }) })),
+    st.layer({ camera: R.dolly({ from: [-1.2, 1.5, 4.6], to: [1.0, 1.25, 4.1], target: [-.4, .4, 0], target2: [.3, .4, 0], dur: 4.5, fov: 34, ease: 'inOutSine' }) }));
+  S.title(sc, '三种配色', { kicker: 'COLOURS', sub: '石墨黑 · 月光白 · 深海蓝  ·  40 小时续航', y: .18, at: .5, out: 4.2, size: 72 });
+});
+
+/* 5 · end card: particles re-form the logo above the case, crane up and back */
+vk.scene('endcard', 5.5, { transition: 'fade:0.6', vo: 'LUMEN，由 vidkit 3D 实时渲染。' }, sc => {
+  sc.three([
+    vk.three.turntable(st.turntable({ product: 'earbuds', spin: 20, angle: -20, sweep: { every: 2.6, t: .6, d: 1.4, color: 0xcfefff } })),
+    vk.three.particles(st.particles({ n: 110000, intensity: .15, beat, position: [0, 1.5, 0], scale: .34,
+      targets: { cloud: { type: 'sphere', radius: 2.6, volume: true, colors: C }, logo }, morph: [{ t: 0, to: 'cloud' }, { t: 0, to: 'logo', d: 2.2, style: 'converge' }] })),
+  ], st.layer({ camera: R.crane({ target: [0, 1.0, 0], radius: 3.2, radius2: 5.0, y0: .7, y1: 1.6, aim0: .6, aim1: .78, angle: -12, angle2: 8, dur: 5.5, fov: 34, ease: 'outCubic' }),
+    post: { ...st.preset.post, bloom: { strength: .45, threshold: 1.1 }, fade: t => Math.max(0, 1 - (5.5 - t) / .6) } }));
+  sc.add(vk.sub('每一帧都是 render(t) · vidkit 3D', { at: 2.4, out: 5.0, pos: { x: 640, y: 292, anchor: 'center' } }));
+});
+S.music(v, { gain: .7 });
+</script>
+</body>
+</html>

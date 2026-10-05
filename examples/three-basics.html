@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>vk.three basics</title></head>
+<body>
+<script src="../dist/vidkit.js"></script>
+<script src="../dist/vidkit-three.js"></script>
+<script>
+// vk.three in three short scenes: particle morph (galaxy → text), product turntable with strip-light sweeps,
+// phone hero with an orbit rig + depth of field. Every frame is a pure function of t.
+const v = vk.video({ fps: 30, theme: 'tech-blue', transition: 'fade:0.5', motionBlur: { shutter: '1/40', samples: 4 } });
+const R = vk.three.rig;
+vk.scene('particles', 4, { bg: '#020309' }, sc => {
+  sc.three(vk.three.particles({ n: 80000, targets: { galaxy: { type: 'galaxy', spin: .25 }, word: { text: 'vidkit 3D', font: '900 220px Archivo', width: 7.5, colors: ['#5fd0ff', '#b46bff'] } },
+    morph: [{ t: 0, to: 'galaxy' }, { t: 1.4, to: 'word', d: 1.8, style: 'converge' }] }),
+    { background: 0x020309, camera: R.dolly({ from: [0, 3.2, 9], to: [0, .4, 8], target: [0, 0, 0], dur: 4 }), post: { bloom: { strength: .8 } } });
+});
+vk.scene('turntable', 4, {}, sc => {
+  sc.three(vk.three.turntable({ product: 'earbuds', productOptions: { color: 0x1b1c21 }, spin: 22, angle: -30, sweeps: [{ t: .6, d: 1.6, from: -80, to: 80 }, { t: 2.4, d: 1.4, from: 70, to: -70, color: 0xbfd8ff }] }),
+    { camera: R.push({ target: [0, .45, 0], dir: [0, .3, 1], from: 4.4, to: 3.6, dur: 4 }), post: { grade: 'cool' } });
+  sc.add(vk.h2('Studio turntable', { at: .5 }));
+});
+vk.scene('phone', 4, {}, sc => {
+  sc.three(vk.three.turntable({ product: 'phone', spin: 0, angle: 20, float: .03 }),
+    { camera: R.orbit({ target: [0, .8, 0], radius: 3.2, height: .9, from: -35, to: 25, dur: 4, fov: 30 }), post: { dof: { aperture: 10 } } });
+});
+</script>
+</body>
+</html>

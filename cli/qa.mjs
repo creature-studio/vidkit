@@ -47,6 +47,22 @@ export default async function qa(argv) {
   report.seekOrder = orderHits;
   for (const h of orderHits.slice(0, 8)) log('WARN', `render(t) depends on seek history at t=${fmtT(h.t)}: ${h.el} ${h.attr} "${h.a}" (from t-1/fps) vs "${h.b}" (jumped in) — derive it from t instead of a value left by the previous frame`);
   if (orderHits.length > 8) log('WARN', `…and ${orderHits.length - 8} more seek-order differences`);
+  // vk.three layers: a second, fresh page (as a parallel render worker would be) must produce bit-identical GL pixels
+  // at the same t — catches state carried across frames inside three (mixers, accumulators, lazily built buffers)
+  const threeN = await page.evaluate(() => document.querySelectorAll('canvas.vk-three').length);
+  if (threeN) {
+    const page2 = await workerPage(browser, url, info, 1, { failFast: false }), hits = [];
+    const ts = [...new Set(settleTimes(info).map(x => x.t).concat([info.dur * .37, info.dur * .81]))].slice(0, 10);
+    for (const t of ts) {
+      await seek(page, t); await seek(page2, t);
+      const [a, b] = await Promise.all([page, page2].map(pg => pg.evaluate(threeHashes)));
+      if (a.join() !== b.join()) hits.push(t);
+    }
+    report.threeDeterminism = { times: ts.length, mismatches: hits };
+    for (const t of hits) log('ISSUE', `vk.three layer pixels differ between two fresh workers at t=${fmtT(t)} — the 3D frame must be a pure function of t`);
+    console.log(`  [three] ${threeN} layer canvas(es): GL pixel hash identical across 2 workers at ${ts.length - hits.length}/${ts.length} times`);
+    await page2.close();
+  }
   // blank-frame sampling
   const step = +(opt.sample || .5), times = [];
   for (let t = 0; t < info.dur; t += step) times.push(+t.toFixed(3));
@@ -75,12 +91,20 @@ function stateSnapshot() {
     if (e.childNodes.length === 1 && e.firstChild.nodeType === 3) a['#text'] = e.firstChild.data;
     // vk.gl layers: their pixels are state too (a GL layer that kept pixels from the previous frame would pass the
     // attribute comparison) → FNV-1a hash of the canvas contents
-    if (e.tagName === 'CANVAS' && e.classList.contains('vk-gl')) {
+    if (e.tagName === 'CANVAS' && (e.classList.contains('vk-gl') || e.classList.contains('vk-three'))) {
       try { const d = new Uint32Array(e.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, e.width, e.height).data.buffer); let h = 2166136261; for (let k = 0; k < d.length; k++) h = Math.imul(h ^ d[k], 16777619) >>> 0; a['#pixels'] = h.toString(16); } catch (err) { a['#pixels'] = 'err'; }
     }
     out.push([i, name(e), a]);
   });
   return out;
+}
+function threeHashes() {
+  return [...document.querySelectorAll('canvas.vk-three')].map(c => {
+    // inactive scenes are not drawn (their canvases keep whatever an earlier seek left): only visible layers count
+    if (!c.width || !c.height || getComputedStyle(c).display === 'none' || c.closest('.vk-scenes > *:not(.on)')) return '-';
+    const d = new Uint32Array(c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data.buffer); let h = 2166136261;
+    for (let k = 0; k < d.length; k++) h = Math.imul(h ^ d[k], 16777619) >>> 0; return h.toString(16);
+  });
 }
 function firstDiff(A, B) {
   if (A.length !== B.length) {
