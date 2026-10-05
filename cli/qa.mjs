@@ -2,20 +2,25 @@
 // Checks at each scene's settled frame: text overlap/overflow, out-of-frame, safe area, platform UI zones
 // (vertical), caption width/wrap, fonts; prints the visible-text snapshot; then samples the whole timeline
 // for blank frames (near-uniform luma) including transition midpoints, and checks render(t) is independent of the
-// order frames are rendered in (--order-step s, 0 = off).
-import { parseArgs, startServer, pageUrl, launch, probeInfo, workerPage, seek, shot, settleTimes, lumaStats, fmtT, fs, path } from './lib.mjs';
+// order frames are rendered in (--order-step s, 0 = off). Pages load strict (--no-strict to opt out).
+// --json: also writes the settled frame of every scene as JPEG next to the report (report.stills) + report.summary.
+import { parseArgs, modeParams, startServer, pageUrl, launch, probeInfo, workerPage, seek, shot, settleTimes, lumaStats, fmtT, fs, path } from './lib.mjs';
 export default async function qa(argv) {
   const opt = parseArgs(argv), abs = path.resolve(opt._[0] || ''); if (!fs.existsSync(abs)) throw new Error('usage: vk qa page.html');
-  const { server, port } = await startServer(); const params = { render: '1' }; if (opt.format) params.format = opt.format;
+  const { server, port } = await startServer(); const params = modeParams(opt, { render: '1' }); if (opt.format) params.format = opt.format;
   const url = pageUrl(port, abs, params), browser = await launch(), info = await probeInfo(browser, url);
   const page = await workerPage(browser, url, info, 1, { failFast: false });
-  const report = { file: abs, size: info.size, duration: info.dur, scenes: [], captions: [], blank: [], counts: { issue: 0, warn: 0 } };
-  const log = (lvl, msg) => { report.counts[lvl === 'WARN' ? 'warn' : 'issue']++; console.log(`  [qa] ${lvl} ${msg}`); };
+  const report = { file: abs, size: info.size, duration: info.dur, scenes: [], captions: [], blank: [], counts: { issue: 0, warn: 0 }, issues: [], stills: [] };
+  const log = (lvl, msg) => { report.counts[lvl === 'WARN' ? 'warn' : 'issue']++; report.issues.push({ severity: lvl === 'WARN' ? 'warn' : 'error', message: msg }); console.log(`  [qa] ${lvl} ${msg}`); };
+  const jsonFile = opt.json ? (typeof opt.json === 'string' ? path.resolve(opt.json) : abs.replace(/\.html?$/i, '') + '-qa.json') : null;
+  const stillDir = jsonFile && jsonFile.replace(/\.json$/i, '') + '-stills';
+  if (stillDir) fs.mkdirSync(stillDir, { recursive: true });
   console.log(`[vk qa] ${path.basename(abs)}  ${info.size.width}x${info.size.height}  ${info.dur.toFixed(2)}s  ${info.scenes.length} scenes`);
   for (const { scene: s, t } of settleTimes(info)) {
     const r = await page.evaluate(t => window.__qa(t), t), txt = await page.evaluate(() => window.__text());
     console.log(`  [text] ${s.index + 1} ${s.name} t=${fmtT(t)}: ${txt.length > 180 ? txt.slice(0, 180) + '…' : txt || '(none)'}`);
-    report.scenes.push({ index: s.index, name: s.name, t, text: txt, issues: r.issues });
+    let still = null; if (stillDir) { still = path.join(stillDir, `s${String(s.index + 1).padStart(2, '0')}-${fmtT(t)}.jpg`); fs.writeFileSync(still, await shot(page, info, 'jpeg', 80)); report.stills.push(still); }
+    report.scenes.push({ index: s.index, name: s.name, t, text: txt, issues: r.issues, still });
     for (const i of r.issues) log(i.level === 'warn' ? 'WARN' : 'ISSUE', `scene ${s.index + 1} t=${fmtT(t)} ${i.type}: ${i.el || ''}${i.other ? '  <->  ' + i.other : ''}${i.zone ? ' [' + i.zone + ']' : ''}${i.scrollW ? ` (${i.scrollW}>${i.clientW})` : ''}${i.w ? ` w=${i.w}` : ''}`);
   }
   for (const c of info.caps) {
@@ -73,7 +78,8 @@ export default async function qa(argv) {
     if (st.sd < 2.5) { report.blank.push({ t, ...st }); log('WARN', `blank-ish frame t=${fmtT(t)} (luma mean ${st.mean.toFixed(0)}, sd ${st.sd.toFixed(2)})`); }
   }
   console.log(`[qa] ${report.counts.issue} issue(s), ${report.counts.warn} warning(s); sampled ${times.length} frames for blanks`);
-  if (opt.json) { const f = typeof opt.json === 'string' ? path.resolve(opt.json) : abs.replace(/\.html?$/i, '') + '-qa.json'; fs.writeFileSync(f, JSON.stringify(report, null, 2)); console.log('  report', f); }
+  report.summary = { ok: report.counts.issue === 0, issues: report.counts.issue, warnings: report.counts.warn, scenes: info.scenes.length, framesSampled: times.length, first: report.issues.slice(0, 5).map(i => i.message) };
+  if (jsonFile) { fs.writeFileSync(jsonFile, JSON.stringify(report, null, 2)); console.log('  report', jsonFile, stillDir ? `(+ ${report.stills.length} stills in ${stillDir})` : ''); }
   await browser.close(); server.close(); return report;
 }
 

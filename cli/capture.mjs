@@ -81,19 +81,22 @@ export async function openWorker(mode, url, info, { scale = 1, type = 'jpeg', qu
 async function forceFrame(page, shot) {
   // invalidate the root (a transparent 1px outline paints nothing but always produces damage) and draw again;
   // a few attempts, since the compositor may still be settling after load / pumped frames
-  for (let i = 0; i < 12; i++) {
+  // a heavy first frame (GL work under CPU contention) can miss several begin-frame deadlines: keep trying for ~30 s
+  const until = Date.now() + 30000;
+  for (let i = 0; i < 12 || Date.now() < until; i++) {
     // repaint a 1px fixed probe whose colour alternates at alpha 0.001 (rounds to 0 → no visible pixel change,
     // but it is real paint invalidation, so the compositor reports damage); also toggle the root outline as before
-    await page.evaluate(`(() => {
+    // after a few misses, alternate plain begin-frames (let in-flight raster of a heavy page finish) with invalidations
+    if (i < 3 || i % 2 === 0) await page.evaluate(`(() => {
       let p = document.getElementById('__vk_dmg');
       if (!p) { p = document.createElement('div'); p.id = '__vk_dmg';
         p.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;pointer-events:none;z-index:2147483647';
         document.documentElement.appendChild(p); }
-      p.style.background = '${i % 2 ? 'rgba(255,255,255,0.001)' : 'rgba(0,0,0,0.001)'}';
+      p.style.background = p.style.background.startsWith('rgba(0, 0, 0') ? 'rgba(255,255,255,0.001)' : 'rgba(0,0,0,0.001)';
       const s = document.documentElement.style; s.outline = s.outline ? '' : '0 solid transparent'; return 1; })()`, { pumpAfter: null });
     const r = await page.beginFrame(shot);
     if (r.data) return r;
-    await new Promise(res => setTimeout(res, 15 * (i + 1)));
+    await new Promise(res => setTimeout(res, Math.min(250, 15 * (i + 1))));
   }
   throw new Error('beginFrame returned no screenshot');
 }
